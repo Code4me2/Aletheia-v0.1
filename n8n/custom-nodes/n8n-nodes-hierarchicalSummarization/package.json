@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "pg": "^8.11.3",
-    "uuid": "^9.0.1"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/pg": "^8.10.9",
