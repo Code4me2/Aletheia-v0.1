@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Plus, LogOut, User, Search, Trash2 } from 'lucide-react';
+import { Menu, Plus, LogOut, User, Search, Trash2, Settings } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { isToday, isYesterday, isThisWeek, isThisMonth, format } from 'date-fns';
@@ -519,7 +519,21 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps = {}) {
                           {session.user?.email}
                         </div>
                       </div>
-                      <div className="p-2">
+                      <div className="p-2 space-y-1">
+                        <a
+                          href="http://localhost:8080"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setShowUserMenu(false)}
+                          className={`w-full flex items-center px-4 py-2 text-sm transition-colors rounded-xl ${
+                            isDarkMode 
+                              ? 'hover:bg-gray-700 text-gray-300 hover:text-white' 
+                              : 'hover:bg-gray-50 text-gray-700 hover:text-gray-900'
+                          }`}
+                        >
+                          <Settings size={16} className="mr-2" />
+                          Developer Dashboard
+                        </a>
                         <button
                           onClick={() => {
                             setShowUserMenu(false);

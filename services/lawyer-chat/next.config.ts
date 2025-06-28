@@ -37,12 +37,13 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Needed for Next.js
-              "style-src 'self' 'unsafe-inline'", // Needed for Tailwind
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://d3js.org", // Needed for Next.js and external scripts
+              "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com", // Needed for Tailwind and Font Awesome
               "img-src 'self' data: https:",
-              "font-src 'self'",
-              "connect-src 'self' http://localhost:* https://api.anthropic.com", // API connections
-              "frame-ancestors 'none'", // Prevent embedding
+              "font-src 'self' https://cdnjs.cloudflare.com", // Font Awesome fonts
+              "connect-src 'self' http://localhost:* http://n8n:5678 https://api.anthropic.com", // API connections
+              "frame-src 'self'", // Allow own frames
+              "frame-ancestors 'self'", // Allow self-embedding
               "base-uri 'self'",
               "form-action 'self'"
             ].join('; ')

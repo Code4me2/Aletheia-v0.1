@@ -47,7 +47,6 @@ export default function DataComposePage() {
                 src="/chat/data-compose-app/tailwind-wrapper.html"
                 className="w-full h-full border-0"
                 title="Data Compose Application"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-modals"
               />
             </div>
           </div>
