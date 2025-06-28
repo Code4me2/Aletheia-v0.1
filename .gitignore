@@ -46,6 +46,7 @@ ENV/
 # Node modules and build artifacts
 node_modules/
 **/node_modules/
+**/node-modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -53,6 +54,8 @@ yarn-error.log*
 **/build/
 **/tsconfig.tsbuildinfo
 *.tsbuildinfo
+*.map
+!**/*.css.map
 
 # IDE files
 .vscode/
