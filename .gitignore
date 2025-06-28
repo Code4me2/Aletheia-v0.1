@@ -31,6 +31,7 @@ Thumbs.db
 
 # Python
 **/__pycache__/
+**/-pycache--/
 *.pyc
 *.pyo
 *.pyd
@@ -92,3 +93,26 @@ coverage/
 # Specific project files to ignore
 n8n/custom-nodes/n8n-nodes-bitnet/.env.bitnet
 n8n/mock-server.logcookies.txt
+
+# Test files and E2E
+/e2e/
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+
+# Temporary documentation
+**/ANALYSIS_*.md
+**/PROPOSAL_*.md
+**/STATUS_*.md
+**/WIP_*.md
+**/TODO_*.md
+**/NOTES_*.md
+**/TEMP_*.md
+
+# Website specific
+/website/dist/
+
+# Package lock files (uncomment if you don't want to track these)
+# package-lock.json
+# **/package-lock.json
