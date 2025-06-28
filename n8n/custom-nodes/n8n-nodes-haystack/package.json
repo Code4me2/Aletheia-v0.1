@@ -44,7 +44,7 @@
     "@types/node": "^16.11.26",
     "@typescript-eslint/eslint-plugin": "^5.18.0",
     "@typescript-eslint/parser": "^5.18.0",
-    "eslint": "^8.12.0",
+    "eslint": "^9.30.0",
     "eslint-plugin-n8n-nodes-base": "^1.11.0",
     "gulp": "^4.0.2",
     "n8n-workflow": "^1.0.0",
