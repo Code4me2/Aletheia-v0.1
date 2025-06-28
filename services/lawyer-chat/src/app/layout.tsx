@@ -19,6 +19,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Lawyer Chat - AI Legal Assistant",
   description: "AI-powered legal document processing and chat interface",
+  icons: {
+    icon: '/chat/logo.png',
+    shortcut: '/chat/logo.png',
+    apple: '/chat/logo.png',
+  },
 };
 
 export default function RootLayout({
