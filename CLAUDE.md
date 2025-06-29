@@ -1,8 +1,12 @@
-# Data Compose Project
+# Aletheia-v0.1 Project (formerly Data Compose)
+
+**IMPORTANT**: For device-specific setup and paths, see [DEVICE_SPECIFIC_SETUP.md](./DEVICE_SPECIFIC_SETUP.md)
 
 ## Project Overview
 
-Data Compose is a web application that integrates with n8n (a workflow automation tool) to process and transform data. The application consists of a web frontend that communicates with n8n via webhooks, along with a PostgreSQL database for data storage.
+Aletheia-v0.1 is a unified AI-powered platform that combines:
+1. **Data Compose**: Web application integrating with n8n for workflow automation and data processing
+2. **AI Portal**: Next.js application providing AI services for Reichman Jorgensen Lehman & Feldberg LLP (RJLF) The application consists of a web frontend that communicates with n8n via webhooks, along with a PostgreSQL database for data storage.
 
 ## Architecture
 
@@ -348,6 +352,47 @@ To run the application:
    - Value user feedback as course correction, not criticism
 
 This session demonstrated that successful AI-human collaboration requires technical competence, debugging methodology, honest communication, and the humility to admit mistakes and learn from redirections.
+
+# Project Merger: Birth of Aletheia-v0.1
+
+## Merger Overview (June 28, 2025)
+
+The project underwent a significant transformation when `temp_website` (AI Portal for RJLF) was merged into `data-compose` to create the unified **Aletheia-v0.1** platform.
+
+### Merger Details
+- **Original Projects**:
+  - `data-compose`: https://github.com/Code4me2/data-compose.git
+  - `temp_website`: https://github.com/Code4me2/landing_page_RJLF.git
+- **New Unified Repository**: https://github.com/Code4me2/Aletheia-v0.1.git
+- **Merger Method**: Git subtree (preserves full history)
+- **AI Portal Location**: `services/ai-portal/`
+
+### What Was Preserved
+- ✅ All original functionality from both projects
+- ✅ Port configurations (8085 for AI Portal)
+- ✅ Container names and Docker structure
+- ✅ Complete git history
+- ✅ All service integrations
+
+### New Docker Services Added
+```yaml
+ai-portal:          # Next.js app (internal port 3000)
+ai-portal-nginx:    # Nginx proxy (external port 8085)
+```
+
+### Current Git Configuration
+- Working directory remains `/home/manzanita/coding/data-compose`
+- Primary remote: `aletheia` → https://github.com/Code4me2/Aletheia-v0.1.git
+- Branch `main` tracks `aletheia/main`
+- Original remotes preserved for reference
+
+### For Contributing Agents
+See [DEVICE_SPECIFIC_SETUP.md](./DEVICE_SPECIFIC_SETUP.md) for:
+- Complete directory paths
+- Service URLs and ports
+- Development workflows
+- Troubleshooting guides
+- Device-specific configurations
 
 # Frontend Architecture Transformation
 
