@@ -81,14 +81,174 @@ body {
     font-size: 1.1rem;
 }
 
+/* App Header */
+.app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: var(--white);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    z-index: 1002;
+    box-shadow: var(--shadow-sm);
+}
+
+.app-menu-toggle {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 15px;
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition);
+}
+
+.app-menu-toggle:hover {
+    background: var(--light-bg);
+}
+
+.app-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 0;
+}
+
+/* App Menu Cabinet */
+.app-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1003;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.app-menu-overlay.show {
+    display: block;
+    opacity: 1;
+}
+
+.app-menu-cabinet {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 280px;
+    height: 100%;
+    background: var(--white);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1004;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+}
+
+.app-menu-cabinet.show {
+    left: 0;
+}
+
+.app-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.app-menu-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--primary-color);
+}
+
+.app-menu-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition);
+}
+
+.app-menu-close:hover {
+    background: var(--light-bg);
+    color: var(--text-primary);
+}
+
+.app-menu-items {
+    padding: 10px;
+}
+
+.app-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 15px;
+    text-decoration: none;
+    color: var(--text-primary);
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    margin-bottom: 5px;
+}
+
+.app-menu-item:hover {
+    background: var(--light-bg);
+}
+
+.app-menu-item.active {
+    background: var(--secondary-color);
+    color: var(--white);
+}
+
+.app-menu-item i {
+    font-size: 1.3rem;
+    width: 30px;
+    text-align: center;
+}
+
+.app-menu-item div {
+    flex: 1;
+}
+
+.app-menu-item span {
+    display: block;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.app-menu-item small {
+    display: block;
+    font-size: 0.75rem;
+    opacity: 0.7;
+    margin-top: 2px;
+}
+
+.app-menu-item.active small {
+    opacity: 0.9;
+}
+
 /* Navigation */
 .app-nav {
-    position: sticky;
-    top: 0;
+    position: fixed;
+    top: 50px; /* Below header */
+    left: 0;
+    right: 0;
     z-index: 1000;
     background: var(--light-bg);
-    padding: 10px 20px;
+    padding: 8px 20px;
     margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .nav-tabs {
@@ -104,20 +264,21 @@ body {
 
 .nav-tab {
     flex: 1;
-    min-width: 120px;
-    padding: 15px 25px;
+    min-width: 100px;
+    padding: 8px 16px;
     background: transparent;
     border: none;
     border-radius: calc(var(--border-radius) - 4px);
     color: var(--text-secondary);
     font-weight: 500;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: var(--transition);
     text-decoration: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .nav-tab:hover {
@@ -138,15 +299,9 @@ body {
 .app-main {
     flex: 1;
     background: var(--white);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-}
-
-/* Main Content Area */
-.app-main {
-    flex: 1;
-    padding: 0 20px;
+    margin-top: 110px; /* Account for header (50px) + nav (60px) */
+    overflow-y: auto;
+    height: calc(100vh - 110px);
 }
 
 .content-section {
@@ -1652,4 +1807,251 @@ body {
     width: 16px;
     text-align: center;
     color: var(--danger-color);
+}
+
+/* Developer Dashboard Styles */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.dashboard-card {
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.dashboard-card:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+
+.dashboard-card h3 {
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dashboard-card h3 i {
+    color: var(--secondary-color);
+}
+
+/* Service Status */
+.service-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.service-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: var(--light-bg);
+    border-radius: var(--border-radius-sm);
+}
+
+.service-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.service-status {
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.service-status.online {
+    color: var(--success-color);
+}
+
+.service-status.offline {
+    color: var(--danger-color);
+}
+
+.service-status.checking {
+    color: var(--warning-color);
+}
+
+/* Quick Actions */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-buttons .btn {
+    justify-content: center;
+}
+
+/* System Info */
+.info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.info-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Logs & Monitoring */
+.log-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.form-select {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background: var(--white);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.log-viewer {
+    background: var(--dark-bg);
+    border-radius: var(--border-radius-sm);
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.log-viewer pre {
+    margin: 0;
+    color: var(--light-text);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+/* Documentation Links */
+.doc-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.doc-links li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.doc-links li:last-child {
+    border-bottom: none;
+}
+
+.doc-links a {
+    color: var(--secondary-color);
+    text-decoration: none;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.doc-links a:hover {
+    color: var(--primary-color);
+    transform: translateX(5px);
+}
+
+.doc-links a::before {
+    content: '📄';
+}
+
+/* Development Tools */
+.dev-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: var(--white);
+}
+
+.btn-warning:hover {
+    background: #e67e22;
+    transform: translateY(-2px);
+}
+
+/* Utility classes for dashboard */
+.mt-10 {
+    margin-top: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .app-header {
+        padding: 0 10px;
+    }
+    
+    .app-title {
+        font-size: 1.1rem;
+    }
+    
+    .app-nav {
+        padding: 5px 10px;
+    }
+    
+    .nav-tabs {
+        gap: 5px;
+        padding: 5px;
+    }
+    
+    .nav-tab {
+        min-width: auto;
+        padding: 6px 10px;
+        font-size: 0.85rem;
+    }
+    
+    .nav-tab i {
+        font-size: 0.9rem;
+    }
+    
+    .app-main {
+        margin-top: 100px;
+        height: calc(100vh - 100px);
+        padding: 0 10px;
+    }
+    
+    .app-menu-cabinet {
+        width: 250px;
+        left: -250px;
+    }
 }

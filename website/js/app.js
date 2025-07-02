@@ -13,7 +13,7 @@ class DataComposeApp {
         this.setupNavigation();
         this.registerSections();
         this.showSection(this.currentSection);
-        console.log('Data Compose App initialized with webhook:', this.webhookUrl);
+        console.log('Aletheia App initialized with webhook:', this.webhookUrl);
     }
 
     // Navigation System
@@ -106,6 +106,15 @@ class DataComposeApp {
                 document.getElementById('history-drawer').classList.remove('open');
                 document.getElementById('history-toggle').style.display = 'none';
                 document.querySelector('.new-summarization-main-btn').style.display = 'none';
+            }
+        });
+
+        // RAG Testing Section
+        this.registerSection('rag-testing', {
+            onShow: () => {
+                if (window.ragTesting) {
+                    window.ragTesting.initialize();
+                }
             }
         });
     }
@@ -329,6 +338,30 @@ class DataComposeApp {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new DataComposeApp();
+});
+
+// App Menu Cabinet Functions
+function toggleAppMenu() {
+    const cabinet = document.getElementById('app-menu-cabinet');
+    const overlay = document.getElementById('app-menu-overlay');
+    
+    cabinet.classList.toggle('show');
+    overlay.classList.toggle('show');
+}
+
+function closeAppMenu() {
+    const cabinet = document.getElementById('app-menu-cabinet');
+    const overlay = document.getElementById('app-menu-overlay');
+    
+    cabinet.classList.remove('show');
+    overlay.classList.remove('show');
+}
+
+// Close menu with escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeAppMenu();
+    }
 });
 
 // Global functions for backwards compatibility and inline handlers
@@ -2025,3 +2058,131 @@ function toggleLineStyle() {
 //     '<h2>Settings</h2><p>Configuration options...</p>',
 //     { onShow: () => console.log('Settings shown') }
 // );
+
+// Developer Dashboard Functions
+async function checkAllServices() {
+    // Update last checked time
+    document.getElementById('last-updated').textContent = new Date().toLocaleString();
+    
+    // Check n8n
+    checkService('/n8n/healthz', 'n8n-status', 'n8n Workflow Engine');
+    
+    // Check PostgreSQL (through n8n's database connection)
+    checkService('/n8n/rest/workflows', 'db-status', 'PostgreSQL Database');
+    
+    // Check Haystack/Elasticsearch
+    checkService('http://localhost:8000/health', 'haystack-status', 'Haystack/Elasticsearch', true);
+    
+    // Check Lawyer Chat
+    checkService('/chat', 'lawyer-chat-status', 'Lawyer Chat');
+}
+
+async function checkService(url, statusId, serviceName, isExternal = false) {
+    const statusElement = document.getElementById(statusId);
+    if (!statusElement) return;
+    
+    // Show checking status
+    statusElement.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Checking...';
+    statusElement.className = 'service-status checking';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            mode: isExternal ? 'no-cors' : 'same-origin',
+            cache: 'no-cache'
+        });
+        
+        // For no-cors requests, we can't read the response but no error means it's likely up
+        if (isExternal || response.ok) {
+            statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Online';
+            statusElement.className = 'service-status online';
+        } else {
+            statusElement.innerHTML = '<i class="fas fa-times-circle"></i> Offline';
+            statusElement.className = 'service-status offline';
+        }
+    } catch (error) {
+        statusElement.innerHTML = '<i class="fas fa-times-circle"></i> Offline';
+        statusElement.className = 'service-status offline';
+    }
+}
+
+function viewLogs() {
+    const service = document.getElementById('log-service').value;
+    const logViewer = document.getElementById('log-viewer');
+    const logContent = document.getElementById('log-content');
+    
+    if (!service) {
+        alert('Please select a service to view logs');
+        return;
+    }
+    
+    // Show log viewer
+    logViewer.classList.remove('hidden');
+    logContent.textContent = `Fetching ${service} logs...\n\nNote: In production, this would connect to your logging infrastructure.\nFor now, you can view logs using:\n\ndocker-compose logs ${service}`;
+}
+
+function showDoc(docType) {
+    const docs = {
+        setup: 'Setup documentation would be displayed here.\nSee README.md for setup instructions.',
+        api: 'API documentation would be displayed here.\nVisit http://localhost:8000/docs for Haystack API.',
+        troubleshooting: 'Troubleshooting guide would be displayed here.\nCheck CLAUDE.md for common issues.'
+    };
+    
+    alert(docs[docType] || 'Documentation not found');
+}
+
+function clearCache() {
+    if (confirm('Are you sure you want to clear the application cache?')) {
+        // Clear localStorage
+        localStorage.clear();
+        // Clear sessionStorage
+        sessionStorage.clear();
+        // Clear cookies (limited to same domain)
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        alert('Cache cleared successfully!');
+    }
+}
+
+function exportConfig() {
+    const config = {
+        webhookId: CONFIG.WEBHOOK_ID,
+        services: {
+            n8n: 'http://localhost:5678',
+            haystack: 'http://localhost:8000',
+            elasticsearch: 'http://localhost:9200',
+            aiPortal: 'http://localhost:8085'
+        },
+        environment: 'development',
+        exportDate: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aletheia-config-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function restartServices() {
+    if (confirm('Are you sure you want to restart all services? This will temporarily interrupt service availability.')) {
+        alert('Service restart command would be executed here.\n\nTo manually restart services, run:\ndocker-compose restart');
+    }
+}
+
+// Run service check when dashboard is shown
+document.addEventListener('DOMContentLoaded', () => {
+    // Add event listener for developer dashboard section
+    const originalShowSection = window.app.showSection;
+    window.app.showSection = function(sectionName) {
+        originalShowSection.call(this, sectionName);
+        if (sectionName === 'developer-dashboard') {
+            checkAllServices();
+        }
+    };
+});
