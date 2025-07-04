@@ -5,15 +5,15 @@
 # m h dom mon dow user command
 
 # Tax Court - Daily at 2 AM
-0 2 * * * root cd /app && python3 processor.py --court tax >> /data/logs/cron.log 2>&1
+0 2 * * * root su -c "cd /app && python3 processor.py --court tax" appuser >> /data/logs/cron.log 2>&1
 
 # First Circuit - Daily at 3 AM  
-0 3 * * * root cd /app && python3 processor.py --court ca1 >> /data/logs/cron.log 2>&1
+0 3 * * * root su -c "cd /app && python3 processor.py --court ca1" appuser >> /data/logs/cron.log 2>&1
 
 # DC Circuit - Daily at 4 AM
-0 4 * * * root cd /app && python3 processor.py --court dc >> /data/logs/cron.log 2>&1
+0 4 * * * root su -c "cd /app && python3 processor.py --court dc" appuser >> /data/logs/cron.log 2>&1
 
 # Weekly full run - Sundays at 5 AM
-0 5 * * 0 root cd /app && python3 processor.py --all >> /data/logs/cron.log 2>&1
+0 5 * * 0 root su -c "cd /app && python3 processor.py --all" appuser >> /data/logs/cron.log 2>&1
 
 # Empty line required at end of cron file
