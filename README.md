@@ -1,4 +1,4 @@
-# Data Compose
+# Aletheia-v0.1
 
 A sophisticated web application that integrates workflow automation (n8n) with AI capabilities for processing and analyzing large-scale textual data, with a focus on judicial and legal document processing. Includes automated court opinion scraping and judge-based document organization.
 
@@ -13,8 +13,8 @@ A sophisticated web application that integrates workflow automation (n8n) with A
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/Code4Me2/data-compose.git
-cd data-compose
+git clone https://github.com/Code4me2/Aletheia-v0.1.git
+cd Aletheia-v0.1
 ```
 
 ### 2. Configure environment variables
@@ -59,7 +59,7 @@ docker version
 ```bash
 docker ps
 ```
-If both of those processes return results that indicate docker is connected to your WSL instance, cd to your data_compose clone and execute:
+If both of those processes return results that indicate docker is connected to your WSL instance, cd to your Aletheia-v0.1 clone and execute:
 ```bash
 docker compose up -d
 ```
@@ -88,7 +88,7 @@ When starting up with this project, there are a few common issues, especially gi
 
 Data Compose combines multiple technologies to create a powerful document processing platform:
 - **n8n** workflow automation engine with custom AI nodes
-- **DeepSeek R1** AI model integration via Ollama
+- **DeepSeek R1 1.5B** AI model integration via Ollama
 - **Court Opinion Scraper** for automated judicial document collection
 - **Elasticsearch** and **Haystack-inspired** API for advanced document search and analysis
 - Modern **Single Page Application** frontend
@@ -141,43 +141,217 @@ Data Compose combines multiple technologies to create a powerful document proces
 
 ## Architecture
 
+### System Overview
+
+Aletheia-v0.1 is a microservices-based platform that combines workflow automation, AI capabilities, and legal document processing. The architecture is designed for scalability, modularity, and ease of deployment.
+
+### Core Architecture Diagram
+
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Web Frontend  │────▶│      NGINX      │────▶│       n8n       │
-│   (SPA, Port    │     │   (Port 8080)   │     │   (Port 5678)   │
-│    8080)        │     │  Reverse Proxy  │     │    Workflows    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                              │                           │
-                    ┌─────────▼─────────┐                 │
-                    │   Lawyer-Chat     │                 │
-                    │  (Port 3000)      │◀────────────────┘
-                    │  AI Legal Asst.   │     Webhooks
-                    └───────────────────┘
-                              │
-                              ├───────────────────────────┬───────────────────────────┐
-                              │                           │                           │
-                    ┌─────────▼─────────┐      ┌─────────▼─────────┐   ┌────────────▼────────────┐
-                    │    PostgreSQL     │      │  Court Processor  │   │   Custom Nodes          │
-                    │   Database        │      │ - Daily scraping  │   │ - DeepSeek (Ollama)     │
-                    │ - court_data      │      │ - PDF extraction  │   │ - Haystack Search       │
-                    │   schema          │      │ - Judge indexing  │   │ - Hierarchical Sum.     │
-                    │ - lawyerchat      │      └───────────────────┘   │ - BitNet                │
-                    └───────────────────┘                              └─────────────────────────┘
-                              
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          Optional Haystack Integration                           │
-├─────────────────────────┬───────────────────────────────────────────────────────┤
-│   Elasticsearch         │              Haystack Service                           │
-│   (Port 9200)          │              (Port 8000)                               │
-│   Document Storage      │              FastAPI REST Service                      │
-│   384-dim embeddings    │              7 Document Operations                     │
-└─────────────────────────┴───────────────────────────────────────────────────────┘
+│                                   User Access Layer                              │
+├─────────────────┬─────────────────┬─────────────────┬──────────────────────────┤
+│  Data Compose   │   Lawyer Chat   │   AI Portal     │   Direct n8n Access      │
+│  localhost:8080 │ localhost:8080  │ localhost:8085  │  localhost:8080/n8n/     │
+│     (Main)      │     /chat       │  (Landing Page) │   (Workflow Editor)      │
+└────────┬────────┴────────┬────────┴────────┬────────┴──────────┬───────────────┘
+         │                 │                 │                   │
+         ▼                 ▼                 ▼                   ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              NGINX Reverse Proxy                                 │
+│                               (Port 8080)                                        │
+│  Routes: /           → website (static files)                                   │
+│          /chat       → lawyer-chat:3000                                         │
+│          /n8n/       → n8n:5678                                                 │
+│          /webhook/   → n8n:5678                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        │                             │                             │
+        ▼                             ▼                             ▼
+┌───────────────┐           ┌─────────────────┐          ┌──────────────────┐
+│ Static Website│           │   Lawyer Chat   │          │  n8n Workflows   │
+│   (SPA)       │           │   (Next.js)     │          │  (Port 5678)     │
+│ - Home        │           │ - AI Chat UI    │          │ - Automation     │
+│ - AI Chat     │           │ - History       │          │ - Custom Nodes   │
+│ - RAG Testing │           │ - Citations     │          │ - Webhooks       │
+│ - Dashboard   │           │ - Auth          │          │ - Integrations   │
+└───────────────┘           └────────┬────────┘          └────────┬─────────┘
+                                     │                             │
+                                     │      ┌──────────────────────┘
+                                     ▼      ▼
+                            ┌─────────────────────┐
+                            │   PostgreSQL DB    │
+                            │   (Port 5432)      │
+                            ├───────────────────┤
+                            │ Schemas:           │
+                            │ - public (default) │
+                            │ - court_data       │
+                            │ Tables include:    │
+                            │ - n8n workflow     │
+                            │ - lawyer chat      │
+                            │ - hierarchical sum │
+                            └─────────────────────┘
 ```
+
+### Service Communication Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           AI Processing Pipeline                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    User Input                   n8n Workflows              AI Services
+        │                            │                          │
+        ▼                            ▼                          ▼
+┌───────────────┐          ┌─────────────────┐       ┌──────────────────┐
+│  Web UI       │ webhook  │  n8n Engine     │       │  DeepSeek Node   │
+│  - Chat       ├─────────▶│  - Router       ├──────▶│  (Ollama)        │
+│  - Forms      │          │  - Logic        │       └──────────────────┘
+└───────────────┘          │  - Transform    │       ┌──────────────────┐
+                           │                 ├──────▶│  BitNet Node     │
+                           └─────────────────┘       │  (Local LLM)     │
+                                     │               └──────────────────┘
+                                     │               ┌──────────────────┐
+                                     └──────────────▶│  Haystack Node   │
+                                                     │  (RAG Search)    │
+                                                     └──────────────────┘
+```
+
+### Data Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          Document Processing Pipeline                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    Court Websites              Processing               Storage & Search
+         │                          │                          │
+         ▼                          ▼                          ▼
+┌──────────────────┐      ┌──────────────────┐      ┌────────────────────┐
+│ Court Processor  │      │ PDF Processor    │      │ PostgreSQL         │
+│ - Scraping       ├─────▶│ - Text Extract   ├─────▶│ - court_data       │
+│ - Scheduling     │      │ - OCR            │      │ - Metadata         │
+└──────────────────┘      └──────────────────┘      └─────────┬──────────┘
+                                                               │
+                          ┌──────────────────┐                 │
+                          │ Hierarchical Sum │◀────────────────┘
+                          │ - Chunking       │
+                          │ - Summarization  │
+                          └────────┬─────────┘
+                                   │
+                          ┌────────▼─────────┐       ┌────────────────────┐
+                          │ Haystack Service │      │ Elasticsearch      │
+                          │ - Embeddings     ├─────▶│ - Vector Search    │
+                          │ - API            │      │ - Full Text        │
+                          └──────────────────┘      └────────────────────┘
+```
+
+### Network Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            Docker Networks                                       │
+├──────────────────────────────────┬──────────────────────────────────────────────┤
+│         Frontend Network         │           Backend Network                     │
+│         (User-facing)            │           (Internal Services)                │
+├──────────────────────────────────┼──────────────────────────────────────────────┤
+│  • web (nginx proxy + static)    │  • db (postgresql database)                  │
+│  • lawyer-chat                   │  • n8n (connected to both networks)         │
+│  • ai-portal                     │  • court-processor                          │
+│  • ai-portal-nginx               │  • elasticsearch (optional)                 │
+│                                  │  • haystack-service (optional)             │
+└──────────────────────────────────┴──────────────────────────────────────────────┘
+```
+
+### Security Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           Security Layers                                        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    External Access              Gateway               Internal Services
+         │                          │                        │
+         ▼                          ▼                        ▼
+┌──────────────────┐      ┌──────────────────┐    ┌────────────────────┐
+│  HTTPS/SSL       │      │  NGINX           │    │ Service Isolation  │
+│  (Production)    ├─────▶│  - Rate Limiting ├───▶│ - Docker Networks  │
+│                  │      │  - Headers       │    │ - Non-root Users   │
+└──────────────────┘      │  - CORS          │    └────────────────────┘
+                          └──────────────────┘    ┌────────────────────┐
+┌──────────────────┐              │               │ Authentication     │
+│  NextAuth        │              │               │ - JWT Tokens       │
+│  - Sessions      ├──────────────┘               │ - API Keys         │
+│  - CSRF          │                              │ - Webhook Secrets  │
+└──────────────────┘                              └────────────────────┘
+```
+
+### Deployment Options
+
+#### 1. **Single Host Deployment** (Default)
+```yaml
+# Standard deployment on a single server
+docker-compose up -d
+```
+
+#### 2. **Multi-Host Deployment** (Swarm)
+```yaml
+# Distributed deployment across multiple servers
+docker stack deploy -c docker-compose.swarm.yml aletheia
+```
+
+#### 3. **Development Deployment**
+```yaml
+# Local development with hot-reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+### Port Mapping
+
+| Service | Internal Port | External Port | Purpose | Optional |
+|---------|---------------|---------------|----------|----------|
+| Web (NGINX) | 80 | 8080 | Main reverse proxy | No |
+| n8n | 5678 | 5678 | Workflow automation | No |
+| PostgreSQL (db) | 5432 | - | Database (internal only) | No |
+| Lawyer Chat | 3000 | 3001 | AI chat interface | No |
+| AI Portal | 3000 | - | Internal only | No |
+| AI Portal NGINX | 80 | 8085 | AI portal proxy | No |
+| Elasticsearch | 9200 | 9200 | Document search | Yes |
+| Haystack | 8000 | 8000 | Document API | Yes |
+| BitNet | 8080 | 8081 | Local AI service | Yes |
+
+### Key Architectural Decisions
+
+1. **Microservices Architecture**
+   - Each component runs in its own container
+   - Services communicate via Docker networks
+   - Easy to scale individual components
+
+2. **Reverse Proxy Pattern**
+   - NGINX handles all external requests
+   - Provides unified access point
+   - Enables path-based routing
+
+3. **Webhook-Based Communication**
+   - Loose coupling between UI and backend
+   - n8n acts as central message router
+   - Enables complex workflow automation
+
+4. **Database Segregation**
+   - Separate schemas for different services
+   - Shared PostgreSQL instance
+   - Clear data boundaries
+
+5. **Optional Components**
+   - Haystack/Elasticsearch can be disabled
+   - AI services are pluggable
+   - Modular architecture for flexibility
 
 ## Project Structure
 
 ```
-data_compose/
+Aletheia-v0.1/
 ├── docker-compose.yml         # Main Docker configuration
 ├── docker-compose.swarm.yml   # Docker Swarm configuration (scaling)
 ├── .env.example              # Environment template
@@ -695,7 +869,7 @@ curl -X POST http://localhost:8000/get_by_stage \
   -d '{"stage_type": "ready_summarize", "hierarchy_level": 1}'
 ```
 
-For detailed documentation, see `n8n/haystack_readme.md`
+For detailed documentation, see `n8n/HAYSTACK_README.md`
 
 ### Court Opinion Processing
 
@@ -708,7 +882,7 @@ The court processor automatically scrapes federal court opinions and organizes t
 docker-compose exec db psql -U postgres -d postgres -f /court-processor/scripts/init_db.sql
 
 # Manual scrape
-docker-compose exec court_processor python processor.py --court tax
+docker-compose exec court-processor python processor.py --court tax
 
 # Check results
 docker-compose exec db psql -U your_db_user -d your_db_name -c "SELECT * FROM court_data.judge_stats;"
@@ -760,6 +934,105 @@ node run-all-node-tests.js
 # Test specific node
 node run-all-node-tests.js bitnet
 ```
+
+## CI/CD Pipeline
+
+### Overview
+
+Aletheia-v0.1 uses GitHub Actions for continuous integration and deployment, with comprehensive testing, security scanning, and automated deployments to staging and production environments.
+
+### Continuous Integration
+
+The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull request to `main` and `develop` branches:
+
+1. **Linting & Formatting**: ESLint and Prettier checks
+2. **JavaScript Tests**: Jest tests on Node.js 18 and 20
+3. **Python Tests**: Pytest on Python 3.10 and 3.11
+4. **Security Scanning**: Trivy vulnerability scanner and npm audit
+5. **Docker Build Tests**: Validates all Docker images build correctly
+6. **E2E Tests**: Playwright tests on Chromium and Firefox
+
+### Deployment Pipeline
+
+#### Staging Deployment
+- **Trigger**: Push to `develop` branch
+- **Workflow**: `.github/workflows/deploy-staging.yml`
+- **Features**:
+  - Automated tests before deployment
+  - Docker image building and pushing to GitHub Container Registry
+  - Health check verification
+  - Slack notifications
+
+#### Production Deployment
+- **Trigger**: GitHub release or manual workflow dispatch
+- **Workflow**: `.github/workflows/deploy-production.yml`
+- **Features**:
+  - Version format validation (v1.2.3)
+  - Staging environment validation
+  - Database backup before deployment
+  - Blue-green deployment strategy
+  - Automatic rollback on failure
+
+### Key CI/CD Features
+
+1. **Health Check Polling**: Dynamic service readiness checks replace hardcoded waits
+   ```bash
+   ./scripts/wait-for-health.sh <url> [timeout] [interval]
+   ```
+
+2. **Security Enhancements**:
+   - All containers run as non-root users (except cron requirements)
+   - Database credentials secured in container environment
+   - Input validation for deployment parameters
+
+3. **Rollback Capability**: 
+   ```bash
+   ./scripts/rollback.sh [staging|production] [version]
+   ```
+
+4. **Environment Management**:
+   - `.env.staging` - Staging configuration
+   - `.env.production` - Production configuration (update placeholders)
+   - Docker Compose overlays for each environment
+
+### Deployment Scripts
+
+- **`scripts/deploy.sh`**: Automated deployment with health checks
+- **`scripts/rollback.sh`**: Version-specific rollback functionality
+- **`scripts/wait-for-health.sh`**: Service health polling utility
+- **`scripts/health-check.sh`**: Comprehensive health verification
+
+### Setting Up CI/CD
+
+1. **Configure GitHub Secrets**:
+   ```
+   STAGING_HOST, STAGING_USER, STAGING_SSH_KEY
+   PRODUCTION_HOST, PRODUCTION_USER, PRODUCTION_SSH_KEY
+   SLACK_WEBHOOK (optional)
+   ```
+
+2. **Update Environment Files**:
+   - Replace all "CHANGE_THIS" placeholders in `.env.production`
+   - Configure SMTP settings for notifications
+   - Set monitoring endpoints
+
+3. **Test Locally**:
+   ```bash
+   # Run tests
+   npm test
+   pytest
+   
+   # Test deployment script
+   ./scripts/deploy.sh staging
+   ```
+
+### Monitoring & Observability
+
+Production deployments include:
+- Prometheus metrics collection
+- Grafana dashboards
+- Loki log aggregation
+- Health check endpoints for all services
 
 ## Contributing
 
