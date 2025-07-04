@@ -262,7 +262,7 @@ function LawyerChatContent() {
     let sessionKey = currentChatId;
     if (!currentChatId && messages.length === 0) {
       const newChatId = await createNewChat();
-      sessionKey = newChatId || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      sessionKey = newChatId || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     }
 
     const userMessage: Message = {
@@ -301,7 +301,7 @@ function LawyerChatContent() {
       const response = await api.post('/api/chat', {
         message: inputText,
         tools: selectedTools,
-        sessionKey: sessionKey || currentChatId || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sessionKey: sessionKey || currentChatId || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         sessionId: session?.user?.email || 'anonymous',
         userId: session?.user?.email
       });
@@ -316,7 +316,7 @@ function LawyerChatContent() {
         const decoder = new TextDecoder();
 
         if (reader) {
-          let currentText = '';
+          let accumulatedText = ''; // Use a single string for accumulation instead of array
           let buffer = '';
           let sources: string[] = [];
           let analytics: AnalyticsData | undefined = undefined;
@@ -340,11 +340,14 @@ function LawyerChatContent() {
                   const data = JSON.parse(line.slice(6));
                   
                   if (data.type === 'text') {
-                    currentText += data.text;
+                    // Append chunk directly to accumulated text
+                    accumulatedText += data.text;
+                    
+                    // Update message with accumulated text
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === assistantId 
-                          ? { ...msg, text: currentText }
+                          ? { ...msg, text: accumulatedText }
                           : msg
                       )
                     );
@@ -379,7 +382,7 @@ function LawyerChatContent() {
                       );
                     }
                     // Save the complete message
-                    await saveMessage('assistant', currentText, sources);
+                    await saveMessage('assistant', accumulatedText, sources);
                   }
                 } catch (e) {
                   logger.error('Error parsing SSE data', e, { line });
@@ -594,10 +597,14 @@ function LawyerChatContent() {
                   <div>
                     <div>
                       {message.sender === 'user' ? (
-                        <p className="text-sm leading-relaxed">{message.text}</p>
+                        <p className="text-sm leading-relaxed" dir="ltr">{message.text}</p>
                       ) : (
-                        <div className="text-sm leading-relaxed markdown-list" style={{
-                          padding: '12.48px 14.144px' // Restored original padding
+                        <div className="text-sm leading-relaxed" style={{
+                          padding: '12.48px 14.144px', // Restored original padding
+                          direction: 'ltr',
+                          unicodeBidi: 'embed',
+                          textAlign: 'left',
+                          minHeight: '1.5em' // Prevent layout shift during streaming
                         }}>
                           {message.text === '' && isLoading && message.id === messages[messages.length - 1].id ? (
                             <div className={`loading-dots ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -606,10 +613,29 @@ function LawyerChatContent() {
                               <span></span>
                             </div>
                           ) : (
-                          <SafeMarkdown 
-                            content={message.text}
-                            className="prose prose-sm max-w-none"
-                          />
+                          <>
+                            {/* During streaming, show plain text; after completion, show markdown */}
+                            {isLoading && message.id === messages[messages.length - 1].id ? (
+                              <div 
+                                dir="ltr" 
+                                style={{ 
+                                  unicodeBidi: 'plaintext',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word'
+                                }}
+                                className={`text-sm leading-relaxed ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}
+                              >
+                                {message.text}
+                              </div>
+                            ) : (
+                              <div dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
+                                <SafeMarkdown 
+                                  content={message.text}
+                                  className="max-w-none markdown-content"
+                                />
+                              </div>
+                            )}
+                          </>
                           )}
                         </div>
                       )}

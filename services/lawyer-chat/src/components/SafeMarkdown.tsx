@@ -3,9 +3,16 @@
 import React from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ErrorBoundary } from './ErrorBoundary';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Copy, Check } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar';
+import 'katex/dist/katex.min.css';
 
 interface SafeMarkdownProps {
   content: string;
@@ -41,83 +48,94 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 
 export default function SafeMarkdown({ content, className }: SafeMarkdownProps) {
   const { isDarkMode } = useSidebarStore();
+  const [copiedCode, setCopiedCode] = React.useState<string | null>(null);
+  
+  const copyToClipboard = React.useCallback(async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCode(id);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, []);
   
   const components: Partial<Components> = {
-    // ========== HEADERS - Enhanced hierarchy with clear visual distinction ==========
+    // ========== HEADERS - AI-standard typography with enhanced hierarchy ==========
     h1: ({ children, ...props }: HeadingProps) => (
-      <h1 {...props} className={`text-2xl font-semibold mb-4 mt-6 leading-tight ${
+      <h1 {...props} className={`text-4xl font-extrabold mb-6 mt-8 leading-tight tracking-tight ${
         isDarkMode 
-          ? 'text-gray-200' 
-          : 'text-gray-700'
+          ? 'text-white' 
+          : 'text-gray-900'
       }`}>{children}</h1>
     ),
     h2: ({ children, ...props }: HeadingProps) => (
-      <h2 {...props} className={`text-xl font-semibold mb-3 mt-5 leading-snug ${
-        isDarkMode ? 'text-gray-200' : 'text-gray-700'
+      <h2 {...props} className={`text-2xl font-bold mb-5 mt-8 leading-tight tracking-tight ${
+        isDarkMode ? 'text-gray-100' : 'text-gray-800'
       }`}>{children}</h2>
     ),
     h3: ({ children, ...props }: HeadingProps) => (
-      <h3 {...props} className={`text-lg font-medium mb-3 mt-4 leading-normal ${
-        isDarkMode ? 'text-gray-300' : 'text-gray-600'
+      <h3 {...props} className={`text-xl font-bold mb-4 mt-6 leading-snug ${
+        isDarkMode ? 'text-gray-100' : 'text-gray-800'
       }`}>{children}</h3>
     ),
     h4: ({ children, ...props }: HeadingProps) => (
-      <h4 {...props} className={`text-base font-medium mb-2 mt-3 ${
-        isDarkMode ? 'text-gray-300' : 'text-gray-600'
+      <h4 {...props} className={`text-lg font-semibold mb-3 mt-5 ${
+        isDarkMode ? 'text-gray-200' : 'text-gray-700'
       }`}>{children}</h4>
     ),
     h5: ({ children, ...props }: HeadingProps) => (
-      <h5 {...props} className={`text-base font-medium mb-2 mt-3 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      <h5 {...props} className={`text-base font-semibold mb-3 mt-4 ${
+        isDarkMode ? 'text-gray-300' : 'text-gray-600'
       }`}>{children}</h5>
     ),
     h6: ({ children, ...props }: HeadingProps) => (
-      <h6 {...props} className={`text-sm font-medium mb-2 mt-2 ${
+      <h6 {...props} className={`text-sm font-semibold mb-2 mt-3 uppercase tracking-wide ${
         isDarkMode ? 'text-gray-400' : 'text-gray-600'
       }`}>{children}</h6>
     ),
-    // ========== TEXT CONTENT - Optimized for readability ==========
+    // ========== TEXT CONTENT - AI-standard paragraph formatting ==========
     p: ({ children, ...props }: ComponentProps) => (
-      <p {...props} className={`mb-4 leading-relaxed text-base ${
+      <p {...props} className={`mb-5 leading-[1.8] text-base ${
         isDarkMode ? 'text-gray-300' : 'text-gray-700'
       }`}>{children}</p>
     ),
     
-    // ========== LISTS - Enhanced with better visual hierarchy ==========
+    // ========== LISTS - AI-standard spacing and hierarchy ==========
     ul: ({ children, ...props }: ComponentProps) => (
-      <ul {...props} className={`list-disc pl-6 mb-4 space-y-1 marker:text-opacity-60 ${
-        isDarkMode 
-          ? 'text-gray-300 marker:text-gray-500' 
-          : 'text-gray-700 marker:text-gray-400'
-      }`}>{children}</ul>
-    ),
-    ol: ({ children, ...props }: ComponentProps) => (
-      <ol {...props} className={`list-decimal pl-6 mb-4 space-y-1 marker:font-medium ${
+      <ul {...props} className={`list-disc pl-8 mb-4 space-y-1.5 marker:text-opacity-80 ${
         isDarkMode 
           ? 'text-gray-300 marker:text-gray-400' 
           : 'text-gray-700 marker:text-gray-500'
+      }`}>{children}</ul>
+    ),
+    ol: ({ children, ...props }: ComponentProps) => (
+      <ol {...props} className={`list-decimal pl-8 mb-5 space-y-3 marker:font-semibold ${
+        isDarkMode 
+          ? 'text-gray-300 marker:text-gray-400' 
+          : 'text-gray-700 marker:text-gray-600'
       }`}>{children}</ol>
     ),
     li: ({ children, ...props }: ComponentProps) => (
-      <li {...props} className="leading-relaxed">{children}</li>
+      <li {...props} className="leading-[1.8] pl-1">{children}</li>
     ),
     // ========== TEXT EMPHASIS - Clear visual indicators ==========
     strong: ({ children, ...props }: ComponentProps) => (
-      <strong {...props} className={`font-semibold ${
-        isDarkMode ? 'text-gray-200' : 'text-gray-800'
+      <strong {...props} className={`font-bold ${
+        isDarkMode ? 'text-gray-100' : 'text-gray-900'
       }`}>{children}</strong>
     ),
     em: ({ children, ...props }: ComponentProps) => (
       <em {...props} className="italic">{children}</em>
     ),
-    // ========== BLOCKQUOTES - Enhanced visual design for citations ==========
+    // ========== BLOCKQUOTES - AI-standard citation formatting ==========
     blockquote: ({ children, ...props }: ComponentProps) => (
-      <blockquote {...props} className={`border-l-4 pl-4 pr-2 py-2 my-4 ${
+      <blockquote {...props} className={`border-l-4 pl-6 pr-4 py-5 my-6 rounded-r-md ${
         isDarkMode 
-          ? 'border-gray-600 bg-gray-800/30 text-gray-300' 
+          ? 'border-gray-600 bg-gray-800/50 text-gray-300' 
           : 'border-gray-300 bg-gray-50 text-gray-700'
       }`}>
-        <div className="italic">{children}</div>
+        <div className="leading-[1.7]">{children}</div>
       </blockquote>
     ),
     
@@ -133,24 +151,58 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
     code: (props: CodeProps) => {
       const { inline, className: codeClassName, children } = props;
       const match = /language-(\w+)/.exec(codeClassName || '');
+      const codeString = String(children).replace(/\n$/, '');
+      const codeId = React.useId();
       
       if (!inline && match) {
+        const language = match[1];
         return (
           <div className="relative my-6 group">
-            <div className={`absolute top-0 right-0 text-xs px-3 py-1.5 rounded-tl rounded-br font-medium ${
-              isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-600'
-            }`}>
-              {match[1].toUpperCase()}
+            <div className="absolute top-2 right-2 flex items-center gap-2 z-10">
+              <span className={`text-xs px-2.5 py-1 font-medium rounded ${
+                isDarkMode ? 'bg-gray-700/80 text-gray-300' : 'bg-gray-100/80 text-gray-700'
+              }`}>
+                {language}
+              </span>
+              <button
+                onClick={() => copyToClipboard(codeString, codeId)}
+                className={`p-1.5 rounded transition-all opacity-0 group-hover:opacity-100 ${
+                  isDarkMode 
+                    ? 'bg-gray-700/80 text-gray-300 hover:bg-gray-600 hover:text-gray-200' 
+                    : 'bg-gray-100/80 text-gray-700 hover:bg-gray-200 hover:text-gray-800'
+                }`}
+                title="Copy code"
+              >
+                {copiedCode === codeId ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
             </div>
-            <pre className={`${codeClassName} overflow-x-auto p-6 rounded-lg leading-relaxed ${
-              isDarkMode 
-                ? 'bg-gray-900 text-gray-300 border border-gray-800' 
-                : 'bg-gray-50 text-gray-800 border border-gray-200'
-            }`}>
-              <code className={`${codeClassName} text-sm`}>
-                {children}
-              </code>
-            </pre>
+            <SyntaxHighlighter
+              style={isDarkMode ? oneDark : oneLight}
+              language={language}
+              PreTag="div"
+              className="!mt-0 !mb-0 rounded-md overflow-hidden"
+              customStyle={{
+                margin: 0,
+                padding: '1.25rem 1.5rem',
+                fontSize: '0.875rem',
+                lineHeight: '1.6',
+                backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
+                border: 'none',
+              }}
+              showLineNumbers={codeString.split('\n').length > 10}
+              lineNumberStyle={{
+                minWidth: '2.5em',
+                paddingRight: '1em',
+                color: isDarkMode ? '#666' : '#999',
+                userSelect: 'none',
+              }}
+            >
+              {codeString}
+            </SyntaxHighlighter>
           </div>
         );
       }
@@ -158,9 +210,9 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
       return (
         <code className={`${codeClassName || ''} ${
           isDarkMode 
-            ? 'bg-gray-800 text-emerald-400 border border-gray-700' 
-            : 'bg-gray-100 text-emerald-700 border border-gray-200'
-        } px-1.5 py-0.5 rounded text-sm font-mono`}>
+            ? 'bg-gray-800 text-gray-200' 
+            : 'bg-gray-100 text-gray-800'
+        } px-1.5 py-0.5 rounded font-mono text-[0.85em]`}>
           {children}
         </code>
       );
@@ -199,7 +251,9 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
     ),
     // ========== TABLES - Responsive with enhanced styling ==========
     table: ({ children, ...props }: ComponentProps) => (
-      <div className="my-4 w-full overflow-hidden rounded-lg shadow-sm">
+      <div className={`my-6 w-full overflow-hidden rounded-lg shadow-md border ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <div className="overflow-x-auto">
           <table {...props} className={`min-w-full divide-y ${
             isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
@@ -208,18 +262,18 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
       </div>
     ),
     thead: ({ children, ...props }: ComponentProps) => (
-      <thead {...props} className={`text-xs uppercase tracking-wider font-semibold ${
-        isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'
+      <thead {...props} className={`text-xs uppercase tracking-wider font-bold ${
+        isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-50 text-gray-700'
       }`}>{children}</thead>
     ),
     tbody: ({ children, ...props }: ComponentProps) => (
       <tbody {...props} className={`divide-y ${
-        isDarkMode ? 'divide-gray-800 bg-gray-900/50' : 'divide-gray-100 bg-white'
+        isDarkMode ? 'divide-gray-800 bg-gray-900/30' : 'divide-gray-100 bg-white'
       }`}>{children}</tbody>
     ),
     th: ({ children, ...props }: ComponentProps) => (
-      <th {...props} className={`px-6 py-4 text-left text-xs font-bold ${
-        isDarkMode ? 'text-gray-200' : 'text-gray-900'
+      <th {...props} className={`px-6 py-4 text-left text-xs font-bold uppercase tracking-wider ${
+        isDarkMode ? 'text-gray-100' : 'text-gray-900'
       }`}>{children}</th>
     ),
     td: ({ children, ...props }: ComponentProps) => (
@@ -348,12 +402,21 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
       resetKeys={[content]}
       resetOnKeysChange
     >
-      <div className={className}>
+      <div 
+        className={`${className} markdown-content`} 
+        dir="ltr" 
+        style={{ 
+          unicodeBidi: 'embed',
+          direction: 'ltr',
+          textAlign: 'left'
+        }}
+      >
         <ReactMarkdown 
-          remarkPlugins={[remarkGfm]} 
+          remarkPlugins={[remarkGfm, remarkMath]} 
+          rehypePlugins={[rehypeKatex, rehypeRaw]}
           components={components}
         >
-          {content}
+          {content || ''}
         </ReactMarkdown>
       </div>
     </ErrorBoundary>

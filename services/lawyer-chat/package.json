@@ -33,6 +33,7 @@
     "@types/html2canvas": "^0.5.35",
     "@types/jspdf": "^1.3.3",
     "@types/nodemailer": "^6.4.17",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^2.4.3",
     "date-fns": "^4.1.0",
@@ -40,6 +41,7 @@
     "html2canvas": "^1.4.1",
     "isomorphic-dompurify": "^2.25.0",
     "jspdf": "^3.0.1",
+    "katex": "^0.16.22",
     "lucide-react": "^0.515.0",
     "next": "15.3.3",
     "next-auth": "^4.24.11",
@@ -50,7 +52,12 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^15.6.1",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {
