@@ -39,6 +39,7 @@ function LawyerChatContent() {
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
   const [windowWidth, setWindowWidth] = useState(1440); // Default value for SSR
@@ -67,6 +68,29 @@ function LawyerChatContent() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Check URL parameter for chat ID on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const chatId = params.get('chat');
+    if (chatId && !currentChatId) {
+      selectChat(chatId);
+    }
+  }, []); // Run once on mount
+  
+  // Update URL when chat changes
+  useEffect(() => {
+    if (currentChatId) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('chat', currentChatId);
+      window.history.replaceState({}, '', url);
+    } else {
+      // Remove chat parameter when no chat is selected
+      const url = new URL(window.location.href);
+      url.searchParams.delete('chat');
+      window.history.replaceState({}, '', url);
+    }
+  }, [currentChatId]);
 
   // Calculate dynamic sizing based on window width and panel states
   const calculateResponsiveSizing = () => {
@@ -200,9 +224,10 @@ function LawyerChatContent() {
   };
 
   const createNewChat = async () => {
-    if (!session?.user) return null;
+    if (!session?.user || isCreatingChat) return null;
     
     try {
+      setIsCreatingChat(true);
       const response = await api.post('/api/chats', { title: 'New Chat' });
       
       if (response.ok) {
@@ -214,8 +239,20 @@ function LawyerChatContent() {
       }
     } catch (error) {
       logger.error('Error creating chat', error);
+    } finally {
+      setIsCreatingChat(false);
     }
     return null;
+  };
+  
+  const handleNewChat = () => {
+    // Clear current chat state
+    setCurrentChatId(null);
+    setMessages([]);
+    // Clear URL parameter
+    const url = new URL(window.location.href);
+    url.searchParams.delete('chat');
+    window.history.replaceState({}, '', url);
   };
 
   const selectChat = async (chatId: string) => {
@@ -242,27 +279,34 @@ function LawyerChatContent() {
   };
 
 
-  const saveMessage = async (role: string, content: string, references: string[] = []) => {
-    if (!session?.user || !currentChatId) return;
+  const saveMessage = async (role: string, content: string, references: string[] = [], chatId?: string) => {
+    const chatIdToUse = chatId || currentChatId;
+    if (!session?.user || !chatIdToUse) return;
     
     try {
-      await api.post(`/api/chats/${currentChatId}/messages`, { role, content, references });
+      await api.post(`/api/chats/${chatIdToUse}/messages`, { role, content, references });
       
       // Update chat history to reflect new message
       await fetchChatHistory();
     } catch (error) {
-      logger.error('Error saving message', error, { chatId: currentChatId, role, content: content.substring(0, 50) });
+      logger.error('Error saving message', error, { chatId: chatIdToUse, role, content: content.substring(0, 50) });
     }
   };
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isLoading || isCreatingChat) return;
 
+    let chatIdToUse = currentChatId;
+    
     // Create new chat if needed
-    let sessionKey = currentChatId;
-    if (!currentChatId && messages.length === 0) {
+    if (!chatIdToUse && messages.length === 0) {
       const newChatId = await createNewChat();
-      sessionKey = newChatId || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      if (!newChatId) {
+        // Failed to create chat
+        logger.error('Failed to create new chat');
+        return;
+      }
+      chatIdToUse = newChatId;
     }
 
     const userMessage: Message = {
@@ -274,8 +318,10 @@ function LawyerChatContent() {
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Save user message to database
-    await saveMessage('user', inputText);
+    // Save user message to database only if we have a chat ID
+    if (chatIdToUse) {
+      await saveMessage('user', inputText, [], chatIdToUse);
+    }
     
     setInputText('');
     setIsLoading(true);
@@ -301,7 +347,7 @@ function LawyerChatContent() {
       const response = await api.post('/api/chat', {
         message: inputText,
         tools: selectedTools,
-        sessionKey: sessionKey || currentChatId || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        sessionKey: chatIdToUse || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         sessionId: session?.user?.email || 'anonymous',
         userId: session?.user?.email
       });
@@ -320,6 +366,8 @@ function LawyerChatContent() {
           let buffer = '';
           let sources: string[] = [];
           let analytics: AnalyticsData | undefined = undefined;
+          let lastSaveTime = Date.now();
+          let messageId: string | null = null;
           
           while (true) {
             const { done, value } = await reader.read();
@@ -351,6 +399,34 @@ function LawyerChatContent() {
                           : msg
                       )
                     );
+                    
+                    // Save message immediately on first chunk, then update every 2 seconds
+                    const now = Date.now();
+                    if (!messageId || now - lastSaveTime > 2000) {
+                      try {
+                        if (!messageId && chatIdToUse) {
+                          // First save - create the message
+                          const response = await api.post(`/api/chats/${chatIdToUse}/messages`, {
+                            role: 'assistant',
+                            content: accumulatedText,
+                            references: sources
+                          });
+                          if (response.ok) {
+                            const savedMessage = await response.json();
+                            messageId = savedMessage.id;
+                          }
+                        } else if (messageId && chatIdToUse) {
+                          // Update existing message
+                          await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                            content: accumulatedText,
+                            references: sources
+                          });
+                        }
+                        lastSaveTime = now;
+                      } catch (error) {
+                        logger.error('Error saving streaming message', error);
+                      }
+                    }
                   } else if (data.type === 'sources') {
                     sources = data.sources || [];
                     setMessages(prev => 
@@ -381,8 +457,21 @@ function LawyerChatContent() {
                         )
                       );
                     }
-                    // Save the complete message
-                    await saveMessage('assistant', accumulatedText, sources);
+                    // Final save/update with complete content
+                    try {
+                      if (messageId && chatIdToUse) {
+                        // Update existing message with final content
+                        await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                          content: accumulatedText,
+                          references: sources
+                        });
+                      } else if (chatIdToUse) {
+                        // Create message if not already saved
+                        await saveMessage('assistant', accumulatedText, sources, chatIdToUse);
+                      }
+                    } catch (error) {
+                      logger.error('Error saving final message', error);
+                    }
                   }
                 } catch (e) {
                   logger.error('Error parsing SSE data', e, { line });
@@ -414,7 +503,9 @@ function LawyerChatContent() {
         );
         
         // Save assistant message to database
-        await saveMessage('assistant', assistantText, assistantReferences);
+        if (chatIdToUse) {
+          await saveMessage('assistant', assistantText, assistantReferences, chatIdToUse);
+        }
       }
     } catch (error) {
       logger.error('Error sending message', error);
@@ -492,7 +583,7 @@ function LawyerChatContent() {
       {/* Universal TaskBar - Always visible for all users */}
       <TaskBar 
         onChatSelect={selectChat}
-        onNewChat={createNewChat}
+        onNewChat={handleNewChat}
       />
 
       {/* Main Content Container - Adjust margin for taskbar only */}

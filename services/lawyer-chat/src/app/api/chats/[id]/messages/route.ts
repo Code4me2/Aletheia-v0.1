@@ -47,6 +47,16 @@ export async function POST(
       });
     }
 
+    // Validate message content length
+    if (!body.content || body.content.length > 10000) {
+      return new Response(JSON.stringify({ 
+        error: 'Message content must be between 1 and 10,000 characters' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // Create message
     const message = await prisma.message.create({
       data: {
@@ -64,6 +74,37 @@ export async function POST(
         data: {
           preview: body.content.substring(0, 100),
           title: chat.title || body.content.substring(0, 50) + '...'
+        }
+      });
+    } else if (body.role === 'assistant' && (!chat.title || chat.title === 'New Chat')) {
+      // Generate smart title from assistant's first response
+      // Extract a meaningful title from the content
+      const content = body.content;
+      let smartTitle = '';
+      
+      // Try to extract first sentence or meaningful phrase
+      const firstSentence = content.match(/^[^.!?]+[.!?]/);
+      if (firstSentence) {
+        smartTitle = firstSentence[0].trim();
+      } else {
+        // If no sentence found, take first few words
+        const words = content.split(' ').slice(0, 8);
+        smartTitle = words.join(' ');
+      }
+      
+      // Remove markdown formatting
+      smartTitle = smartTitle.replace(/[*_#`\[\]()]/g, '');
+      
+      // Limit length and add ellipsis if needed
+      if (smartTitle.length > 60) {
+        smartTitle = smartTitle.substring(0, 57) + '...';
+      }
+      
+      await prisma.chat.update({
+        where: { id: chatId },
+        data: {
+          title: smartTitle,
+          updatedAt: new Date()
         }
       });
     } else {

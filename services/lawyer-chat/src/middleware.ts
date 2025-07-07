@@ -9,6 +9,8 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const MAX_REQUESTS = {
   '/api/chat': 20, // 20 messages per minute
+  '/api/chats/[id]/messages': 30, // 30 message saves per minute (for streaming)
+  '/api/chats': 10, // 10 new chats per minute
   '/api/auth': 5,  // 5 login attempts per minute
   default: 100     // 100 requests per minute for other endpoints
 };
