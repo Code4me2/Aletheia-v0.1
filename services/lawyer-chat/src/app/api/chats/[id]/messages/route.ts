@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { retryWithBackoff } from '@/lib/retryUtils';
 
 // POST /api/chats/[id]/messages - Add message to chat
 export async function POST(
@@ -57,25 +58,41 @@ export async function POST(
       });
     }
 
-    // Create message
-    const message = await prisma.message.create({
-      data: {
-        chatId,
-        role: body.role,
-        content: body.content,
-        references: body.references || []
-      }
-    });
-
-    // Update chat preview and timestamp
-    if (body.role === 'user' && !chat.preview) {
-      await prisma.chat.update({
-        where: { id: chatId },
-        data: {
-          preview: body.content.substring(0, 100),
-          title: chat.title || body.content.substring(0, 50) + '...'
+    // Create message with retry logic
+    const message = await retryWithBackoff(
+      async () => {
+        return await prisma.message.create({
+          data: {
+            chatId,
+            role: body.role,
+            content: body.content,
+            references: body.references || []
+          }
+        });
+      },
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        onRetry: (attempt, error) => {
+          console.log(`Retrying message save (attempt ${attempt}/3)`, error.message);
         }
-      });
+      }
+    );
+
+    // Update chat preview and timestamp with retry
+    if (body.role === 'user' && !chat.preview) {
+      await retryWithBackoff(
+        async () => {
+          return await prisma.chat.update({
+            where: { id: chatId },
+            data: {
+              preview: body.content.substring(0, 100),
+              title: chat.title || body.content.substring(0, 50) + '...'
+            }
+          });
+        },
+        { maxAttempts: 3, initialDelay: 500 }
+      );
     } else if (body.role === 'assistant' && (!chat.title || chat.title === 'New Chat')) {
       // Generate smart title from assistant's first response
       // Extract a meaningful title from the content

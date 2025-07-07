@@ -3,7 +3,10 @@
 import React from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { ErrorBoundary } from './ErrorBoundary';
 import { AlertCircle } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar';
@@ -39,34 +42,34 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
   const { isDarkMode } = useSidebarStore();
   
   const components: Partial<Components> = {
-    // ========== HEADERS - Consistent hierarchy with unified spacing ==========
+    // ========== HEADERS - Scaled down to ~80% with consistent hierarchy ==========
     h1: ({ children, ...props }: HeadingProps) => (
-      <h1 {...props} className={`text-4xl font-extrabold mb-8 mt-8 leading-tight ${
+      <h1 {...props} className={`text-3xl font-bold mb-6 mt-8 leading-tight ${
         isDarkMode ? 'text-white' : 'text-gray-900'
       }`}>{children}</h1>
     ),
     h2: ({ children, ...props }: HeadingProps) => (
-      <h2 {...props} className={`text-3xl font-bold mb-6 mt-8 leading-snug ${
+      <h2 {...props} className={`text-2xl font-semibold mb-5 mt-6 leading-snug ${
         isDarkMode ? 'text-gray-200' : 'text-gray-800'
       }`}>{children}</h2>
     ),
     h3: ({ children, ...props }: HeadingProps) => (
-      <h3 {...props} className={`text-2xl font-semibold mb-4 mt-6 leading-snug ${
+      <h3 {...props} className={`text-xl font-semibold mb-4 mt-5 leading-snug ${
         isDarkMode ? 'text-gray-100' : 'text-gray-700'
       }`}>{children}</h3>
     ),
     h4: ({ children, ...props }: HeadingProps) => (
-      <h4 {...props} className={`text-xl font-semibold mb-4 mt-6 leading-normal ${
+      <h4 {...props} className={`text-lg font-medium mb-3 mt-4 leading-normal ${
         isDarkMode ? 'text-gray-200' : 'text-gray-700'
       }`}>{children}</h4>
     ),
     h5: ({ children, ...props }: HeadingProps) => (
-      <h5 {...props} className={`text-lg font-semibold mb-4 mt-4 leading-normal ${
+      <h5 {...props} className={`text-base font-medium mb-3 mt-4 leading-normal ${
         isDarkMode ? 'text-gray-300' : 'text-gray-600'
       }`}>{children}</h5>
     ),
     h6: ({ children, ...props }: HeadingProps) => (
-      <h6 {...props} className={`text-base font-semibold mb-4 mt-4 leading-normal ${
+      <h6 {...props} className={`text-sm font-medium mb-3 mt-3 leading-normal ${
         isDarkMode ? 'text-gray-400' : 'text-gray-600'
       }`}>{children}</h6>
     ),
@@ -111,10 +114,10 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
       </blockquote>
     ),
     
-    // ========== SEPARATORS - Visual content division ==========
+    // ========== SEPARATORS - Subtle visual content division ==========
     hr: ({ ...props }: ComponentProps) => (
-      <hr {...props} className={`my-6 border-t ${
-        isDarkMode ? 'border-gray-700' : 'border-gray-300'
+      <hr {...props} className={`my-8 border-t ${
+        isDarkMode ? 'border-gray-800' : 'border-gray-200'
       }`} />
     ),
     // ========== CODE - Simple formatting without syntax highlighting ==========
@@ -298,8 +301,8 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
         }}
       >
         <ReactMarkdown 
-          remarkPlugins={[remarkGfm]} 
-          rehypePlugins={[rehypeRaw]}
+          remarkPlugins={[remarkGfm, remarkMath]} 
+          rehypePlugins={[rehypeRaw, rehypeKatex]}
           components={components}
         >
           {content || ''}

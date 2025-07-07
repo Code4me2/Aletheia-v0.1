@@ -18,6 +18,7 @@ import { useCsrfStore } from '@/store/csrf';
 import { api } from '@/utils/api';
 import { createLogger } from '@/utils/logger';
 import { PDFGenerator, generateChatText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
+import { cleanAIResponse, detectTruncatedResponse } from '@/utils/textFilters';
 import type { Citation, AnalyticsData, ChatMessage } from '@/types';
 
 const logger = createLogger('chat-ui');
@@ -281,15 +282,21 @@ function LawyerChatContent() {
 
   const saveMessage = async (role: string, content: string, references: string[] = [], chatId?: string) => {
     const chatIdToUse = chatId || currentChatId;
-    if (!session?.user || !chatIdToUse) return;
+    if (!session?.user || !chatIdToUse) return false;
     
     try {
-      await api.post(`/api/chats/${chatIdToUse}/messages`, { role, content, references });
+      const response = await api.post(`/api/chats/${chatIdToUse}/messages`, { role, content, references });
+      if (!response.ok) {
+        logger.error('Failed to save message', { status: response.status });
+        return false;
+      }
       
       // Update chat history to reflect new message
       await fetchChatHistory();
+      return true;
     } catch (error) {
       logger.error('Error saving message', error, { chatId: chatIdToUse, role, content: content.substring(0, 50) });
+      return false;
     }
   };
 
@@ -297,30 +304,45 @@ function LawyerChatContent() {
     if (!inputText.trim() || isLoading || isCreatingChat) return;
 
     let chatIdToUse = currentChatId;
+    const messageText = inputText;
     
-    // Create new chat if needed
-    if (!chatIdToUse && messages.length === 0) {
-      const newChatId = await createNewChat();
-      if (!newChatId) {
-        // Failed to create chat
-        logger.error('Failed to create new chat');
-        return;
-      }
-      chatIdToUse = newChatId;
-    }
-
     const userMessage: Message = {
       id: Date.now(),
       sender: 'user',
-      text: inputText,
+      text: messageText,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Save user message to database only if we have a chat ID
-    if (chatIdToUse) {
-      await saveMessage('user', inputText, [], chatIdToUse);
+    // Create new chat with first message atomically if needed
+    if (!chatIdToUse && messages.length === 0) {
+      try {
+        setIsCreatingChat(true);
+        const response = await api.post('/api/chats/with-message', {
+          message: messageText,
+          title: 'New Chat'
+        });
+        
+        if (!response.ok) {
+          logger.error('Failed to create chat', { status: response.status });
+          return;
+        }
+        
+        const result = await response.json();
+        chatIdToUse = result.chat.id;
+        setCurrentChatId(chatIdToUse);
+        
+        await fetchChatHistory();
+      } catch (error) {
+        logger.error('Failed to create chat with message', error);
+        return;
+      } finally {
+        setIsCreatingChat(false);
+      }
+    } else if (chatIdToUse) {
+      // Save user message to existing chat
+      await saveMessage('user', messageText, [], chatIdToUse);
     }
     
     setInputText('');
@@ -368,6 +390,7 @@ function LawyerChatContent() {
           let analytics: AnalyticsData | undefined = undefined;
           let lastSaveTime = Date.now();
           let messageId: string | null = null;
+          let saveInProgress = false;
           
           while (true) {
             const { done, value } = await reader.read();
@@ -391,29 +414,47 @@ function LawyerChatContent() {
                     // Append chunk directly to accumulated text
                     accumulatedText += data.text;
                     
-                    // Update message with accumulated text
+                    // Clean the accumulated text to remove duplicate "CITATIONS" entries
+                    const cleanedText = cleanAIResponse(accumulatedText);
+                    
+                    // Check if response appears to be truncated/restarting
+                    if (detectTruncatedResponse(cleanedText)) {
+                      logger.warn('Detected truncated or restarting response');
+                    }
+                    
+                    // Update message with cleaned text
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === assistantId 
-                          ? { ...msg, text: accumulatedText }
+                          ? { ...msg, text: cleanedText }
                           : msg
                       )
                     );
                     
                     // Save message immediately on first chunk, then update every 2 seconds
                     const now = Date.now();
-                    if (!messageId || now - lastSaveTime > 2000) {
+                    if ((!messageId || now - lastSaveTime > 2000) && !saveInProgress) {
                       try {
                         if (!messageId && chatIdToUse) {
-                          // First save - create the message
-                          const response = await api.post(`/api/chats/${chatIdToUse}/messages`, {
-                            role: 'assistant',
-                            content: accumulatedText,
-                            references: sources
-                          });
-                          if (response.ok) {
-                            const savedMessage = await response.json();
-                            messageId = savedMessage.id;
+                          // First save - create the message with retry
+                          saveInProgress = true;
+                          try {
+                            const response = await api.post(`/api/chats/${chatIdToUse}/messages`, {
+                              role: 'assistant',
+                              content: cleanedText,
+                              references: sources
+                            });
+                            
+                            if (response.ok) {
+                              const savedMessage = await response.json();
+                              messageId = savedMessage.id;
+                            } else {
+                              logger.error('Failed to save streaming message', { status: response.status });
+                            }
+                          } catch (error) {
+                            logger.error('Failed to save streaming message', error);
+                          } finally {
+                            saveInProgress = false;
                           }
                         } else if (messageId && chatIdToUse) {
                           // Update existing message
@@ -461,16 +502,20 @@ function LawyerChatContent() {
                     try {
                       if (messageId && chatIdToUse) {
                         // Update existing message with final content
-                        await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
-                          content: accumulatedText,
+                        const response = await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                          content: cleanAIResponse(accumulatedText),
                           references: sources
                         });
+                        if (!response.ok) {
+                          logger.warn('Failed to update message', { status: response.status });
+                        }
                       } else if (chatIdToUse) {
                         // Create message if not already saved
-                        await saveMessage('assistant', accumulatedText, sources, chatIdToUse);
+                        await saveMessage('assistant', cleanAIResponse(accumulatedText), sources, chatIdToUse);
                       }
                     } catch (error) {
                       logger.error('Error saving final message', error);
+                      // Silently handle the error
                     }
                   }
                 } catch (e) {
@@ -686,7 +731,7 @@ function LawyerChatContent() {
                     }}
                   >
                   <div>
-                    <div>
+                    <div className="relative">
                       {message.sender === 'user' ? (
                         <p className="text-sm leading-relaxed" dir="ltr">{message.text}</p>
                       ) : (
@@ -716,7 +761,7 @@ function LawyerChatContent() {
                       
                       {/* Citation and Analytics Buttons - Show after response is complete */}
                       {message.sender === 'assistant' && message.text && !(isLoading && message.id === messages[messages.length - 1].id) && (
-                        <div className={`mt-3 w-full flex items-center gap-2`}>
+                        <div className={`mt-3 w-full flex items-center gap-2`} key={`buttons-${message.id}`}>
                           <button
                             onClick={() => handleCitationClick()}
                             className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 transform active:scale-95 ${

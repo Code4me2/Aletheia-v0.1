@@ -663,3 +663,67 @@ body.dark .dark\:text-white * {
 .dark .markdown-content ul > li::marker {
   color: #9ca3af;
 }
+
+/* ========== KaTeX Math Rendering Styles ========== */
+/* Base KaTeX styles for better integration */
+.katex {
+  font-size: 1.1em;
+  color: inherit;
+}
+
+.katex-display {
+  margin: 1.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5em 0;
+}
+
+/* Ensure math inherits the correct colors in dark mode */
+.dark .katex {
+  color: #e5e7eb;
+}
+
+.dark .katex .base {
+  color: #e5e7eb;
+}
+
+.dark .katex .mord {
+  color: #e5e7eb;
+}
+
+/* Math display block styling */
+.katex-display > .katex {
+  display: inline-block;
+  text-align: left;
+  max-width: 100%;
+}
+
+/* Prevent overflow on mobile */
+@media (max-width: 640px) {
+  .katex-display {
+    font-size: 0.9em;
+    margin: 1em -1rem;
+    padding: 0.5em 1rem;
+  }
+}
+
+/* Inline math spacing */
+.markdown-content p .katex {
+  vertical-align: baseline;
+  margin: 0 0.2em;
+}
+
+/* Math equation numbering (if used) */
+.katex-display > .katex > .katex-html > .tag {
+  position: absolute;
+  right: 0;
+}
+
+/* Section divider enhancement */
+.markdown-content hr {
+  height: 1px;
+  border: none;
+  background: linear-gradient(to right, transparent, currentColor 20%, currentColor 80%, transparent);
+  opacity: 0.15;
+  margin: 2rem 0;
+}

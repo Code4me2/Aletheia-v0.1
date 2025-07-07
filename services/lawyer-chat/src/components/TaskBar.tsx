@@ -138,26 +138,25 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
   // Group chats by time periods
   const groupChatsByTimePeriod = (chats: Chat[]) => {
     const groups: { [key: string]: Chat[] } = {
-      'Today': [],
+      'Recents': [],
       'Yesterday': [],
-      'This Week': [],
-      'This Month': [],
       'Older': []
     };
 
     chats.forEach(chat => {
-      const chatDate = new Date(chat.createdAt);
+      const chatDate = new Date(chat.updatedAt);
       if (isToday(chatDate)) {
-        groups['Today'].push(chat);
+        groups['Recents'].push(chat);
       } else if (isYesterday(chatDate)) {
         groups['Yesterday'].push(chat);
-      } else if (isThisWeek(chatDate)) {
-        groups['This Week'].push(chat);
-      } else if (isThisMonth(chatDate)) {
-        groups['This Month'].push(chat);
       } else {
         groups['Older'].push(chat);
       }
+    });
+
+    // Sort each group by updatedAt descending
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     });
 
     // Remove empty groups
@@ -412,7 +411,6 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
                         </div>
                         <div className="space-y-1">
                           {chats
-                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                             .map((chat) => (
                               <div
                                 key={chat.id}
