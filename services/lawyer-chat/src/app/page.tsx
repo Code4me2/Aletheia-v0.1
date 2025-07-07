@@ -613,29 +613,12 @@ function LawyerChatContent() {
                               <span></span>
                             </div>
                           ) : (
-                          <>
-                            {/* During streaming, show plain text; after completion, show markdown */}
-                            {isLoading && message.id === messages[messages.length - 1].id ? (
-                              <div 
-                                dir="ltr" 
-                                style={{ 
-                                  unicodeBidi: 'plaintext',
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word'
-                                }}
-                                className={`text-sm leading-relaxed ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}
-                              >
-                                {message.text}
-                              </div>
-                            ) : (
-                              <div dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
-                                <SafeMarkdown 
-                                  content={message.text}
-                                  className="max-w-none markdown-content"
-                                />
-                              </div>
-                            )}
-                          </>
+                          <div dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
+                            <SafeMarkdown 
+                              content={message.text}
+                              className="max-w-none markdown-content"
+                            />
+                          </div>
                           )}
                         </div>
                       )}
