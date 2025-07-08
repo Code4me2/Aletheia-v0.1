@@ -124,6 +124,7 @@ Data Compose combines multiple technologies to create a powerful document proces
 - Pre-configured workflows included
 - Webhook integration with action-based routing
 - Unified webhook endpoint handling multiple request types
+- YAKE keyword extraction for automatic key phrase identification
 
 ### 💼 Lawyer Chat Application
 - Enterprise-grade legal AI assistant
@@ -315,11 +316,20 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 | n8n | 5678 | 5678 | Workflow automation | No |
 | PostgreSQL (db) | 5432 | - | Database (internal only) | No |
 | Lawyer Chat | 3000 | 3001 | AI chat interface | No |
-| AI Portal | 3000 | - | Internal only | No |
+| AI Portal | 3000 | - | Internal only (via ai-portal-nginx) | No |
 | AI Portal NGINX | 80 | 8085 | AI portal proxy | No |
-| Elasticsearch | 9200 | 9200 | Document search | Yes |
+| Elasticsearch | 9200, 9300 | 9200, 9300 | Document search & cluster communication | Yes |
 | Haystack | 8000 | 8000 | Document API | Yes |
-| BitNet | 8080 | 8081 | Local AI service | Yes |
+
+### Additional Services (When Enabled)
+
+| Service | Internal Port | External Port | Purpose | Docker Compose File |
+|---------|---------------|---------------|----------|-------------------|
+| Prometheus | 9090 | 9090 | Metrics collection | docker-compose.production.yml |
+| Grafana | 3000 | 3001 | Dashboards | docker-compose.production.yml |
+| Loki | 3100 | 3100 | Log aggregation | docker-compose.production.yml |
+| Node Exporter | 9100 | 9100 | System metrics | docker-compose.staging.yml |
+
 
 ### Key Architectural Decisions
 
@@ -387,14 +397,15 @@ Aletheia-v0.1/
 └── n8n/                    # n8n extensions and configuration
     ├── custom-nodes/       # Custom node implementations
     │   ├── n8n-nodes-deepseek/     # DeepSeek AI integration
-    │   ├── n8n-nodes-haystack/     # Document search integration (7 operations)
+    │   ├── n8n-nodes-haystack/     # Document search integration (7 implemented endpoints)
     │   ├── n8n-nodes-hierarchicalSummarization/  # PostgreSQL document processing
     │   ├── n8n-nodes-bitnet/       # BitNet LLM inference
+    │   ├── n8n-nodes-yake/         # YAKE keyword extraction
     │   ├── test-utils/             # Shared testing utilities for all nodes
     │   └── run-all-node-tests.js   # Master test runner
     ├── docker-compose.haystack.yml # Haystack services config
     ├── haystack-service/          # Haystack API implementation
-    │   └── haystack_service.py    # Main service (7 endpoints)
+    │   └── haystack_service.py    # Main service (7 implemented endpoints)
     └── local-files/              # Persistent storage
 ```
 
@@ -779,6 +790,74 @@ window.app.addSection('newsection', 'New Feature', 'icon-class',
 );
 ```
 
+### UI Features & Hidden Functionality
+
+#### App Menu Cabinet
+The application includes a slide-out menu system that provides quick access to additional features:
+- **Access**: Click the menu icon or use `window.app.toggleAppMenu()`
+- **Keyboard Support**: Press `Escape` to close the menu
+- **Auto-close**: Clicks outside the menu will automatically close it
+
+#### History Management
+The Hierarchical Summarization feature includes advanced history capabilities:
+- **History Drawer**: Collapsible sidebar showing all previous summarizations
+- **Quick Actions**: 
+  - Plus (+) button for new summarization without opening history
+  - Right-click on history items to delete
+  - Auto-switch to form view when active item is deleted
+- **Context Menus**: Right-click functionality for additional options
+
+#### Chat Interface Modes
+The AI chat system supports multiple operational modes:
+- **Local Mode**: Direct connection to local AI services (DeepSeek via Ollama)
+- **Public Mode**: Connection to cloud-based AI services
+- **Mode Switching**: Available through UI controls or programmatically
+
+#### Keyboard Navigation
+Comprehensive keyboard shortcuts throughout the application:
+
+**Hierarchical Summarization Visualization**:
+- `←` Navigate to parent (toward final summary)
+- `→` Navigate to children (toward source documents)
+- `↑` Previous sibling at same level
+- `↓` Next sibling at same level
+- `Home` Jump to final summary
+- `End` Jump to first source document
+- `Ctrl+/` Open search dialog
+
+**General Navigation**:
+- `Escape` Close modals, drawers, and menus
+- `Tab` Navigate between sections
+- `Enter` Activate selected items
+
+#### Advanced Visualization Features
+The document hierarchy visualization includes:
+- **Minimap**: Interactive overview of entire document tree
+- **Search Functionality**: Full-text search with highlighting
+- **Quick Jump**: Dropdown navigation with node previews
+- **URL Bookmarking**: Direct links to specific nodes via URL hash
+- **Real-time Updates**: Visual indicators for processing status
+
+#### Developer Console Features
+Hidden debugging and development features accessible via browser console:
+- `window.app.debug()` - Enable debug mode with verbose logging
+- `window.app.sections` - View all registered sections
+- `window.app.config` - Access runtime configuration
+- `window.testConnection()` - Test webhook connectivity
+
+#### CSS Theme Customization
+The application uses CSS custom properties for easy theming:
+```css
+/* Override in browser dev tools or custom CSS */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --background-color: #f8f9fa;
+    --text-color: #333333;
+}
+```
+
 ## Configuration
 
 ### Environment Variables
@@ -814,7 +893,14 @@ The Haystack integration provides document processing with hierarchical analysis
 - **Advanced Search**: Hybrid search combining BM25 and 384-dimensional vector embeddings
 - **Direct Elasticsearch Integration**: Uses Elasticsearch directly without full Haystack framework
 - **Development Server**: FastAPI service with auto-reload (not production-ready)
-- **7 API Endpoints**: Import, Search, Hierarchy, Health, Final Summary, Complete Tree, Document Context
+- **7 Implemented API Endpoints**: 
+  - `POST /import_from_node` - Import documents from n8n workflow nodes
+  - `POST /search` - Hybrid search with BM25 and vector embeddings
+  - `POST /hierarchy` - Get document parent-child relationships
+  - `GET /health` - Service health check
+  - `GET /get_final_summary/{workflow_id}` - Retrieve workflow's final summary
+  - `GET /get_complete_tree/{workflow_id}` - Get full document hierarchy tree
+  - `GET /get_document_with_context/{document_id}` - Get document with navigation context
 
 #### Starting Haystack Services:
 
@@ -837,7 +923,7 @@ Example workflow pattern:
 PostgreSQL Query → Haystack Import → Search/Navigate Documents
 ```
 
-**Note**: The Haystack node has 8 operations defined but the service only implements 7. The "Batch Hierarchy" operation will not work.
+**Important Note**: The Haystack n8n node defines 8 operations, but the service only implements 7 endpoints. The "Batch Hierarchy" operation exists in the node UI but lacks a corresponding endpoint in the service and will fail if used.
 
 #### API Endpoints:
 
@@ -889,10 +975,12 @@ docker-compose exec db psql -U your_db_user -d your_db_name -c "SELECT * FROM co
 ```
 
 #### Supported Courts:
-- **tax**: US Tax Court
-- **ca9**: Ninth Circuit Court of Appeals  
-- **ca1**: First Circuit Court of Appeals
-- **uscfc**: US Court of Federal Claims
+- **tax**: US Tax Court (✅ Fully implemented)
+- **ca9**: Ninth Circuit Court of Appeals (⚠️ Configuration exists, implementation pending)
+- **ca1**: First Circuit Court of Appeals (⚠️ Configuration exists, implementation pending)
+- **uscfc**: US Court of Federal Claims (⚠️ Configuration exists, implementation pending)
+
+**Note**: Currently, only the Tax Court scraper is fully implemented. Other courts have configuration entries but require additional development.
 
 #### Features:
 - Automatic judge name extraction from PDF text
@@ -901,6 +989,145 @@ docker-compose exec db psql -U your_db_user -d your_db_name -c "SELECT * FROM co
 - Judge-based statistics and analytics
 
 For detailed documentation, see `court-processor/README.md`
+
+### YAKE Keyword Extraction
+
+The YAKE (Yet Another Keyword Extractor) node provides automatic keyword and key phrase extraction from documents:
+
+#### Features:
+- **Language-agnostic**: Works with multiple languages
+- **Unsupervised**: No training data required
+- **Statistical approach**: Uses word co-occurrence and frequency
+- **Configurable**: Adjust window size, deduplication threshold, and max keywords
+
+#### Usage in n8n:
+1. Add YAKE node to your workflow
+2. Connect document input
+3. Configure extraction parameters:
+   - Language (auto-detect or specify)
+   - Max keywords to extract
+   - N-gram size (1-3 words)
+   - Deduplication threshold
+4. Output: Ranked list of keywords with confidence scores
+
+#### Example Use Cases:
+- Document tagging and categorization
+- Search engine optimization
+- Content summarization
+- Legal document analysis for key terms
+
+## Monitoring & Developer Tools
+
+### Monitoring Infrastructure
+
+Aletheia-v0.1 includes comprehensive monitoring capabilities for production deployments.
+
+**Note**: The project includes two separate monitoring configurations:
+1. **Production Monitoring** (`docker-compose.production.yml`): General application monitoring with Prometheus, Grafana, and Loki
+2. **Haystack Monitoring** (`monitoring/docker-compose.monitoring.yml`): Specialized monitoring for Haystack/Elasticsearch services
+
+⚠️ **Important**: These stacks share Prometheus port 9090. Run only one at a time or reconfigure ports to avoid conflicts.
+
+#### Prometheus Metrics Export
+The Haystack service includes a Prometheus exporter (`n8n/monitoring/haystack_exporter.py`) that provides:
+- **Search Performance Metrics**: Latency tracking by search type (hybrid, vector, BM25)
+- **Document Processing Metrics**: Ingestion rates and processing times
+- **Elasticsearch Health**: Cluster status and node availability
+- **Error Tracking**: Categorized error counts by operation type
+
+#### Grafana Dashboards
+Pre-configured dashboards for visualizing:
+- RAG performance metrics
+- Service health status
+- Query response times
+- Document processing throughput
+
+#### Alert Rules
+Prometheus alerting for:
+- Service downtime
+- High error rates
+- Performance degradation
+- Resource exhaustion
+
+### Developer Tools
+
+#### Workflow Analysis Scripts
+Located in the root directory:
+- **`analyze_workflow.py`**: Analyzes n8n workflow JSON for optimization opportunities
+- **`connection_analyzer.py`**: Debugs service connectivity issues
+- **`workflow_validator.py`**: Validates workflow configurations
+- **`simplify_workflow.py`**: Simplifies complex workflow structures
+
+#### Testing Infrastructure
+- **Parallel Testing**: `docker-compose.parallel-test.yml` for concurrent test execution
+- **Performance Benchmarking**: `benchmark_rag_performance.py` for RAG system testing
+- **Integration Tests**: Comprehensive test suites for all services
+
+#### Deployment Utilities
+Located in `scripts/` directory:
+- **`standardize-names.sh`**: Converts filenames to kebab-case across the project
+- **`rollback.sh`**: Advanced deployment rollback with version management
+- **`wait-for-health.sh`**: Dynamic health check polling for services
+- **`health-check.sh`**: Comprehensive multi-service health verification
+
+#### Database Management
+- **`scripts/init-databases.sh`**: Database initialization and schema setup
+- **Migration Scripts**: Automated database migration tools
+
+### Hidden Utilities
+
+#### Energy Monitoring (BitNet)
+- **`scripts/monitor_energy.py`**: Tracks power consumption during AI inference
+- Useful for optimizing deployment costs and environmental impact
+
+#### Service Monitoring
+- **`monitor_server.sh`**: Real-time monitoring of BitNet server
+- Provides slot status, resource usage, and performance metrics
+
+#### Test Runners
+- **`n8n/custom-nodes/run-all-node-tests.js`**: Master test runner for all custom nodes
+- **`run_tests.py`**: Python test orchestrator with coverage reporting
+
+### Development Workflows
+
+#### Local Development Setup
+```bash
+# Run development environment with hot-reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Run specific service tests
+cd n8n/custom-nodes && node run-all-node-tests.js
+
+# Analyze workflow performance
+python analyze_workflow.py workflow_json/web_UI_basic
+
+# Check service connections
+python connection_analyzer.py
+```
+
+#### Performance Analysis
+```bash
+# Benchmark RAG performance
+python benchmark_rag_performance.py
+
+# Monitor resource usage
+./monitor_server.sh
+
+# Track energy consumption
+python scripts/monitor_energy.py
+```
+
+#### Debugging Tools
+```bash
+# Debug service connectivity
+python connection_analyzer.py --verbose
+
+# Validate workflow structure
+python workflow_validator.py workflow.json
+
+# Check health of all services
+./scripts/health-check.sh
+```
 
 ## Troubleshooting
 
