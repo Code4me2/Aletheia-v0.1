@@ -189,8 +189,21 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
             <div className={`flex items-center ${isTaskBarExpanded ? 'px-4 justify-between' : 'px-2 justify-center'} pt-2 pb-4`}>
               {isTaskBarExpanded ? (
                 <>
-                  {/* Title on the left */}
+                  {/* Logo and Title on the left */}
                   <div className="flex items-center gap-2">
+                    <a
+                      href="http://localhost:8085"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-transform hover:scale-110"
+                      title="Open Court Processor"
+                    >
+                      <img 
+                        src="/chat/logo.png" 
+                        alt="Logo" 
+                        className="h-6 w-6 object-contain cursor-pointer"
+                      />
+                    </a>
                     <h1 className="text-lg font-semibold" style={{ color: isDarkMode ? '#d1d1d1' : '#004A84' }}>
                       Aletheia-v0.1
                     </h1>
@@ -322,16 +335,16 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
         ) : null}
         </div>
 
-        {/* Scrollable Middle Section - Chat History */}
-        {isTaskBarExpanded && (
+        {/* Scrollable Middle Section - Chat History (when expanded) OR Spacer (when collapsed) */}
+        {isTaskBarExpanded ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Search and Header Section */}
             <div className={`shrink-0 ${isDarkMode ? 'bg-[#1a1b1e]' : 'bg-gray-50'}`}>
               {/* Divider line */}
-              <div className={`mx-3 mb-3 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`} style={{ height: '1px' }}></div>
+              <div className={`mx-3 mb-4 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`} style={{ height: '1px' }}></div>
               
               {/* Search Bar - Always visible when expanded */}
-              <div className="px-4 mb-3">
+              <div className="px-4 mb-4">
                 <div className="relative">
                   <Search size={16} className={`absolute left-3 top-2.5 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -362,11 +375,7 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto px-4 pb-4 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent hover:scrollbar-thumb-gray-500"
-                 style={{
-                   scrollbarWidth: 'thin',
-                   scrollbarGutter: 'stable'
-                 }}>
+            <div className="flex-1 overflow-y-auto px-4 pb-4 hide-scrollbar">
               {!session ? (
                 // Message for non-signed-in users
                 <div className="text-center py-8">
@@ -375,12 +384,6 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
               ) : (
                 // Show chat history
                 <>
-                  {/* Chat History Header */}
-                  <div className="mb-3">
-                    <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Recent Chats
-                    </h3>
-                  </div>
                   {isSearching ? (
                     // Loading state with spinner
                     <div className={`text-center py-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -483,6 +486,9 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
               )}
             </div>
           </div>
+        ) : (
+          /* Spacer div when collapsed to push user button to bottom */
+          <div className="flex-1"></div>
         )}
 
         {/* Fixed Bottom Section - User Button */}

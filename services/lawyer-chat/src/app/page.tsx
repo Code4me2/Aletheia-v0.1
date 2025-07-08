@@ -641,6 +641,19 @@ function LawyerChatContent() {
             <div className="flex items-center space-x-3">
               {!isTaskBarExpanded && (
                 <div className="flex items-center gap-2">
+                  <a
+                    href="http://localhost:8085"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-transform hover:scale-110"
+                    title="Open Court Processor"
+                  >
+                    <img 
+                      src="/chat/logo.png" 
+                      alt="Logo" 
+                      className="h-7 w-7 object-contain cursor-pointer"
+                    />
+                  </a>
                   <h1 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : ''}`} style={{ color: isDarkMode ? '#ffffff' : '#004A84' }}>Aletheia-v0.1</h1>
                 </div>
               )}
@@ -655,22 +668,7 @@ function LawyerChatContent() {
                   compact
                 />
               )}
-              <div className="flex flex-col items-center gap-3 mr-2">
-                <a
-                  href="http://localhost:8085"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-transform hover:scale-110"
-                  title="Open Court Processor"
-                >
-                  <img 
-                    src="/chat/logo.png" 
-                    alt="Logo" 
-                    className="h-8 w-8 object-contain cursor-pointer"
-                  />
-                </a>
-                <DarkModeToggle />
-              </div>
+              <DarkModeToggle />
             </div>
           </div>
         </div>
