@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-deepseek",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "n8n node for DeepSeek-r1:1.5B model integration",
   "keywords": [
     "n8n-community-node-package",

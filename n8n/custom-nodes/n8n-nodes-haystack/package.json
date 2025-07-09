@@ -1,7 +1,7 @@
 {
-  "name": "n8n-nodes-haystack",
-  "version": "0.1.0",
-  "description": "n8n node for Haystack and Elasticsearch integration for legal document analysis",
+  "name": "n8n-nodes-haystack-rag",
+  "version": "2.0.0",
+  "description": "RAG-focused n8n node for Haystack and Elasticsearch integration",
   "keywords": [
     "n8n",
     "n8n-node",

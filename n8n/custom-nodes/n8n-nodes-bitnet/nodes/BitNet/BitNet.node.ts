@@ -11,13 +11,15 @@ import {
 
 import { RecursiveSummaryManager, SummaryLevel } from './RecursiveSummary';
 
-const BitNetServerWrapper = require('../../bitnet-server-wrapper.js');
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 // Load BitNet-specific environment variables
 const envPath = path.resolve(__dirname, '../../.env.bitnet');
 dotenv.config({ path: envPath });
+
+// Load the wrapper - when compiled, this will be in dist/
+const BitNetServerWrapper = require(path.resolve(__dirname, '../../bitnet-server-wrapper.js'));
 
 // Singleton server instance
 let serverInstance: any = null;

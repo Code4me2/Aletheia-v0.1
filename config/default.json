@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Data Compose",
-    "version": "1.0.0",
+    "name": "Aletheia",
+    "version": "0.1.0",
     "environment": "development"
   },
   "server": {

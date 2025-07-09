@@ -145,8 +145,6 @@ volumes:
 
 networks:
   frontend:
-    name: data-compose_frontend
     driver: bridge
   backend:
-    name: data-compose_backend
     driver: bridge

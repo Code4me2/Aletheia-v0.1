@@ -1,0 +1,186 @@
+version: '3.8'
+
+# Production-specific overrides with security hardening
+services:
+  web:
+    # Use specific nginx version for security
+    image: nginx:1.25-alpine
+    environment:
+      - NODE_ENV=production
+    # Production logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+    # Security: Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+  
+  db:
+    # Use specific PostgreSQL version
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_USER: "${DB_USER}"
+      POSTGRES_DB: "${DB_NAME}"
+      # Production tuning
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --data-checksums"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh
+      - postgres_backup:/backup
+    # Production deployment settings
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  n8n:
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - NODE_ENV=production
+      - N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY}"
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_CORS_ENABLED=true
+      - N8N_CORS_ALLOW_ORIGIN="${N8N_CORS_ORIGIN}"
+      - EXECUTIONS_TIMEOUT=600
+      - EXECUTIONS_TIMEOUT_MAX=3600
+      - N8N_CUSTOM_EXTENSIONS=/home/node/.n8n/custom
+      - N8N_LOG_LEVEL=error
+      - N8N_METRICS=true
+      - N8N_SECURE_COOKIE=true
+    # Production resource allocation
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 5
+
+  court-processor:
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      PYTHONPATH: /app
+      LOG_LEVEL: error
+      PYTHONUNBUFFERED: 1
+    # Production restart policy
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  lawyer-chat:
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=error
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/lawyerchat
+      # Security headers
+      - SECURE_HEADERS_ENABLED=true
+      - FORCE_HTTPS=true
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+
+  ai-portal:
+    environment:
+      - NODE_ENV=production
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Production monitoring stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - backend
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=redis-datasource
+    restart: always
+
+  # Log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    networks:
+      - backend
+    restart: always
+
+volumes:
+  postgres_backup:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+
+# Production networks with encryption
+networks:
+  frontend:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+  backend:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    internal: true

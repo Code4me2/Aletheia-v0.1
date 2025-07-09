@@ -801,7 +801,8 @@ body {
 }
 
 .history-toggle-btn,
-.new-summarization-main-btn {
+.new-summarization-main-btn,
+.new-chat-btn {
     background: var(--primary-color);
     color: var(--white);
     border: none;
@@ -817,7 +818,8 @@ body {
 }
 
 .history-toggle-btn:hover,
-.new-summarization-main-btn:hover {
+.new-summarization-main-btn:hover,
+.new-chat-btn:hover {
     transform: scale(1.1);
     box-shadow: 0 6px 12px rgba(0,0,0,0.15);
 }

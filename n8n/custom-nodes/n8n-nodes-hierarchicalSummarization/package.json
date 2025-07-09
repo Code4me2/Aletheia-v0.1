@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-hierarchicalsummarization",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "n8n node for hierarchical document summarization",
   "keywords": [
     "n8n-community-node-package",
@@ -47,6 +47,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/node": "^24.0.10",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/parser": "^7.15.0",

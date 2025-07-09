@@ -128,8 +128,20 @@
 
             <!-- Chat Section -->
             <section id="chat" class="content-section">
-                <h2 class="section-title">AI Chat Interface</h2>
-                <p class="section-subtitle">Chat with DeepSeek R1 through n8n workflows</p>
+                <div class="section-header">
+                    <div class="section-actions">
+                        <button id="chat-history-toggle" class="history-toggle-btn" onclick="toggleChatHistoryDrawer()" title="Show Chat History" style="display: none;">
+                            <i class="fas fa-history"></i>
+                        </button>
+                        <button class="new-chat-btn" onclick="startNewChat()" title="New Chat" style="display: none;">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div>
+                        <h2 class="section-title">AI Chat Interface</h2>
+                        <p class="section-subtitle">Chat with DeepSeek R1 through n8n workflows</p>
+                    </div>
+                </div>
                 
                 <!-- Chat Mode Toggle -->
                 <div class="chat-mode-toggle">
@@ -583,6 +595,21 @@
             </section>
         </main>
     </div>
+
+    <!-- Chat History Drawer -->
+    <aside id="chat-history-drawer" class="history-drawer">
+        <div class="drawer-header">
+            <h3 class="drawer-title">
+                <i class="fas fa-comments"></i> Chat History
+            </h3>
+            <button class="drawer-close" onclick="toggleChatHistoryDrawer()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="chat-history-list" class="history-list">
+            <div class="history-empty">No conversations yet</div>
+        </div>
+    </aside>
 
     <!-- History Drawer (outside main container) -->
     <aside id="history-drawer" class="history-drawer">

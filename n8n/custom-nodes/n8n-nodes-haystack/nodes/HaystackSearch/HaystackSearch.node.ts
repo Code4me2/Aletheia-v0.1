@@ -15,8 +15,8 @@ export class HaystackSearch implements INodeType {
     icon: 'file:haystack.svg',
     group: ['transform'],
     version: 1,
-    subtitle: '={{$parameter.operation + ": " + $parameter.resource}}',
-    description: 'Interact with Haystack and Elasticsearch for legal document analysis',
+    subtitle: '={{$parameter.operation}}',
+    description: 'RAG (Retrieval-Augmented Generation) with Elasticsearch for document search',
     defaults: {
       name: 'Haystack Search',
     },
@@ -30,22 +30,16 @@ export class HaystackSearch implements INodeType {
         noDataExpression: true,
         options: [
           {
-            name: 'Import from Previous Node',
-            value: 'importFromNode',
-            description: 'Import hierarchical documents from previous node (e.g., PostgreSQL query)',
-            action: 'Import documents into Elasticsearch',
-          },
-          {
             name: 'Search',
             value: 'search',
             description: 'Search documents using keyword, semantic, or hybrid methods',
             action: 'Search indexed documents',
           },
           {
-            name: 'Get Hierarchy',
-            value: 'hierarchy',
-            description: 'Navigate parent-child relationships for a document',
-            action: 'Explore document tree',
+            name: 'Ingest Documents',
+            value: 'ingest',
+            description: 'Ingest documents into Elasticsearch for RAG',
+            action: 'Ingest documents',
           },
           {
             name: 'Health Check',
@@ -53,117 +47,33 @@ export class HaystackSearch implements INodeType {
             description: 'Verify Elasticsearch and API service connectivity',
             action: 'Check system status',
           },
-          {
-            name: 'Batch Hierarchy',
-            value: 'batchHierarchy',
-            description: 'Efficiently retrieve relationships for multiple documents',
-            action: 'Batch hierarchy lookup',
-          },
-          {
-            name: 'Get Final Summary',
-            value: 'getFinalSummary',
-            description: 'Retrieve the top-level summary for a workflow',
-            action: 'Get final summary',
-          },
-          {
-            name: 'Get Complete Tree',
-            value: 'getCompleteTree',
-            description: 'Visualize complete document hierarchy as a tree',
-            action: 'Get document tree',
-          },
-          {
-            name: 'Get Document with Context',
-            value: 'getDocumentWithContext',
-            description: 'Retrieve document with breadcrumb trail and siblings',
-            action: 'Get document context',
-          },
         ],
-        default: 'importFromNode',
+        default: 'search',
       },
-      // Import operation parameters
+      // Ingest operation parameters
       {
-        displayName: 'Field Mapping',
-        name: 'fieldMapping',
-        type: 'collection',
-        placeholder: 'Add Field Mapping',
-        default: {
-          contentField: 'content',
-          summaryField: 'summary',
-          idField: 'id',
-          parentIdField: 'parent_id',
-          childIdsField: 'child_ids',
-          hierarchyLevelField: 'hierarchy_level',
-          batchIdField: 'batch_id'
-        },
+        displayName: 'Content Field',
+        name: 'contentField',
+        type: 'string',
+        default: 'content',
         displayOptions: {
           show: {
-            operation: ['importFromNode'],
+            operation: ['ingest'],
           },
         },
-        description: 'Map fields from previous node to document structure',
-        options: [
-          {
-            displayName: 'Content Field Name',
-            name: 'contentField',
-            type: 'string',
-            default: 'content',
-            description: 'Field containing document content',
-          },
-          {
-            displayName: 'Summary Field Name',
-            name: 'summaryField',
-            type: 'string',
-            default: 'summary',
-            description: 'Field containing document summary',
-          },
-          {
-            displayName: 'ID Field Name',
-            name: 'idField',
-            type: 'string',
-            default: 'id',
-            description: 'Field containing document ID',
-          },
-          {
-            displayName: 'Parent ID Field Name',
-            name: 'parentIdField',
-            type: 'string',
-            default: 'parent_id',
-            description: 'Field containing parent document ID',
-          },
-          {
-            displayName: 'Child IDs Field Name',
-            name: 'childIdsField',
-            type: 'string',
-            default: 'child_ids',
-            description: 'Field containing array of child document IDs',
-          },
-          {
-            displayName: 'Hierarchy Level Field Name',
-            name: 'hierarchyLevelField',
-            type: 'string',
-            default: 'hierarchy_level',
-            description: 'Field containing hierarchy level',
-          },
-          {
-            displayName: 'Batch/Workflow ID Field Name',
-            name: 'batchIdField',
-            type: 'string',
-            default: 'batch_id',
-            description: 'Field containing batch or workflow ID',
-          },
-        ],
+        description: 'Field name containing the document content',
       },
       {
-        displayName: 'Generate Embeddings',
-        name: 'generateEmbeddings',
-        type: 'boolean',
-        default: true,
+        displayName: 'Metadata Fields',
+        name: 'metadataFields',
+        type: 'string',
+        default: 'title,source,author',
         displayOptions: {
           show: {
-            operation: ['importFromNode'],
+            operation: ['ingest'],
           },
         },
-        description: 'Whether to generate embeddings for imported documents',
+        description: 'Comma-separated list of metadata field names to include',
       },
       // Search operation parameters
       {
@@ -222,18 +132,6 @@ export class HaystackSearch implements INodeType {
         description: 'Number of top results to return',
       },
       {
-        displayName: 'Include Hierarchy',
-        name: 'includeHierarchy',
-        type: 'boolean',
-        default: false,
-        displayOptions: {
-          show: {
-            operation: ['search'],
-          },
-        },
-        description: 'Whether to include document hierarchy in results',
-      },
-      {
         displayName: 'Filters',
         name: 'filters',
         type: 'json',
@@ -245,153 +143,6 @@ export class HaystackSearch implements INodeType {
         },
         description: 'Additional filters to apply to search',
         placeholder: '{"document_type": "summary", "hierarchy_level": 2}',
-      },
-      // Hierarchy operation parameters
-      {
-        displayName: 'Document ID',
-        name: 'documentId',
-        type: 'string',
-        default: '',
-        required: true,
-        displayOptions: {
-          show: {
-            operation: ['hierarchy'],
-          },
-        },
-        description: 'ID of the document to get hierarchy for',
-      },
-      {
-        displayName: 'Include Parents',
-        name: 'includeParents',
-        type: 'boolean',
-        default: true,
-        displayOptions: {
-          show: {
-            operation: ['hierarchy'],
-          },
-        },
-        description: 'Whether to include parent documents',
-      },
-      {
-        displayName: 'Include Children',
-        name: 'includeChildren',
-        type: 'boolean',
-        default: true,
-        displayOptions: {
-          show: {
-            operation: ['hierarchy'],
-          },
-        },
-        description: 'Whether to include child documents',
-      },
-      {
-        displayName: 'Max Depth',
-        name: 'maxDepth',
-        type: 'number',
-        default: 3,
-        displayOptions: {
-          show: {
-            operation: ['hierarchy'],
-          },
-        },
-        description: 'Maximum depth to traverse in hierarchy',
-      },
-      // Get Final Summary operation parameters
-      {
-        displayName: 'Workflow ID',
-        name: 'workflowId',
-        type: 'string',
-        default: '',
-        required: true,
-        displayOptions: {
-          show: {
-            operation: ['getFinalSummary'],
-          },
-        },
-        description: 'ID of the workflow to get final summary for',
-        placeholder: 'workflow-uuid-12345',
-      },
-      // Get Complete Tree operation parameters
-      {
-        displayName: 'Workflow ID',
-        name: 'treeWorkflowId',
-        type: 'string',
-        default: '',
-        required: true,
-        displayOptions: {
-          show: {
-            operation: ['getCompleteTree'],
-          },
-        },
-        description: 'ID of the workflow to get tree structure for',
-        placeholder: 'workflow-uuid-12345',
-      },
-      {
-        displayName: 'Max Depth',
-        name: 'treeMaxDepth',
-        type: 'number',
-        default: 5,
-        displayOptions: {
-          show: {
-            operation: ['getCompleteTree'],
-          },
-        },
-        description: 'Maximum tree depth to return (1-20)',
-        typeOptions: {
-          minValue: 1,
-          maxValue: 20,
-        },
-      },
-      {
-        displayName: 'Include Content',
-        name: 'treeIncludeContent',
-        type: 'boolean',
-        default: false,
-        displayOptions: {
-          show: {
-            operation: ['getCompleteTree'],
-          },
-        },
-        description: 'Whether to include full content in tree nodes',
-      },
-      // Get Document with Context operation parameters
-      {
-        displayName: 'Document ID',
-        name: 'contextDocumentId',
-        type: 'string',
-        default: '',
-        required: true,
-        displayOptions: {
-          show: {
-            operation: ['getDocumentWithContext'],
-          },
-        },
-        description: 'ID of the document to get with context',
-        placeholder: 'doc-uuid-12345',
-      },
-      {
-        displayName: 'Include Full Content',
-        name: 'includeFullContent',
-        type: 'boolean',
-        default: true,
-        displayOptions: {
-          show: {
-            operation: ['getDocumentWithContext'],
-          },
-        },
-        description: 'Whether to include full document content or just preview',
-      },
-      {
-        displayName: 'Include Siblings',
-        name: 'includeSiblings',
-        type: 'boolean',
-        default: false,
-        displayOptions: {
-          show: {
-            operation: ['getDocumentWithContext'],
-          },
-        },
-        description: 'Whether to include sibling documents in response',
       },
       // Common parameters
       {
@@ -418,29 +169,31 @@ export class HaystackSearch implements INodeType {
         let body: any = {};
 
         switch (operation) {
-          case 'importFromNode':
-            endpoint = '/import_from_node';
-            const fieldMapping = this.getNodeParameter('fieldMapping', i) as any;
-            const generateEmbeddings = this.getNodeParameter('generateEmbeddings', i) as boolean;
+          case 'ingest':
+            endpoint = '/ingest';
+            const contentField = this.getNodeParameter('contentField', i) as string;
+            const metadataFields = this.getNodeParameter('metadataFields', i) as string;
             
             const inputData = items[i].json;
-            const mappedDocument = {
-              content: inputData[fieldMapping.contentField || 'content'] || '',
-              summary: inputData[fieldMapping.summaryField || 'summary'] || '',
-              document_id: String(inputData[fieldMapping.idField || 'id'] || ''),
-              parent_id: inputData[fieldMapping.parentIdField || 'parent_id'] ? String(inputData[fieldMapping.parentIdField || 'parent_id']) : null,
-              children_ids: inputData[fieldMapping.childIdsField || 'child_ids'] || [],
-              hierarchy_level: inputData[fieldMapping.hierarchyLevelField || 'hierarchy_level'] || 0,
-              workflow_id: inputData[fieldMapping.batchIdField || 'batch_id'] || '',
-              metadata: {
-                ...inputData,
-                source_system: 'hierarchical_summarization',
-                imported_at: new Date().toISOString(),
-              },
-              generate_embeddings: generateEmbeddings,
+            const document: any = {
+              content: inputData[contentField] || '',
+              metadata: {},
             };
             
-            body = mappedDocument;
+            // Add metadata fields
+            if (metadataFields) {
+              const fields = metadataFields.split(',').map(f => f.trim());
+              fields.forEach(field => {
+                if (inputData[field] !== undefined) {
+                  document.metadata[field] = inputData[field];
+                }
+              });
+            }
+            
+            // Add timestamp
+            document.metadata.ingested_at = new Date().toISOString();
+            
+            body = [document]; // The ingest endpoint expects an array
             break;
 
           case 'search':
@@ -448,7 +201,6 @@ export class HaystackSearch implements INodeType {
             body = {
               query: this.getNodeParameter('query', i) as string,
               top_k: this.getNodeParameter('topK', i) as number,
-              include_hierarchy: this.getNodeParameter('includeHierarchy', i) as boolean,
             };
             
             const searchType = this.getNodeParameter('searchType', i) as string;
@@ -474,67 +226,10 @@ export class HaystackSearch implements INodeType {
             }
             break;
 
-          case 'hierarchy':
-            endpoint = '/hierarchy';
-            body = {
-              document_id: this.getNodeParameter('documentId', i) as string,
-              include_parents: this.getNodeParameter('includeParents', i) as boolean,
-              include_children: this.getNodeParameter('includeChildren', i) as boolean,
-              max_depth: this.getNodeParameter('maxDepth', i) as number,
-            };
-            break;
-
           case 'health':
             endpoint = '/health';
             method = 'GET';
             body = null;
-            break;
-
-
-          case 'getFinalSummary':
-            const workflowId = this.getNodeParameter('workflowId', i) as string;
-            if (!workflowId?.trim()) {
-              throw new NodeOperationError(this.getNode(), 'Workflow ID is required');
-            }
-            endpoint = `/get_final_summary/${encodeURIComponent(workflowId.trim())}`;
-            method = 'GET';
-            body = null;
-            break;
-
-          case 'getCompleteTree':
-            const treeWorkflowId = this.getNodeParameter('treeWorkflowId', i) as string;
-            if (!treeWorkflowId?.trim()) {
-              throw new NodeOperationError(this.getNode(), 'Workflow ID is required');
-            }
-            const treeMaxDepth = this.getNodeParameter('treeMaxDepth', i) as number;
-            const treeIncludeContent = this.getNodeParameter('treeIncludeContent', i) as boolean;
-            
-            endpoint = `/get_complete_tree/${encodeURIComponent(treeWorkflowId.trim())}`;
-            method = 'GET';
-            body = null;
-            
-            const treeParams = new URLSearchParams();
-            treeParams.append('max_depth', treeMaxDepth.toString());
-            treeParams.append('include_content', treeIncludeContent.toString());
-            endpoint += `?${treeParams.toString()}`;
-            break;
-
-          case 'getDocumentWithContext':
-            const contextDocumentId = this.getNodeParameter('contextDocumentId', i) as string;
-            if (!contextDocumentId?.trim()) {
-              throw new NodeOperationError(this.getNode(), 'Document ID is required');
-            }
-            const includeFullContent = this.getNodeParameter('includeFullContent', i) as boolean;
-            const includeSiblings = this.getNodeParameter('includeSiblings', i) as boolean;
-            
-            endpoint = `/get_document_with_context/${encodeURIComponent(contextDocumentId.trim())}`;
-            method = 'GET';
-            body = null;
-            
-            const contextParams = new URLSearchParams();
-            contextParams.append('include_full_content', includeFullContent.toString());
-            contextParams.append('include_siblings', includeSiblings.toString());
-            endpoint += `?${contextParams.toString()}`;
             break;
 
           default:

@@ -38,6 +38,13 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy public assets
 COPY --from=builder /app/public/* /usr/share/nginx/html/
 
+# Create nginx user and set permissions
+RUN touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run/nginx.pid /usr/share/nginx/html
+
+# Switch to non-root user
+USER nginx
+
 # Expose port 80
 EXPOSE 80
 

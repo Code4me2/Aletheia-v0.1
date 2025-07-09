@@ -71,10 +71,12 @@ courts:
 ### Scheduling
 
 The cron schedule is defined in `scripts/court-schedule`:
-- Tax Court: Daily at 2 AM
-- First Circuit: Daily at 3 AM
-- DC Circuit: Daily at 4 AM
+- Tax Court: Daily at 2 AM (✅ Fully implemented)
+- First Circuit: Daily at 3 AM (⚠️ Configuration only - implementation pending)
+- DC Circuit: Daily at 4 AM (⚠️ Configuration only - implementation pending)
 - Full run: Sundays at 5 AM
+
+**Note**: Currently, only the Tax Court module is fully implemented. Other courts are configured but require the corresponding scraper modules to be developed.
 
 ## Database Schema
 

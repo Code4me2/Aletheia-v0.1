@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-yake",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "n8n node for extracting key words and phrases from text using a python library called YAKE",
   "keywords": [
     "n8n",
@@ -25,7 +25,11 @@
     "format": "prettier nodes --write",
     "lint": "eslint nodes package.json --ext .js --ext .ts",
     "lintfix": "eslint nodes package.json --ext .js --ext .ts --fix",
-    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes package.json"
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes package.json",
+    "test": "node test/run-tests.js",
+    "test:unit": "node test/run-tests.js",
+    "test:integration": "node test/integration/test-python-integration.js",
+    "test:quick": "node test/unit/test-node-structure.js"
   },
   "files": [
     "dist"

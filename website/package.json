@@ -1,7 +1,7 @@
 {
-  "name": "data-compose-website",
-  "version": "1.0.0",
-  "description": "Data Compose - AI-powered workflow automation interface",
+  "name": "aletheia-website",
+  "version": "0.1.0",
+  "description": "Aletheia v0.1 - AI-powered workflow automation interface",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -61,6 +61,6 @@
     "typescript",
     "alpine"
   ],
-  "author": "Data Compose Team",
+  "author": "Aletheia Team",
   "license": "MIT"
 }

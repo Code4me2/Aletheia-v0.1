@@ -1,0 +1,31 @@
+{
+  "nodeName": "YAKE Keyword Extraction Node",
+  "timestamp": "2025-07-02T18:10:52.924Z",
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "name": "Node Structure Validation",
+      "status": "passed",
+      "description": "Validates node compilation and structure"
+    },
+    {
+      "name": "YAKE Configuration",
+      "status": "passed",
+      "description": "Validates YAKE node configuration and parameters"
+    },
+    {
+      "name": "Keyword Extraction Logic",
+      "status": "passed",
+      "description": "Tests keyword extraction with mocked Python subprocess"
+    },
+    {
+      "name": "Python Integration",
+      "status": "passed",
+      "description": "Tests actual Python YAKE integration (requires Python + YAKE)"
+    }
+  ]
+}

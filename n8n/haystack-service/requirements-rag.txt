@@ -1,0 +1,22 @@
+# Haystack RAG Service Requirements
+# Simplified for pure RAG functionality
+
+# Core dependencies
+fastapi==0.115.5
+uvicorn[standard]==0.25.0
+pydantic==2.5.3
+
+# Elasticsearch
+elasticsearch==8.11.1
+
+# Embeddings
+sentence-transformers>=2.7.0
+torch>=2.0.0
+numpy>=1.24.0
+transformers>=4.30.0
+
+# PostgreSQL for unified mode
+asyncpg==0.29.0
+
+# Development
+python-multipart==0.0.6

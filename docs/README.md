@@ -1,6 +1,6 @@
-# Data Compose Documentation
+# Aletheia v0.1 Documentation
 
-Welcome to the Data Compose documentation. This directory contains all project documentation organized by category.
+Welcome to the Aletheia documentation. This directory contains all project documentation organized by category.
 
 ## Documentation Structure
 

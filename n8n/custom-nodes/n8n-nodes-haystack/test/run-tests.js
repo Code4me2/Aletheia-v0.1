@@ -27,6 +27,16 @@ runner.addTestGroup([
     description: 'Validates Haystack node configuration'
   },
   {
+    name: 'Elasticsearch Mock Tests',
+    file: path.join(__dirname, 'unit', 'test-elasticsearch-mock.js'),
+    description: 'Tests node behavior with mocked Elasticsearch responses'
+  },
+  {
+    name: 'Hierarchy Operations',
+    file: path.join(__dirname, 'unit', 'test-hierarchy-operations.js'),
+    description: 'Tests document hierarchy tracking and batch operations'
+  },
+  {
     name: 'API Integration',
     file: path.join(__dirname, 'integration', 'test-haystack-api.js'),
     description: 'Tests connection to Haystack service'

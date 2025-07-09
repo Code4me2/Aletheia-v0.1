@@ -27,9 +27,7 @@ services:
       - backend
 
   haystack-service:
-    build:
-      context: ./haystack-service
-      dockerfile: Dockerfile
+    image: data_compose-haystack-service:latest
     container_name: haystack-judicial
     ports:
       - "8000:8000"
@@ -37,11 +35,17 @@ services:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+      - HAYSTACK_MODE=unified
+      - ENABLE_POSTGRESQL=true
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - ELASTICSEARCH_INDEX=legal-documents-rag
     depends_on:
       elasticsearch:
         condition: service_healthy
     volumes:
-      - ./haystack-service:/app
       - haystack_models:/app/models
     networks:
       - backend
@@ -56,7 +60,7 @@ volumes:
 networks:
   backend:
     external: true
-    name: data-compose_backend
+    name: data_compose_backend
   frontend:
     external: true
-    name: data-compose_frontend
+    name: data_compose_frontend

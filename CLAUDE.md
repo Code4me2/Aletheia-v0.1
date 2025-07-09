@@ -19,7 +19,7 @@ The project is structured as a Docker-based application with three main services
 ## Directory Structure
 
 ```
-data_compose/
+Aletheia-v0.1/
 ├── CLAUDE.md                  # Project documentation
 ├── README.md                  # Public-facing documentation
 ├── docker-compose.yml         # Main Docker configuration
@@ -381,7 +381,7 @@ ai-portal-nginx:    # Nginx proxy (external port 8085)
 ```
 
 ### Current Git Configuration
-- Working directory remains `/home/manzanita/coding/data-compose`
+- Working directory: `/Users/vel/Desktop/coding/Aletheia-v0.1`
 - Primary remote: `aletheia` → https://github.com/Code4me2/Aletheia-v0.1.git
 - Branch `main` tracks `aletheia/main`
 - Original remotes preserved for reference
@@ -788,7 +788,7 @@ curl -X POST http://localhost:8000/search \
 ### Setup Commands
 
 ```bash
-# From data_compose/ root directory
+# From Aletheia-v0.1/ root directory
 # Start all services including Haystack
 docker-compose -f docker-compose.yml -f n8n/docker-compose.haystack.yml up -d
 

@@ -6,6 +6,11 @@ class DataComposeApp {
         this.currentSection = 'home';
         this.webhookUrl = CONFIG.WEBHOOK_URL;
         this.sections = new Map();
+        
+        // Chat history management
+        this.currentChatId = null;
+        this.chatHistory = new Map();
+        
         this.init();
     }
 
@@ -83,6 +88,14 @@ class DataComposeApp {
         this.registerSection('chat', {
             onShow: () => {
                 this.initializeChatIfNeeded();
+                this.loadChatHistory();
+                document.getElementById('chat-history-toggle').style.display = 'flex';
+                document.querySelector('.new-chat-btn').style.display = 'flex';
+            },
+            onHide: () => {
+                document.getElementById('chat-history-drawer').classList.remove('open');
+                document.getElementById('chat-history-toggle').style.display = 'none';
+                document.querySelector('.new-chat-btn').style.display = 'none';
             }
         });
 
@@ -172,6 +185,11 @@ class DataComposeApp {
         
         if (!message) return;
         
+        // Initialize new chat if needed
+        if (!this.currentChatId) {
+            this.currentChatId = this.generateChatId();
+        }
+        
         this.addMessage(message, true);
         messageInput.value = '';
         
@@ -189,6 +207,7 @@ class DataComposeApp {
                 },
                 body: JSON.stringify({
                     action: action,
+                    sessionKey: this.currentChatId,  // Using chatId as sessionKey for n8n PostgreSQL storage
                     message: message,
                     timestamp: new Date().toISOString()
                 })
@@ -211,6 +230,9 @@ class DataComposeApp {
             this.updateChatStatus('');
             this.addMessage(responseText);
             
+            // Save conversation after successful response
+            this.saveCurrentConversation();
+            
         } catch (error) {
             this.updateChatStatus('Error: ' + error.message);
             console.error('Chat error:', error);
@@ -222,6 +244,160 @@ class DataComposeApp {
         if (statusElement) {
             statusElement.textContent = message;
         }
+    }
+
+    // Chat History Management Methods
+    generateChatId() {
+        return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    getChatHistory() {
+        const stored = localStorage.getItem('ai_chat_history');
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    saveChatHistory(history) {
+        localStorage.setItem('ai_chat_history', JSON.stringify(history));
+    }
+
+    saveCurrentConversation() {
+        const messages = document.querySelectorAll('#chat-messages .message');
+        if (messages.length <= 1) return; // Don't save if only welcome message
+        
+        const conversation = {
+            id: this.currentChatId,
+            timestamp: new Date().toISOString(),
+            messageCount: messages.length,
+            preview: messages[1]?.textContent.substring(0, 100) || 'New conversation',
+            messages: Array.from(messages).map(msg => ({
+                content: msg.textContent,
+                isUser: msg.classList.contains('user'),
+                timestamp: new Date().toISOString()
+            }))
+        };
+        
+        const history = this.getChatHistory();
+        
+        // Update existing conversation or add new one
+        const existingIndex = history.findIndex(item => item.id === this.currentChatId);
+        if (existingIndex !== -1) {
+            history[existingIndex] = conversation;
+        } else {
+            history.unshift(conversation);
+        }
+        
+        // Keep only last 50 conversations
+        if (history.length > 50) {
+            history.splice(50);
+        }
+        
+        this.saveChatHistory(history);
+        this.loadChatHistory();
+    }
+
+    loadChatHistory() {
+        const history = this.getChatHistory();
+        const historyList = document.getElementById('chat-history-list');
+        
+        if (!historyList) return;
+        
+        if (history.length === 0) {
+            historyList.innerHTML = '<div class="history-empty">No conversations yet</div>';
+        } else {
+            historyList.innerHTML = history.map(item => `
+                <div class="history-item" 
+                     onclick="window.app.loadChatConversation('${item.id}')"
+                     oncontextmenu="window.app.showChatHistoryContextMenu(event, '${item.id}'); return false;">
+                    <div class="history-item-title">${item.preview}</div>
+                    <div class="history-item-meta">
+                        ${new Date(item.timestamp).toLocaleDateString()} • 
+                        ${item.messageCount} messages
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    loadChatConversation(chatId) {
+        const history = this.getChatHistory();
+        const conversation = history.find(item => item.id === chatId);
+        
+        if (!conversation) return;
+        
+        // Clear current chat
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = '';
+        
+        // Load messages
+        conversation.messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(msg.isUser ? 'user' : 'bot');
+            messageDiv.textContent = msg.content;
+            chatMessages.appendChild(messageDiv);
+        });
+        
+        // Update current chat ID
+        this.currentChatId = chatId;
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Close drawer
+        document.getElementById('chat-history-drawer').classList.remove('open');
+    }
+
+    showChatHistoryContextMenu(event, chatId) {
+        event.preventDefault();
+        
+        // Remove any existing context menu
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) existingMenu.remove();
+        
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+        menu.innerHTML = `
+            <div class="context-menu-item" onclick="window.app.deleteChatConversation('${chatId}')">
+                <i class="fas fa-trash"></i> Delete
+            </div>
+        `;
+        
+        document.body.appendChild(menu);
+        
+        // Remove menu when clicking elsewhere
+        setTimeout(() => {
+            document.addEventListener('click', function removeMenu() {
+                menu.remove();
+                document.removeEventListener('click', removeMenu);
+            }, { once: true });
+        }, 100);
+    }
+
+    deleteChatConversation(chatId) {
+        if (confirm('Delete this conversation?')) {
+            const history = this.getChatHistory();
+            const filtered = history.filter(item => item.id !== chatId);
+            this.saveChatHistory(filtered);
+            this.loadChatHistory();
+            
+            // If deleted current chat, start new one
+            if (chatId === this.currentChatId) {
+                this.startNewChat();
+            }
+        }
+    }
+
+    startNewChat() {
+        this.currentChatId = this.generateChatId();
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = `
+            <div class="message bot">
+                Welcome! I'm your AI assistant powered by DeepSeek R1. How can I help you today?
+            </div>
+        `;
     }
 
     // n8n Connection Test (Preserved from original)
@@ -385,16 +561,38 @@ window.toggleHistoryDrawer = function() {
     }
 }
 
+window.toggleChatHistoryDrawer = function() {
+    const drawer = document.getElementById('chat-history-drawer');
+    if (drawer) {
+        drawer.classList.toggle('open');
+    }
+}
+
+window.startNewChat = function() {
+    if (window.app) {
+        window.app.startNewChat();
+    }
+}
+
 // Close drawer when clicking outside (optional enhancement)
 document.addEventListener('click', function(event) {
     const drawer = document.getElementById('history-drawer');
     const toggleBtn = document.getElementById('history-toggle');
+    const chatDrawer = document.getElementById('chat-history-drawer');
+    const chatToggleBtn = document.getElementById('chat-history-toggle');
     
-    // Check if click is outside drawer and toggle button
-    if (drawer.classList.contains('open') && 
+    // Check if click is outside history drawer and toggle button
+    if (drawer && drawer.classList.contains('open') && 
         !drawer.contains(event.target) && 
-        !toggleBtn.contains(event.target)) {
+        toggleBtn && !toggleBtn.contains(event.target)) {
         drawer.classList.remove('open');
+    }
+    
+    // Check if click is outside chat history drawer and toggle button
+    if (chatDrawer && chatDrawer.classList.contains('open') && 
+        !chatDrawer.contains(event.target) && 
+        chatToggleBtn && !chatToggleBtn.contains(event.target)) {
+        chatDrawer.classList.remove('open');
     }
 });
 

@@ -4,6 +4,7 @@ module.exports = {
     '<rootDir>/website',
     '<rootDir>/n8n/custom-nodes/*',
     '<rootDir>/court-processor',
+    '<rootDir>/test',
   ],
   
   // Global settings

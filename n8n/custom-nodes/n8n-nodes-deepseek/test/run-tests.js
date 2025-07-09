@@ -27,6 +27,11 @@ runner.addTestGroup([
     description: 'Validates DeepSeek node configuration'
   },
   {
+    name: 'Ollama Mock API',
+    file: path.join(__dirname, 'unit', 'test-ollama-mock.js'),
+    description: 'Tests node behavior with mocked Ollama responses'
+  },
+  {
     name: 'API Integration',
     file: path.join(__dirname, 'integration', 'test-ollama-api.js'),
     description: 'Tests connection to Ollama API'
