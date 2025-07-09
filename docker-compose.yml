@@ -4,7 +4,7 @@ services:
   web:
     image: nginx:latest
     ports:
-      - "8080:80"
+      - "${WEB_PORT:-8080}:80"
     volumes:
       - ./website:/usr/share/nginx/html
       - ./nginx/conf.d:/etc/nginx/conf.d
@@ -39,7 +39,7 @@ services:
   n8n:
     image: n8nio/n8n:latest
     ports:
-      - "5678:5678"
+      - "${N8N_PORT:-5678}:5678"
     environment:
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
@@ -104,7 +104,7 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
     ports:
-      - "3001:3000"
+      - "${LAWYER_CHAT_PORT:-3001}:3000"
     depends_on:
       - db
       - n8n
@@ -131,7 +131,7 @@ services:
     container_name: ai-portal-nginx
     restart: unless-stopped
     ports:
-      - "8085:80"
+      - "${AI_PORTAL_PORT:-8085}:80"
     volumes:
       - ./services/ai-portal/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:

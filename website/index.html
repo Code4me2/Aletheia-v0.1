@@ -177,6 +177,21 @@
                     
                     <div id="chat-status" class="chat-status"></div>
                 </div>
+                
+                <!-- Chat History Drawer (inside chat section) -->
+                <aside id="chat-history-drawer" class="history-drawer">
+                    <div class="drawer-header">
+                        <h3 class="drawer-title">
+                            <i class="fas fa-comments"></i> Chat History
+                        </h3>
+                        <button class="drawer-close" onclick="toggleChatHistoryDrawer()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="chat-history-list" class="history-list">
+                        <div class="history-empty">No conversations yet</div>
+                    </div>
+                </aside>
             </section>
 
             <!-- Workflows Section -->
@@ -346,6 +361,21 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- History Drawer (inside hierarchical summarization section) -->
+                <aside id="history-drawer" class="history-drawer">
+                    <div class="drawer-header">
+                        <h3 class="drawer-title">
+                            <i class="fas fa-history"></i> Summarization History
+                        </h3>
+                        <button class="drawer-close" onclick="toggleHistoryDrawer()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="history-list" class="history-list">
+                        <div class="history-empty">No summarizations yet</div>
+                    </div>
+                </aside>
             </section>
 
             <!-- RAG Testing Section -->
@@ -596,35 +626,6 @@
         </main>
     </div>
 
-    <!-- Chat History Drawer -->
-    <aside id="chat-history-drawer" class="history-drawer">
-        <div class="drawer-header">
-            <h3 class="drawer-title">
-                <i class="fas fa-comments"></i> Chat History
-            </h3>
-            <button class="drawer-close" onclick="toggleChatHistoryDrawer()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="chat-history-list" class="history-list">
-            <div class="history-empty">No conversations yet</div>
-        </div>
-    </aside>
-
-    <!-- History Drawer (outside main container) -->
-    <aside id="history-drawer" class="history-drawer">
-        <div class="drawer-header">
-            <h3 class="drawer-title">
-                <i class="fas fa-history"></i> Summarization History
-            </h3>
-            <button class="drawer-close" onclick="toggleHistoryDrawer()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="history-list" class="history-list">
-            <div class="history-empty">No summarizations yet</div>
-        </div>
-    </aside>
     
     <!-- D3.js for tree visualization (loaded on demand) -->
     <script>

@@ -14,7 +14,7 @@ services:
       - network.host=0.0.0.0
       - cluster.name=judicial-cluster
     ports:
-      - "9200:9200"
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
       - "9300:9300"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
@@ -30,7 +30,7 @@ services:
     image: data_compose-haystack-service:latest
     container_name: haystack-judicial
     ports:
-      - "8000:8000"
+      - "${HAYSTACK_PORT:-8000}:8000"
     environment:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
       - PYTHONPATH=/app
