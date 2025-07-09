@@ -60,7 +60,7 @@ volumes:
 networks:
   backend:
     external: true
-    name: data_compose_backend
+    name: aletheia_backend
   frontend:
     external: true
-    name: data_compose_frontend
+    name: aletheia_frontend

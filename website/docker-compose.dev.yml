@@ -18,7 +18,7 @@ services:
     command: >
       sh -c "npm install && npm run dev -- --host 0.0.0.0"
     networks:
-      - data-compose_frontend
+      - aletheia_frontend
 
   # Production build preview
   website-build:
@@ -28,8 +28,8 @@ services:
     ports:
       - "8081:80"  # Different port to avoid conflict
     networks:
-      - data-compose_frontend
+      - aletheia_frontend
 
 networks:
-  data-compose_frontend:
+  aletheia_frontend:
     external: true

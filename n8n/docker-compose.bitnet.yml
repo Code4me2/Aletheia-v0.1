@@ -50,4 +50,4 @@ services:
 networks:
   backend:
     external: true
-    name: data-compose_backend
+    name: aletheia_backend
