@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Send, Wrench } from 'lucide-react';
+import { Send } from 'lucide-react';
 import DarkModeToggle from '@/components/DarkModeToggle';
 import TaskBar from '@/components/TaskBar';
 import CitationPanel from '@/components/CitationPanel';
@@ -866,7 +866,65 @@ function LawyerChatContent() {
                       height: buttonSize
                     }}
                   >
-                    <Wrench size={iconSize} />
+                    {/* Custom Settings/Filter Icon */}
+                    <svg 
+                      width={Math.round(iconSize * 1.3)} 
+                      height={Math.round(iconSize * 1.3)} 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="transition-all"
+                    >
+                      {/* Top line with circle on left */}
+                      <line 
+                        x1="3" 
+                        y1="8" 
+                        x2="21" 
+                        y2="8" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <circle 
+                        cx="7" 
+                        cy="8" 
+                        r="3" 
+                        fill={isDarkMode ? '#25262b' : '#ffffff'}
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                      />
+                      <circle 
+                        cx="7" 
+                        cy="8" 
+                        r="1.5" 
+                        fill="currentColor"
+                      />
+                      
+                      {/* Bottom line with circle on right */}
+                      <line 
+                        x1="3" 
+                        y1="16" 
+                        x2="21" 
+                        y2="16" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <circle 
+                        cx="17" 
+                        cy="16" 
+                        r="3" 
+                        fill={isDarkMode ? '#25262b' : '#ffffff'}
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                      />
+                      <circle 
+                        cx="17" 
+                        cy="16" 
+                        r="1.5" 
+                        fill="currentColor"
+                      />
+                    </svg>
                   </button>
                   
                   {/* Tools Dropdown */}
