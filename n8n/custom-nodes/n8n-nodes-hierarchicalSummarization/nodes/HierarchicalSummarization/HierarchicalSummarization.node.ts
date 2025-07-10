@@ -938,17 +938,19 @@ async function ensureDatabaseSchema(pool: Pool): Promise<void> {
           ALTER TABLE hierarchical_documents 
           ADD COLUMN source_document_ids INTEGER[] DEFAULT '{}';
       END IF;
-      
-      -- Create index on document_type if it doesn't exist
-      IF NOT EXISTS (SELECT 1 FROM pg_indexes 
-                     WHERE tablename = 'hierarchical_documents' 
-                     AND indexname = 'idx_document_type') THEN
-          CREATE INDEX idx_document_type ON hierarchical_documents(document_type);
-      END IF;
     END $$;
   `;
   
   await pool.query(migrationSQL);
+  
+  // Create index on document_type separately, outside the DO block
+  // Using CREATE INDEX IF NOT EXISTS which is supported in PostgreSQL 9.5+
+  const indexSQL = `
+    CREATE INDEX IF NOT EXISTS idx_document_type 
+      ON hierarchical_documents(document_type);
+  `;
+  
+  await pool.query(indexSQL);
 }
 
 async function readTextFilesFromDirectory(
