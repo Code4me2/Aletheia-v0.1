@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/utils/email';
 import { createLogger } from '@/utils/logger';
+import { config, isAllowedEmailDomain } from '@/lib/config';
 
 const logger = createLogger('forgot-password-api');
 
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email is from allowed domain
-    if (!email.endsWith('@reichmanjorgensen.com')) {
+    if (!isAllowedEmailDomain(email)) {
       // Return success even for non-allowed domains to prevent email enumeration
       return NextResponse.json({
         message: 'If an account exists with this email, a password reset link has been sent.'
@@ -109,9 +110,9 @@ export async function POST(request: NextRequest) {
     const resetToken = randomBytes(32).toString('hex');
     const hashedToken = await bcrypt.hash(resetToken, 10);
 
-    // Set expiry to 1 hour from now
+    // Set expiry based on config
     const resetExpiry = new Date();
-    resetExpiry.setHours(resetExpiry.getHours() + 1);
+    resetExpiry.setHours(resetExpiry.getHours() + config.security.resetTokenExpiryHours);
 
     // Update user with reset token
     await prisma.user.update({

@@ -4,6 +4,7 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { logger } from '@/utils/logger';
+import { config } from '@/lib/config';
 
 export async function sendVerificationEmail(email: string, token: string) {
   const verificationUrl = `${process.env.NEXTAUTH_URL}/api/auth/verify?email=${encodeURIComponent(email)}&token=${token}`;
@@ -26,14 +27,14 @@ export async function sendVerificationEmail(email: string, token: string) {
       transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.office365.com',
         port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false, // true for 465, false for other ports
+        secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
         },
         tls: {
-          ciphers: 'SSLv3',
-          rejectUnauthorized: false
+          minVersion: 'TLSv1.2',
+          rejectUnauthorized: true
         }
       });
     } else {
@@ -51,7 +52,7 @@ export async function sendVerificationEmail(email: string, token: string) {
     }
 
     const emailContent = {
-    from: process.env.SMTP_FROM || 'noreply@reichmanjorgensen.com',
+    from: config.email.from,
     to: email,
     subject: 'Verify your AI Legal account',
     html: `
@@ -164,14 +165,14 @@ export async function sendPasswordResetEmail(email: string, token: string) {
       transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.office365.com',
         port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
+        secure: process.env.SMTP_PORT === '465',
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
         },
         tls: {
-          ciphers: 'SSLv3',
-          rejectUnauthorized: false
+          minVersion: 'TLSv1.2',
+          rejectUnauthorized: true
         }
       });
     } else {
@@ -188,7 +189,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     }
 
     const emailContent = {
-      from: process.env.SMTP_FROM || 'noreply@reichmanjorgensen.com',
+      from: config.email.from,
       to: email,
       subject: 'Reset your AI Legal password',
       html: `

@@ -2,17 +2,17 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { checkCsrf } from '@/utils/csrf';
 
-// Simple in-memory rate limiter (use Redis in production)
+// Simple in-memory rate limiter for Edge Runtime
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 // Rate limit configuration
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const MAX_REQUESTS = {
-  '/api/chat': 20, // 20 messages per minute
-  '/api/chats/[id]/messages': 30, // 30 message saves per minute (for streaming)
-  '/api/chats': 10, // 10 new chats per minute
-  '/api/auth': 5,  // 5 login attempts per minute
-  default: 100     // 100 requests per minute for other endpoints
+const RATE_LIMITS = {
+  '/api/auth': 5,
+  '/api/chat': 20,
+  '/api/chats': 10,
+  '/messages': 30,
+  default: 100
 };
 
 export async function middleware(request: NextRequest) {
@@ -53,11 +53,15 @@ export async function middleware(request: NextRequest) {
   // Get client identifier (IP or user ID)
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
   const key = `${ip}:${path}`;
-
+  
   // Get rate limit for this endpoint
-  const limit = Object.entries(MAX_REQUESTS).find(([route]) => 
-    path.startsWith(route)
-  )?.[1] || MAX_REQUESTS.default;
+  let limit = RATE_LIMITS.default;
+  for (const [route, routeLimit] of Object.entries(RATE_LIMITS)) {
+    if (path.startsWith(route)) {
+      limit = routeLimit;
+      break;
+    }
+  }
 
   // Check rate limit
   const now = Date.now();
@@ -98,16 +102,21 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// Clean up old entries periodically (every 5 minutes)
-if (typeof window === 'undefined') {
-  setInterval(() => {
+
+// Clean up old entries periodically
+declare global {
+  var rateLimitCleanupInterval: NodeJS.Timeout | undefined;
+}
+
+if (typeof globalThis !== 'undefined' && !globalThis.rateLimitCleanupInterval) {
+  globalThis.rateLimitCleanupInterval = setInterval(() => {
     const now = Date.now();
     for (const [key, info] of rateLimitMap.entries()) {
       if (now > info.resetTime + RATE_LIMIT_WINDOW) {
         rateLimitMap.delete(key);
       }
     }
-  }, 5 * 60 * 1000);
+  }, 5 * 60 * 1000); // Every 5 minutes
 }
 
 export const config = {

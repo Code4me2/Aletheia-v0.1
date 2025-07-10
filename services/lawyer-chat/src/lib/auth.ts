@@ -3,18 +3,16 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
+import { config, isAllowedEmailDomain, getAllowedDomainsForDisplay } from "@/lib/config";
 
 // Extend the User type to include role
 interface ExtendedUser extends User {
   role: 'user' | 'admin';
 }
 
-// Simple authentication for RJLF employees only
-const ALLOWED_EMAIL_DOMAIN = "@reichmanjorgensen.com";
-
 // Maximum failed login attempts before lockout
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutes
+const MAX_LOGIN_ATTEMPTS = config.security.maxLoginAttempts;
+const LOCKOUT_DURATION = config.security.lockoutDuration;
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -33,9 +31,9 @@ export const authOptions: AuthOptions = {
         const email = credentials.email.toLowerCase();
         const ipAddress = (req?.headers?.['x-forwarded-for'] || req?.headers?.['x-real-ip'] || 'unknown') as string;
 
-        // Check if email is from RJLF domain
-        if (!email.endsWith(ALLOWED_EMAIL_DOMAIN)) {
-          throw new Error("Only Reichman Jorgensen employees can sign in");
+        // Check if email is from allowed domains
+        if (!isAllowedEmailDomain(email)) {
+          throw new Error(`Only employees from ${getAllowedDomainsForDisplay()} can sign in`);
         }
 
         try {
@@ -142,10 +140,39 @@ export const authOptions: AuthOptions = {
       }
     })
   ],
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: config.auth.secret,
   session: { 
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 8 hours
+    maxAge: config.security.sessionMaxAge,
+  },
+  // Cookie security configuration for production
+  cookies: {
+    sessionToken: {
+      name: `${config.environment.isProduction ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: config.environment.isProduction
+      }
+    },
+    callbackUrl: {
+      name: `${config.environment.isProduction ? '__Secure-' : ''}next-auth.callback-url`,
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: config.environment.isProduction
+      }
+    },
+    csrfToken: {
+      name: `${config.environment.isProduction ? '__Secure-' : ''}next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: config.environment.isProduction
+      }
+    }
   },
   callbacks: {
     jwt: async ({ token, user }) => {

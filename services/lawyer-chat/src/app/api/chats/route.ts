@@ -2,6 +2,24 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma';
+
+// Type helper for the chat query result
+type ChatWithMessages = Prisma.ChatGetPayload<{
+  include: {
+    messages: {
+      select: {
+        id: true;
+        role: true;
+        content: true;
+        createdAt: true;
+      }
+    };
+    _count: {
+      select: { messages: true }
+    }
+  }
+}>;
 
 // GET /api/chats - Fetch user's chat history with pagination
 export async function GET(request: NextRequest) {
@@ -60,9 +78,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Filter out invalid chats (no user message or no assistant response)
-    const validChats = chats.filter(chat => {
-      const hasUserMessage = chat.messages.some(m => m.role === 'user');
-      const hasAssistantMessage = chat.messages.some(m => m.role === 'assistant');
+    const validChats = chats.filter((chat: ChatWithMessages) => {
+      const hasUserMessage = chat.messages.some((m) => m.role === 'user');
+      const hasAssistantMessage = chat.messages.some((m) => m.role === 'assistant');
       return hasUserMessage && hasAssistantMessage;
     });
 

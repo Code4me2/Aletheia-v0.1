@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { retryWithBackoff } from '@/lib/retryUtils';
+import type { Prisma } from '@/generated/prisma';
 
 // POST /api/chats/with-message - Create chat with first message atomically
 export async function POST(request: NextRequest) {
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Create chat and first message in a transaction with retry
     const result = await retryWithBackoff(
       async () => {
-        return await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           // Create the chat
           const chat = await tx.chat.create({
             data: {

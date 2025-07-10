@@ -1,4 +1,5 @@
 import DOMPurify from 'isomorphic-dompurify';
+import { config, isAllowedEmailDomain } from '@/lib/config';
 
 // Input validation rules
 export const VALIDATION_RULES = {
@@ -14,7 +15,8 @@ export const VALIDATION_RULES = {
   },
   email: {
     pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    domain: '@reichmanjorgensen.com'
+    domains: config.security.allowedDomains,
+    validate: (email: string) => isAllowedEmailDomain(email)
   }
 };
 
@@ -104,7 +106,7 @@ export function validateTitle(title: string): {
 
 // Validate email domain
 export function validateEmailDomain(email: string): boolean {
-  return email.endsWith(VALIDATION_RULES.email.domain);
+  return VALIDATION_RULES.email.validate(email);
 }
 
 // Sanitize JSON data to prevent prototype pollution
