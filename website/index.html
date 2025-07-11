@@ -25,6 +25,19 @@
             
             <!-- App Title -->
             <h1 class="app-title">Data Compose</h1>
+            
+            <!-- Main Navigation -->
+            <nav class="header-nav">
+                <button class="header-nav-tab active" data-section="chat">
+                    <i class="fas fa-comments"></i> AI Chat
+                </button>
+                <button class="header-nav-tab" data-section="hierarchical-summarization">
+                    <i class="fas fa-layer-group"></i> Hierarchical Summarization
+                </button>
+                <button class="header-nav-tab" data-section="developer-dashboard">
+                    <i class="fas fa-cogs"></i> Developer Dashboard
+                </button>
+            </nav>
         </header>
 
         <!-- App Menu Cabinet -->
@@ -60,93 +73,28 @@
                 </a>
             </div>
         </div>
-        
-        <!-- Navigation -->
-        <nav class="app-nav">
-            <div class="nav-tabs">
-                <button class="nav-tab active" data-section="home">
-                    <i class="fas fa-home"></i> Home
-                </button>
-                <button class="nav-tab" data-section="chat">
-                    <i class="fas fa-comments"></i> AI Chat
-                </button>
-                <button class="nav-tab" data-section="hierarchical-summarization">
-                    <i class="fas fa-layer-group"></i> Hierarchical Summarization
-                </button>
-                <button class="nav-tab" data-section="workflows">
-                    <i class="fas fa-project-diagram"></i> Workflows
-                </button>
-                <button class="nav-tab" data-section="developer-dashboard">
-                    <i class="fas fa-cogs"></i> Developer Dashboard
-                </button>
-            </div>
-        </nav>
 
         <!-- Main Content Container -->
         <main class="app-main">
-            <!-- Home Section -->
-            <section id="home" class="content-section active">
-                <div class="home-header">
-                    <h1 class="home-title">Data Compose</h1>
-                    <p class="home-subtitle">n8n Workflow Automation with AI Integration</p>
-                </div>
-                <h2 class="section-title">Welcome to Data Compose</h2>
-                <p class="section-subtitle">Your integrated platform for AI-powered workflow automation</p>
-                
-                <div class="feature-grid">
-                    <div class="feature-card">
-                        <h3>🤖 AI Chat</h3>
-                        <p>Interactive conversations with DeepSeek R1 AI model through n8n workflows</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>⚡ Workflows</h3>
-                        <p>Powerful n8n automation workflows with custom nodes and integrations</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>🔗 Webhooks</h3>
-                        <p>Real-time webhook communication between frontend and workflow engine</p>
-                    </div>
-                </div>
-
-                <div class="text-center mt-20">
-                    <h3>System Status</h3>
-                    <button onclick="testConnection()" class="btn btn-success">Test n8n Connection</button>
-                    <div id="connection-result" class="info-box hidden"></div>
-                </div>
-
-                <div class="text-center mt-20">
-                    <h3>Quick Start</h3>
-                    <p>Ready to begin? Start chatting with the AI or explore your workflows.</p>
-                    <button class="nav-tab btn btn-primary btn-large" data-section="chat">
-                        Start AI Chat →
-                    </button>
-                </div>
-            </section>
 
             <!-- Chat Section -->
-            <section id="chat" class="content-section">
+            <section id="chat" class="content-section active">
                 <div class="chat-wrapper">
-                    <div class="section-header">
-                        <div class="section-actions">
-                            <button class="new-chat-btn" onclick="startNewChat()" title="New Chat" style="display: none;">
-                                <i class="fas fa-plus"></i>
-                            </button>
+                    <!-- Chat Mode Toggle with New Chat Button -->
+                    <div class="chat-mode-toggle-wrapper">
+                        <button class="new-chat-btn" onclick="startNewChat()" title="New Chat" style="display: none;">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <div class="chat-mode-toggle">
+                            <label class="toggle-label">
+                                <input type="radio" name="chat-mode" value="local" checked>
+                                <span class="mode-option">Local</span>
+                            </label>
+                            <label class="toggle-label">
+                                <input type="radio" name="chat-mode" value="public">
+                                <span class="mode-option">Public</span>
+                            </label>
                         </div>
-                        <div>
-                            <h2 class="section-title">AI Chat Interface</h2>
-                        </div>
-                    </div>
-                    
-                    <!-- Chat Mode Toggle -->
-                    <div class="chat-mode-toggle">
-                        <label class="toggle-label">
-                            <input type="radio" name="chat-mode" value="local" checked>
-                            <span class="mode-option">Local</span>
-                        </label>
-                        <label class="toggle-label">
-                            <input type="radio" name="chat-mode" value="public">
-                            <span class="mode-option">Public</span>
-                        </label>
                     </div>
                     
                     <div class="chat-container">
@@ -204,21 +152,6 @@
                 </aside>
             </section>
 
-            <!-- Workflows Section -->
-            <section id="workflows" class="content-section">
-                <h2 class="section-title">Workflow Management</h2>
-                <p class="section-subtitle">Create and manage your n8n automation workflows</p>
-                
-                <div class="text-center mb-20">
-                    <a href="http://localhost:5678/home/workflows" target="_blank" class="btn btn-primary btn-large">
-                        <i class="fas fa-external-link-alt"></i> Open n8n Interface
-                    </a>
-                </div>
-                
-                <div id="workflows-list" class="workflow-list">
-                    <p class="loading">Loading workflows...</p>
-                </div>
-            </section>
 
             <!-- Hierarchical Summarization Section -->
             <section id="hierarchical-summarization" class="content-section">
@@ -445,7 +378,7 @@
                     <div class="dashboard-card">
                         <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
                         <div class="action-buttons">
-                            <a href="/n8n/" target="_blank" class="btn btn-primary">
+                            <a href="http://localhost:5678/home/workflows" target="_blank" class="btn btn-primary">
                                 <i class="fas fa-external-link-alt"></i> Open n8n Interface
                             </a>
                             <a href="/chat" target="_blank" class="btn btn-primary">
@@ -717,6 +650,5 @@
     
     <!-- Application JavaScript -->
     <script src="js/app.js"></script>
-    <script src="js/tests.js"></script>
 </body>
 </html>

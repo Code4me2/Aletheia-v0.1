@@ -102,6 +102,7 @@ body {
     padding: 0 20px;
     z-index: 1002;
     box-shadow: var(--shadow-sm);
+    justify-content: space-between;
 }
 
 .app-menu-toggle {
@@ -125,6 +126,47 @@ body {
     font-weight: 600;
     color: var(--primary-color);
     margin: 0;
+    flex-shrink: 0;
+}
+
+/* Header Navigation */
+.header-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+    margin-right: 1rem;
+}
+
+.header-nav-tab {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 400;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.header-nav-tab:hover {
+    background: var(--light-bg);
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.header-nav-tab.active {
+    background: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: var(--white);
+    font-weight: 500;
+}
+
+.header-nav-tab i {
+    margin-right: 0.3rem;
+    font-size: 0.8rem;
 }
 
 /* App Menu Cabinet */
@@ -245,71 +287,17 @@ body {
     opacity: 0.9;
 }
 
-/* Navigation */
-.app-nav {
-    position: fixed;
-    top: 50px; /* Below header */
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    background: var(--light-bg);
-    padding: 8px 20px;
-    margin-bottom: 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.nav-tabs {
-    display: flex;
-    justify-content: center;
-    gap: 0;
-    background: var(--white);
-    border-radius: var(--border-radius);
-    padding: 8px;
-    box-shadow: var(--shadow);
-    overflow-x: auto;
-}
-
-.nav-tab {
-    flex: 1;
-    min-width: 100px;
-    padding: 8px 16px;
-    background: transparent;
-    border: none;
-    border-radius: calc(var(--border-radius) - 4px);
-    color: var(--text-secondary);
-    font-weight: 500;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: var(--transition);
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-}
-
-.nav-tab:hover {
-    background-color: var(--light-bg);
-    color: var(--secondary-color);
-}
-
-.nav-tab.active {
-    background-color: var(--secondary-color);
-    color: var(--white);
-}
-
-.nav-tab i {
-    font-size: 1.1rem;
-}
+/* Old Navigation - Removed, navigation now in header */
+/* Keeping classes for backwards compatibility with any remaining references */
 
 /* Main Content Area */
 .app-main {
     flex: 1;
     background: var(--white);
-    margin-top: 110px; /* Account for header (50px) + nav (60px) */
+    margin-top: 50px; /* Account for header only now */
     overflow-y: auto;
     overflow-x: visible; /* Allow drawer to extend outside */
-    height: calc(100vh - 110px);
+    height: calc(100vh - 50px);
 }
 
 .content-section {
@@ -482,7 +470,6 @@ body {
     margin-bottom: 15px;
     padding: 12px 18px;
     border-radius: 18px;
-    max-width: 75%;
     word-wrap: break-word;
     line-height: 1.4;
 }
@@ -492,13 +479,20 @@ body {
     color: var(--white);
     margin-left: auto;
     border-bottom-right-radius: 4px;
+    max-width: 75%;
 }
 
 .message.bot {
-    background-color: var(--white);
+    background-color: transparent;
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-bottom-left-radius: 4px;
+    border: none;
+    border-radius: 0;
+    padding: 20px 0;
+    max-width: 100%;
+    font-size: 1rem;
+    line-height: 1.6;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
 }
 
 /* Markdown styles for chat messages */
@@ -520,6 +514,27 @@ body {
 .message p {
     margin: 0.5em 0;
     line-height: 1.5;
+}
+
+/* Enhanced typography for bot messages - document-like display */
+.message.bot p {
+    margin: 1em 0;
+    line-height: 1.7;
+}
+
+.message.bot ul, .message.bot ol {
+    margin: 1em 0;
+    padding-left: 2em;
+}
+
+.message.bot li {
+    margin: 0.5em 0;
+    line-height: 1.6;
+}
+
+.message.bot h1, .message.bot h2, .message.bot h3 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
 }
 
 .message code {
@@ -952,16 +967,19 @@ body {
     padding: 20px;
 }
 
-/* Section header in chat should remain centered */
-#chat .section-header {
-    max-width: 800px;
-    margin: 0 auto 1rem auto; /* Reduced margin since no subtitle */
-}
-
-/* Chat mode toggle should remain centered */
-#chat .chat-mode-toggle {
+/* Chat mode toggle wrapper to contain both button and toggles */
+.chat-mode-toggle-wrapper {
     max-width: 800px;
     margin: 0 auto 20px auto;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Chat mode toggle styling */
+#chat .chat-mode-toggle {
+    flex: 0 0 auto;
+    margin: 0;
 }
 
 /* Responsive adjustments */
@@ -1309,10 +1327,12 @@ body {
     gap: 0.5rem;
 }
 
-/* Special positioning for chat section's new chat button */
-#chat .section-actions {
-    left: -10px; /* Slight overlap into margin */
-    top: -15px; /* Overlap above header */
+/* New chat button positioning in chat section */
+#chat .new-chat-btn {
+    position: relative;
+    left: 0;
+    top: 0;
+    margin-right: 10px;
 }
 
 .history-toggle-btn,
@@ -2705,6 +2725,12 @@ body {
         font-size: 1.1rem;
     }
     
+    /* Responsive header navigation */
+    .header-nav {
+        display: none; /* Hide on mobile */
+    }
+    }
+    
     .app-nav {
         padding: 5px 10px;
     }
@@ -2725,8 +2751,8 @@ body {
     }
     
     .app-main {
-        margin-top: 100px;
-        height: calc(100vh - 100px);
+        margin-top: 50px;
+        height: calc(100vh - 50px);
         padding: 0 10px;
     }
     

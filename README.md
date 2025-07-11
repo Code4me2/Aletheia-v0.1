@@ -95,6 +95,13 @@ Data Compose combines multiple technologies to create a powerful document proces
 - **Lawyer Chat** - Enterprise-grade legal AI assistant application
 - **Docker-based** microservices architecture with flexible deployment
 
+## Data Integration Documentation
+
+### 📚 Documentation Links
+- **[CourtListener Integration](./court-processor/courtlistener_integration/README.md)** - Complete guide for CourtListener API integration
+- **[Haystack/RAG System](./n8n/haystack-service/README.md)** - Document search and analysis with Elasticsearch
+- **[Data Pipeline Overview](./docs/data-pipeline.md)** - Visual guide to data flow from sources to RAG
+
 ## Key Features
 
 ### 🤖 AI-Powered Chat Interface

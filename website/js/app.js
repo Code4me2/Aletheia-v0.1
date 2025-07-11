@@ -3,7 +3,7 @@
 
 class DataComposeApp {
     constructor() {
-        this.currentSection = 'home';
+        this.currentSection = 'chat';
         this.webhookUrl = CONFIG.WEBHOOK_URL;
         this.sections = new Map();
         
@@ -23,7 +23,7 @@ class DataComposeApp {
 
     // Navigation System
     setupNavigation() {
-        const navTabs = document.querySelectorAll('.nav-tab');
+        const navTabs = document.querySelectorAll('.header-nav-tab');
         navTabs.forEach(tab => {
             tab.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -48,7 +48,7 @@ class DataComposeApp {
         });
 
         // Remove active state from all nav tabs
-        document.querySelectorAll('.nav-tab').forEach(tab => {
+        document.querySelectorAll('.header-nav-tab').forEach(tab => {
             tab.classList.remove('active');
         });
 
@@ -77,12 +77,7 @@ class DataComposeApp {
     }
 
     registerSections() {
-        // Home Section
-        this.registerSection('home', {
-            onShow: () => {
-                // Home section is static, no special handling needed
-            }
-        });
+        // Home Section removed - no longer used
 
         // Chat Section
         this.registerSection('chat', {
@@ -107,11 +102,7 @@ class DataComposeApp {
         });
 
         // Workflows Section
-        this.registerSection('workflows', {
-            onShow: () => {
-                this.loadWorkflows();
-            }
-        });
+        // Workflows Section removed - no longer used
 
         // Hierarchical Summarization Section
         this.registerSection('hierarchical-summarization', {
@@ -151,9 +142,9 @@ class DataComposeApp {
     // Extensibility: Easy method to add new sections
     addSection(id, title, icon, contentHtml, handler = {}) {
         // Add navigation tab
-        const navTabs = document.querySelector('.nav-tabs');
+        const navTabs = document.querySelector('.header-nav');
         const newTab = document.createElement('button');
-        newTab.className = 'nav-tab';
+        newTab.className = 'header-nav-tab';
         newTab.setAttribute('data-section', id);
         newTab.innerHTML = `<i class="${icon}"></i> ${title}`;
         navTabs.appendChild(newTab);
@@ -908,7 +899,8 @@ class DataComposeApp {
         }
     }
 
-    // Workflows Functionality (Preserved from original)
+    // Workflows Functionality removed - no longer used
+    /*
     async loadWorkflows() {
         const workflowsList = document.getElementById('workflows-list');
         workflowsList.innerHTML = '<p class="loading">Loading workflows...</p>';
@@ -952,6 +944,7 @@ class DataComposeApp {
                 '<p class="text-center">Error: ' + error.message + '</p>';
         }
     }
+    */
 
     // Hierarchical Summarization Methods
     loadSummarizationHistory() {

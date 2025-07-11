@@ -1,12 +1,12 @@
 # Haystack Service
 
-This directory contains the Elasticsearch-based document processing service for the Data Compose project.
+This directory contains the Elasticsearch-based document processing service for the Data Compose project, providing advanced search and retrieval capabilities for legal documents from multiple sources including CourtListener.
 
 ## Current Implementation
 
 **Active Service**: `haystack_service.py`
 
-This implementation provides all necessary features using direct Elasticsearch client for better performance and reliability.
+This implementation provides all necessary features using direct Elasticsearch client for better performance and reliability. It supports hierarchical document structures, semantic search, and seamless integration with CourtListener data.
 
 ## Files
 
@@ -38,11 +38,19 @@ This implementation provides all necessary features using direct Elasticsearch c
 
 ## API Endpoints
 
+### Implemented Endpoints ✅
 - `GET /health` - Service health check
-- `POST /ingest` - Ingest documents
-- `POST /search` - Search documents
+- `POST /ingest` - Ingest documents with metadata and hierarchy
+- `POST /search` - Multi-modal search (BM25/Vector/Hybrid)
 - `POST /hierarchy` - Get document relationships
+- `POST /import_from_node` - Import documents from n8n workflows
+- `GET /get_final_summary/{workflow_id}` - Retrieve workflow's final summary
+- `GET /get_complete_tree/{workflow_id}` - Get full hierarchical tree
+- `GET /get_document_with_context/{document_id}` - Get document with navigation context
 - `GET /docs` - Interactive API documentation
+
+### Not Implemented ❌
+- `POST /batch_hierarchy` - Batch hierarchy operations (defined in n8n node but missing from service)
 
 ## Quick Start
 
@@ -87,3 +95,61 @@ The current implementation (`haystack_service.py`) uses direct Elasticsearch cli
 An alternative implementation using the full Haystack 2.x library is archived as `haystack_service_full.py.bak` but is not recommended due to dependency complexity.
 
 The simple implementation provides all needed functionality without the complexity and dependency issues of the full Haystack library.
+
+## Integration with CourtListener
+
+The Haystack service seamlessly integrates with CourtListener data through the following pipeline:
+
+1. **Data Import**: CourtListener opinions are loaded from PostgreSQL using `ingest_to_haystack.py`
+2. **Metadata Enrichment**: Court metadata (case name, docket number, judge, etc.) is preserved
+3. **Vector Indexing**: Documents are embedded and indexed for semantic search
+4. **Hybrid Search**: Supports filtering by court, date, patent status, and other metadata
+
+### Example: Ingesting CourtListener Data
+
+```python
+# From court-processor/courtlistener_integration/ingest_to_haystack.py
+python ingest_to_haystack.py --limit 100
+
+# The script will:
+# 1. Query PostgreSQL for unindexed CourtListener opinions
+# 2. Format documents with full metadata
+# 3. Send to Haystack /ingest endpoint
+# 4. Mark documents as indexed in PostgreSQL
+```
+
+### Search Examples
+
+```bash
+# Search for patent cases in Delaware
+curl -X POST http://localhost:8000/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "patent infringement",
+    "filters": {
+      "metadata.court": "ded",
+      "metadata.is_patent_case": true
+    },
+    "use_hybrid": true
+  }'
+
+# Find opinions by specific judge
+curl -X POST http://localhost:8000/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "summary judgment",
+    "filters": {
+      "metadata.assigned_to": "Judge Smith"
+    }
+  }'
+```
+
+## n8n Integration
+
+The service is fully integrated with n8n through a custom node (`n8n-nodes-haystack`) that provides:
+- Document import from workflows
+- Search operations with filtering
+- Hierarchy navigation
+- Tree visualization support
+
+See the [n8n Custom Nodes documentation](../CLAUDE.md) for details on using the Haystack node in workflows.
