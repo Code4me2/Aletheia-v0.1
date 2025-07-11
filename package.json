@@ -75,5 +75,8 @@
     "printWidth": 100,
     "bracketSpacing": true,
     "arrowParens": "always"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2"
   }
 }

@@ -5,11 +5,12 @@ import { validateEmailDomain } from '@/utils/validation';
 import crypto from 'crypto';
 import { sendVerificationEmail } from '@/utils/email';
 import { createLogger } from '@/utils/logger';
+import { config, isAllowedEmailDomain, getAllowedDomainsForDisplay } from '@/lib/config';
 
 const logger = createLogger('register-api');
 
 // Password requirements
-const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MIN_LENGTH = config.security.passwordMinLength;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
 
 export async function POST(request: NextRequest) {
@@ -21,10 +22,10 @@ export async function POST(request: NextRequest) {
     const { password, confirmPassword, name } = body;
 
     // Validate email domain
-    if (!email || !validateEmailDomain(email)) {
+    if (!email || !isAllowedEmailDomain(email)) {
       return new Response(
         JSON.stringify({ 
-          error: 'Only @reichmanjorgensen.com email addresses are allowed' 
+          error: `Only ${getAllowedDomainsForDisplay()} email addresses are allowed` 
         }), 
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );

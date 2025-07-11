@@ -93,12 +93,20 @@ export async function DELETE(
     }
 
     // Delete chat (messages will cascade delete)
-    await prisma.chat.deleteMany({
+    // First verify ownership, then delete
+    const deletedChat = await prisma.chat.deleteMany({
       where: {
         id,
         userId: user.id
       }
     });
+
+    if (deletedChat.count === 0) {
+      return new Response(JSON.stringify({ error: 'Chat not found or unauthorized' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

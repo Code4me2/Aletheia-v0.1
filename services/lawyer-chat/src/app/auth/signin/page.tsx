@@ -91,7 +91,7 @@ function SignInContent() {
               alt="AI Legal Logo" 
               className="mx-auto mb-4 h-20 w-20 object-contain"
             />
-            <h1 className="text-4xl font-bold" style={{ color: isDarkMode ? '#ffffff' : '#004A84' }}>AI Legal</h1>
+            <h1 className="text-4xl font-bold" style={{ color: isDarkMode ? '#ffffff' : '#004A84' }}>Aletheia-v0.1</h1>
           </div>
 
           {/* Sign In Card */}

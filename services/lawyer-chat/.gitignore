@@ -31,7 +31,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+# Note: .env.example is NOT ignored - it should be committed
+.env
+.env.local
+.env.production
+.env.development
+.env.test
 
 # vercel
 .vercel
@@ -46,10 +51,7 @@ next-env.d.ts
 CLAUDE.md
 COLOR_PALETTE.md
 CITATION_IMPLEMENTATION.md
-.env
-.env.local
-.env.production
-.env.development
+AUTH_IMPLEMENTATION_PLAN.md
 
 # Database
 *.db

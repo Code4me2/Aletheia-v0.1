@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Send, Wrench } from 'lucide-react';
+import { Send } from 'lucide-react';
 import DarkModeToggle from '@/components/DarkModeToggle';
 import TaskBar from '@/components/TaskBar';
 import CitationPanel from '@/components/CitationPanel';
@@ -18,6 +18,7 @@ import { useCsrfStore } from '@/store/csrf';
 import { api } from '@/utils/api';
 import { createLogger } from '@/utils/logger';
 import { PDFGenerator, generateChatText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
+import { cleanAIResponse, detectTruncatedResponse } from '@/utils/textFilters';
 import type { Citation, AnalyticsData, ChatMessage } from '@/types';
 
 const logger = createLogger('chat-ui');
@@ -39,6 +40,7 @@ function LawyerChatContent() {
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
   const [windowWidth, setWindowWidth] = useState(1440); // Default value for SSR
@@ -67,6 +69,29 @@ function LawyerChatContent() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Check URL parameter for chat ID on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const chatId = params.get('chat');
+    if (chatId && !currentChatId) {
+      selectChat(chatId);
+    }
+  }, []); // Run once on mount
+  
+  // Update URL when chat changes
+  useEffect(() => {
+    if (currentChatId) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('chat', currentChatId);
+      window.history.replaceState({}, '', url);
+    } else {
+      // Remove chat parameter when no chat is selected
+      const url = new URL(window.location.href);
+      url.searchParams.delete('chat');
+      window.history.replaceState({}, '', url);
+    }
+  }, [currentChatId]);
 
   // Calculate dynamic sizing based on window width and panel states
   const calculateResponsiveSizing = () => {
@@ -200,9 +225,10 @@ function LawyerChatContent() {
   };
 
   const createNewChat = async () => {
-    if (!session?.user) return null;
+    if (!session?.user || isCreatingChat) return null;
     
     try {
+      setIsCreatingChat(true);
       const response = await api.post('/api/chats', { title: 'New Chat' });
       
       if (response.ok) {
@@ -214,8 +240,20 @@ function LawyerChatContent() {
       }
     } catch (error) {
       logger.error('Error creating chat', error);
+    } finally {
+      setIsCreatingChat(false);
     }
     return null;
+  };
+  
+  const handleNewChat = () => {
+    // Clear current chat state
+    setCurrentChatId(null);
+    setMessages([]);
+    // Clear URL parameter
+    const url = new URL(window.location.href);
+    url.searchParams.delete('chat');
+    window.history.replaceState({}, '', url);
   };
 
   const selectChat = async (chatId: string) => {
@@ -242,40 +280,70 @@ function LawyerChatContent() {
   };
 
 
-  const saveMessage = async (role: string, content: string, references: string[] = []) => {
-    if (!session?.user || !currentChatId) return;
+  const saveMessage = async (role: string, content: string, references: string[] = [], chatId?: string) => {
+    const chatIdToUse = chatId || currentChatId;
+    if (!session?.user || !chatIdToUse) return false;
     
     try {
-      await api.post(`/api/chats/${currentChatId}/messages`, { role, content, references });
+      const response = await api.post(`/api/chats/${chatIdToUse}/messages`, { role, content, references });
+      if (!response.ok) {
+        logger.error('Failed to save message', { status: response.status });
+        return false;
+      }
       
       // Update chat history to reflect new message
       await fetchChatHistory();
+      return true;
     } catch (error) {
-      logger.error('Error saving message', error, { chatId: currentChatId, role, content: content.substring(0, 50) });
+      logger.error('Error saving message', error, { chatId: chatIdToUse, role, content: content.substring(0, 50) });
+      return false;
     }
   };
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isLoading || isCreatingChat) return;
 
-    // Create new chat if needed
-    let sessionKey = currentChatId;
-    if (!currentChatId && messages.length === 0) {
-      const newChatId = await createNewChat();
-      sessionKey = newChatId || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    }
-
+    let chatIdToUse = currentChatId;
+    const messageText = inputText;
+    
     const userMessage: Message = {
       id: Date.now(),
       sender: 'user',
-      text: inputText,
+      text: messageText,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Save user message to database
-    await saveMessage('user', inputText);
+    // Create new chat with first message atomically if needed
+    if (!chatIdToUse && messages.length === 0) {
+      try {
+        setIsCreatingChat(true);
+        const response = await api.post('/api/chats/with-message', {
+          message: messageText,
+          title: 'New Chat'
+        });
+        
+        if (!response.ok) {
+          logger.error('Failed to create chat', { status: response.status });
+          return;
+        }
+        
+        const result = await response.json();
+        chatIdToUse = result.chat.id;
+        setCurrentChatId(chatIdToUse);
+        
+        await fetchChatHistory();
+      } catch (error) {
+        logger.error('Failed to create chat with message', error);
+        return;
+      } finally {
+        setIsCreatingChat(false);
+      }
+    } else if (chatIdToUse) {
+      // Save user message to existing chat
+      await saveMessage('user', messageText, [], chatIdToUse);
+    }
     
     setInputText('');
     setIsLoading(true);
@@ -301,7 +369,7 @@ function LawyerChatContent() {
       const response = await api.post('/api/chat', {
         message: inputText,
         tools: selectedTools,
-        sessionKey: sessionKey || currentChatId || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sessionKey: chatIdToUse || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         sessionId: session?.user?.email || 'anonymous',
         userId: session?.user?.email
       });
@@ -316,10 +384,13 @@ function LawyerChatContent() {
         const decoder = new TextDecoder();
 
         if (reader) {
-          let currentText = '';
+          let accumulatedText = ''; // Use a single string for accumulation instead of array
           let buffer = '';
           let sources: string[] = [];
           let analytics: AnalyticsData | undefined = undefined;
+          let lastSaveTime = Date.now();
+          let messageId: string | null = null;
+          let saveInProgress = false;
           
           while (true) {
             const { done, value } = await reader.read();
@@ -340,14 +411,63 @@ function LawyerChatContent() {
                   const data = JSON.parse(line.slice(6));
                   
                   if (data.type === 'text') {
-                    currentText += data.text;
+                    // Append chunk directly to accumulated text
+                    accumulatedText += data.text;
+                    
+                    // Clean the accumulated text to remove duplicate "CITATIONS" entries
+                    const cleanedText = cleanAIResponse(accumulatedText);
+                    
+                    // Check if response appears to be truncated/restarting
+                    if (detectTruncatedResponse(cleanedText)) {
+                      logger.warn('Detected truncated or restarting response');
+                    }
+                    
+                    // Update message with cleaned text
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === assistantId 
-                          ? { ...msg, text: currentText }
+                          ? { ...msg, text: cleanedText }
                           : msg
                       )
                     );
+                    
+                    // Save message immediately on first chunk, then update every 2 seconds
+                    const now = Date.now();
+                    if ((!messageId || now - lastSaveTime > 2000) && !saveInProgress) {
+                      try {
+                        if (!messageId && chatIdToUse) {
+                          // First save - create the message with retry
+                          saveInProgress = true;
+                          try {
+                            const response = await api.post(`/api/chats/${chatIdToUse}/messages`, {
+                              role: 'assistant',
+                              content: cleanedText,
+                              references: sources
+                            });
+                            
+                            if (response.ok) {
+                              const savedMessage = await response.json();
+                              messageId = savedMessage.id;
+                            } else {
+                              logger.error('Failed to save streaming message', { status: response.status });
+                            }
+                          } catch (error) {
+                            logger.error('Failed to save streaming message', error);
+                          } finally {
+                            saveInProgress = false;
+                          }
+                        } else if (messageId && chatIdToUse) {
+                          // Update existing message
+                          await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                            content: accumulatedText,
+                            references: sources
+                          });
+                        }
+                        lastSaveTime = now;
+                      } catch (error) {
+                        logger.error('Error saving streaming message', error);
+                      }
+                    }
                   } else if (data.type === 'sources') {
                     sources = data.sources || [];
                     setMessages(prev => 
@@ -378,8 +498,25 @@ function LawyerChatContent() {
                         )
                       );
                     }
-                    // Save the complete message
-                    await saveMessage('assistant', currentText, sources);
+                    // Final save/update with complete content
+                    try {
+                      if (messageId && chatIdToUse) {
+                        // Update existing message with final content
+                        const response = await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                          content: cleanAIResponse(accumulatedText),
+                          references: sources
+                        });
+                        if (!response.ok) {
+                          logger.warn('Failed to update message', { status: response.status });
+                        }
+                      } else if (chatIdToUse) {
+                        // Create message if not already saved
+                        await saveMessage('assistant', cleanAIResponse(accumulatedText), sources, chatIdToUse);
+                      }
+                    } catch (error) {
+                      logger.error('Error saving final message', error);
+                      // Silently handle the error
+                    }
                   }
                 } catch (e) {
                   logger.error('Error parsing SSE data', e, { line });
@@ -411,7 +548,9 @@ function LawyerChatContent() {
         );
         
         // Save assistant message to database
-        await saveMessage('assistant', assistantText, assistantReferences);
+        if (chatIdToUse) {
+          await saveMessage('assistant', assistantText, assistantReferences, chatIdToUse);
+        }
       }
     } catch (error) {
       logger.error('Error sending message', error);
@@ -489,7 +628,7 @@ function LawyerChatContent() {
       {/* Universal TaskBar - Always visible for all users */}
       <TaskBar 
         onChatSelect={selectChat}
-        onNewChat={createNewChat}
+        onNewChat={handleNewChat}
       />
 
       {/* Main Content Container - Adjust margin for taskbar only */}
@@ -502,6 +641,19 @@ function LawyerChatContent() {
             <div className="flex items-center space-x-3">
               {!isTaskBarExpanded && (
                 <div className="flex items-center gap-2">
+                  <a
+                    href="http://localhost:8085"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-transform hover:scale-110"
+                    title="Open Court Processor"
+                  >
+                    <img 
+                      src="/chat/logo.png" 
+                      alt="Logo" 
+                      className="h-7 w-7 object-contain cursor-pointer"
+                    />
+                  </a>
                   <h1 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : ''}`} style={{ color: isDarkMode ? '#ffffff' : '#004A84' }}>Aletheia-v0.1</h1>
                 </div>
               )}
@@ -516,22 +668,7 @@ function LawyerChatContent() {
                   compact
                 />
               )}
-              <div className="flex flex-col items-center gap-3 mr-2">
-                <a
-                  href="http://localhost:8085"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-transform hover:scale-110"
-                  title="Open Court Processor"
-                >
-                  <img 
-                    src="/chat/logo.png" 
-                    alt="Logo" 
-                    className="h-8 w-8 object-contain cursor-pointer"
-                  />
-                </a>
-                <DarkModeToggle />
-              </div>
+              <DarkModeToggle />
             </div>
           </div>
         </div>
@@ -592,12 +729,16 @@ function LawyerChatContent() {
                     }}
                   >
                   <div>
-                    <div>
+                    <div className="relative">
                       {message.sender === 'user' ? (
-                        <p className="text-sm leading-relaxed">{message.text}</p>
+                        <p className="text-sm leading-relaxed" dir="ltr">{message.text}</p>
                       ) : (
-                        <div className="text-sm leading-relaxed markdown-list" style={{
-                          padding: '12.48px 14.144px' // Restored original padding
+                        <div className="text-sm leading-relaxed" style={{
+                          padding: '12.48px 14.144px', // Restored original padding
+                          direction: 'ltr',
+                          unicodeBidi: 'embed',
+                          textAlign: 'left',
+                          minHeight: '1.5em' // Prevent layout shift during streaming
                         }}>
                           {message.text === '' && isLoading && message.id === messages[messages.length - 1].id ? (
                             <div className={`loading-dots ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -606,17 +747,19 @@ function LawyerChatContent() {
                               <span></span>
                             </div>
                           ) : (
-                          <SafeMarkdown 
-                            content={message.text}
-                            className="prose prose-sm max-w-none"
-                          />
+                          <div dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
+                            <SafeMarkdown 
+                              content={message.text}
+                              className="max-w-none markdown-content"
+                            />
+                          </div>
                           )}
                         </div>
                       )}
                       
                       {/* Citation and Analytics Buttons - Show after response is complete */}
                       {message.sender === 'assistant' && message.text && !(isLoading && message.id === messages[messages.length - 1].id) && (
-                        <div className={`mt-3 w-full flex items-center gap-2`}>
+                        <div className={`mt-3 w-full flex items-center gap-2`} key={`buttons-${message.id}`}>
                           <button
                             onClick={() => handleCitationClick()}
                             className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 transform active:scale-95 ${
@@ -723,7 +866,65 @@ function LawyerChatContent() {
                       height: buttonSize
                     }}
                   >
-                    <Wrench size={iconSize} />
+                    {/* Custom Settings/Filter Icon */}
+                    <svg 
+                      width={Math.round(iconSize * 1.3)} 
+                      height={Math.round(iconSize * 1.3)} 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="transition-all"
+                    >
+                      {/* Top line with circle on left */}
+                      <line 
+                        x1="3" 
+                        y1="8" 
+                        x2="21" 
+                        y2="8" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <circle 
+                        cx="7" 
+                        cy="8" 
+                        r="3" 
+                        fill={isDarkMode ? '#25262b' : '#ffffff'}
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                      />
+                      <circle 
+                        cx="7" 
+                        cy="8" 
+                        r="1.5" 
+                        fill="currentColor"
+                      />
+                      
+                      {/* Bottom line with circle on right */}
+                      <line 
+                        x1="3" 
+                        y1="16" 
+                        x2="21" 
+                        y2="16" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <circle 
+                        cx="17" 
+                        cy="16" 
+                        r="3" 
+                        fill={isDarkMode ? '#25262b' : '#ffffff'}
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                      />
+                      <circle 
+                        cx="17" 
+                        cy="16" 
+                        r="1.5" 
+                        fill="currentColor"
+                      />
+                    </svg>
                   </button>
                   
                   {/* Tools Dropdown */}
