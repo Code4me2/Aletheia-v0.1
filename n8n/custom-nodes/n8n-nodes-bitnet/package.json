@@ -51,7 +51,7 @@
     "gulp": "^4.0.2",
     "n8n-workflow": "^1.68.0",
     "prettier": "^2.7.1",
-    "typescript": "^4.9.5"
+    "typescript": "^5.8.3"
   },
   "peerDependencies": {
     "n8n-workflow": "^1.68.0"
