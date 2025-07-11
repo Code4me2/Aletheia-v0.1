@@ -111,12 +111,13 @@ Data Compose combines multiple technologies to create a powerful document proces
 - Automatic judge name extraction from opinion text
 - Full-text search across all opinions
 
-### 📄 Document Processing (Haystack Integration)
-- 4-level document hierarchy with parent-child relationships
-- Hybrid search (BM25 + 384-dimensional vector embeddings)
-- FastAPI-based service with development server (not production-ready)
-- 7 REST API endpoints for document management and search
-- Direct Elasticsearch integration without full Haystack framework
+### 📄 Document Processing (Haystack RAG Integration)
+- **RAG-Only Implementation**: Streamlined for pure retrieval-augmented generation
+- **Hybrid Search**: BM25 + 384-dimensional vector embeddings (BAAI/bge-small-en-v1.5)
+- **FastAPI Service**: Running `haystack_service_rag.py` with development server
+- **5 Core Endpoints**: Health, Ingest, Search, Import, Get Document
+- **Dual Mode Support**: Standalone or unified with PostgreSQL integration
+- **Direct Elasticsearch**: Uses Elasticsearch client without full Haystack library
 
 ### 🔄 Workflow Automation
 - Visual workflow creation with n8n
@@ -127,12 +128,13 @@ Data Compose combines multiple technologies to create a powerful document proces
 - YAKE keyword extraction for automatic key phrase identification
 
 ### 💼 Lawyer Chat Application
-- Enterprise-grade legal AI assistant
+- Enterprise-grade legal AI assistant with Next.js 15.3
 - Type-safe architecture with full TypeScript support
-- Flexible deployment with configurable base paths
-- Secure authentication with domain restrictions
-- Real-time streaming responses
-- Document citation panel
+- Flexible deployment with configurable base paths (`/chat` subpath)
+- Secure authentication with NextAuth and CSRF protection
+- Real-time streaming responses with n8n webhook integration
+- Document citation panel with PostgreSQL session storage
+- Comprehensive test suite (unit, integration, E2E with Playwright)
 
 ### 🎨 Modern Web Interface
 - Single Page Application (SPA)
@@ -458,6 +460,9 @@ const response = await apiClient.get<Chat[]>('/api/chats');
 Create a `.env` file based on `.env.example`:
 
 ```bash
+# Project Configuration
+COMPOSE_PROJECT_NAME=aletheia
+
 # Database
 DB_USER=your_db_user
 DB_PASSWORD=your_secure_password
@@ -465,7 +470,29 @@ DB_NAME=your_db_name
 
 # n8n
 N8N_ENCRYPTION_KEY=your_encryption_key
+
+# Service Ports (to avoid conflicts)
+WEB_PORT=8080
+N8N_PORT=5678
+LAWYER_CHAT_PORT=3001
+AI_PORTAL_PORT=8085
+ELASTICSEARCH_PORT=9200
+HAYSTACK_PORT=8000
 ```
+
+**Note**: The "placeholder-looking" values (e.g., `your_db_user`, `your_secure_password_here`) are the actual working credentials for local development. For production deployment, generate strong credentials using the provided scripts.
+
+### Database Schema
+
+Aletheia uses PostgreSQL with multiple schemas for different components. The main schema is `court_data` which stores court opinions and judicial data.
+
+For detailed database schema documentation including tables, views, functions, and usage examples, see [docs/DATABASE.md](docs/DATABASE.md).
+
+**Quick Overview:**
+- **judges** - Judge information and court affiliations
+- **opinions** - Court opinions with full text and metadata
+- **processing_log** - Tracking and statistics for data processing
+- **judge_stats** (view) - Aggregated statistics per judge
 
 ## Development
 
@@ -1137,6 +1164,10 @@ python workflow_validator.py workflow.json
 2. **Chat not working**: Ensure workflow is activated in n8n
 3. **Ollama connection**: Verify Ollama is running and accessible
 4. **Port conflicts**: Ensure ports 8080, 5678, 9200, 8000 are free
+5. **Service communication failures**: 
+   - Ensure `COMPOSE_PROJECT_NAME=aletheia` is set in `.env`
+   - Verify services are on correct networks (frontend/backend)
+   - Check network names match: `docker network ls | grep aletheia`
 
 ### Useful Commands
 
@@ -1161,6 +1192,85 @@ node run-all-node-tests.js
 # Test specific node
 node run-all-node-tests.js bitnet
 ```
+
+## Data Management
+
+### Docker Volumes
+
+The application uses Docker volumes for persistent data storage:
+
+- **PostgreSQL Database** (`postgres_data`): All application data including court documents, hierarchical summaries, and chat conversations
+- **n8n Data** (`n8n_data`): Workflows, credentials, execution history, and node configurations
+- **Elasticsearch Data** (`elasticsearch_data`): Search indices and document embeddings
+- **Haystack Models** (`haystack_models`): AI model files
+
+### Backup Procedures
+
+```bash
+# Database backup
+docker exec aletheia-db-1 pg_dumpall -U your_db_user > backup_$(date +%Y%m%d).sql
+
+# n8n backup
+docker exec aletheia-n8n-1 tar czf - -C /home/node/.n8n . > n8n_backup_$(date +%Y%m%d).tar.gz
+
+# Export n8n workflows regularly through the UI
+# Navigate to Workflows → Settings → Download
+```
+
+### Data Safety Rules
+
+- **Never remove volumes without backup**: `docker volume rm` deletes all data permanently
+- **Never use** `docker system prune -a --volumes` without careful consideration
+- **Always check volume mounts** before removing containers
+- **Use safe migration scripts** for network or configuration changes
+
+## Production Deployment
+
+### Security Considerations
+
+1. **Generate Strong Credentials**:
+   ```bash
+   # Generate secure passwords
+   DB_PASSWORD=$(openssl rand -base64 32)
+   N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
+   NEXTAUTH_SECRET=$(openssl rand -base64 32)
+   ```
+
+2. **Network Security**:
+   - Use `COMPOSE_PROJECT_NAME=aletheia` for consistent network isolation
+   - Backend network should be internal-only in production
+   - Implement SSL/TLS for all external endpoints
+
+3. **Container Security**:
+   - All containers run with non-root users (except court-processor due to cron requirements)
+   - Read-only filesystems where possible
+   - Resource limits configured for all services
+
+### Database Initialization
+
+For new deployments, the database requires initialization:
+
+```sql
+-- Create service-specific databases
+CREATE DATABASE lawyerchat;
+GRANT ALL PRIVILEGES ON DATABASE lawyerchat TO your_db_user;
+
+-- Create hierarchical summarization tables
+CREATE TABLE IF NOT EXISTS hierarchical_summaries (
+    id SERIAL PRIMARY KEY,
+    workflow_id VARCHAR(255) NOT NULL,
+    level INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Deployment Environments
+
+- **Staging**: Automated deployment on `develop` branch commits
+- **Production**: Manual deployment via tagged releases
+- **Environment Files**: `.env.staging` and `.env.production` (not in repository)
 
 ## CI/CD Pipeline
 
