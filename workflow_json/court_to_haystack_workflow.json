@@ -1,0 +1,166 @@
+{
+  "name": "Court Opinions to Haystack RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT o.*, j.name as judge_name FROM court_data.opinions o LEFT JOIN court_data.judges j ON o.judge_id = j.id WHERE o.vector_indexed = false LIMIT 10",
+        "options": {}
+      },
+      "id": "postgres-query",
+      "name": "Get Unindexed Opinions",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-results",
+      "name": "Has Documents?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=[\n  {\n    \"content\": \"{{ $json.text_content }}\",\n    \"metadata\": {\n      \"court\": \"{{ $json.court_code }}\",\n      \"case_name\": \"{{ $json.case_name }}\",\n      \"docket_number\": \"{{ $json.docket_number }}\",\n      \"judge\": \"{{ $json.judge_name }}\",\n      \"date\": \"{{ $json.case_date }}\",\n      \"opinion_id\": {{ $json.id }}\n    }\n  }\n]",
+        "options": {}
+      },
+      "id": "format-for-haystack",
+      "name": "Format for Haystack",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [850, 280]
+    },
+    {
+      "parameters": {
+        "url": "http://haystack-judicial:8000/ingest",
+        "authentication": "none",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "ingest-to-haystack",
+      "name": "Ingest to Haystack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 280]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE court_data.opinions SET vector_indexed = true WHERE id = {{ $('Get Unindexed Opinions').item.json.id }}",
+        "options": {}
+      },
+      "id": "update-indexed-flag",
+      "name": "Mark as Indexed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1250, 280],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Get Unindexed Opinions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unindexed Opinions": {
+      "main": [
+        [
+          {
+            "node": "Has Documents?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Documents?": {
+      "main": [
+        [
+          {
+            "node": "Format for Haystack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Format for Haystack": {
+      "main": [
+        [
+          {
+            "node": "Ingest to Haystack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest to Haystack": {
+      "main": [
+        [
+          {
+            "node": "Mark as Indexed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["court-processor", "haystack", "rag"]
+}
