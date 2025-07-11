@@ -94,7 +94,12 @@ The web frontend is now a Single Page Application (SPA) with seamless navigation
 
 1. **Home Section**: Welcome page with system testing and feature overview
 2. **AI Chat Section**: Real-time chat interface with DeepSeek R1 via webhooks
+   - Markdown formatting support for AI responses
+   - Hybrid citation panel system with bidirectional navigation
+   - Claude-style artifact window behavior for citations
 3. **Workflows Section**: n8n workflow management and monitoring
+4. **Hierarchical Summarization**: Document processing with interactive visualization
+5. **Developer Dashboard**: System administration and testing tools
 
 ### Frontend Configuration
 
@@ -129,22 +134,26 @@ Basic workflow that connects the web interface to the DeepSeek AI node:
 
 ### Latest Session Updates
 
-1. **Frontend Architecture Transformation**:
-   - Converted multi-page site to Single Page Application (SPA)
-   - Eliminated ~150 lines of duplicated CSS across files
-   - Created extensible framework with section registration system
-   - Implemented tab-based navigation with smooth transitions
+1. **Citation Panel System**:
+   - Implemented hybrid citation panel with Claude-style artifact window behavior
+   - Added bidirectional scroll-to-citation functionality
+   - Enhanced citation card styling with better proportions and hover effects
+   - Citation panel slides in from right at 50% viewport width
+   - View Citations button toggles panel open/closed
 
-2. **Documentation Overhaul**:
-   - Created comprehensive README.md with setup instructions
-   - Fixed formatting for optimal GitHub display
-   - Added troubleshooting guides and development workflows
-   - Documented all custom nodes and configurations
+2. **UI/UX Improvements**:
+   - Removed chat subtitle for more space
+   - Removed chat history button (functionality preserved internally)
+   - Repositioned new chat button to upper left with slight overlap
+   - Fixed citation panel position to display below navigation bar (110px from top)
+   - Chat container remains centered until citation panel opens
 
-3. **Workflow Management**:
-   - Added `workflow_json/` directory for workflow exports
-   - Created basic web UI workflow for chat functionality
-   - Documented workflow import process
+3. **Markdown and Citation Support**:
+   - Full markdown parsing with marked.js and DOMPurify for security
+   - Support for inline citations: `<cite id="X">` and `[X]` formats
+   - Automatic extraction of citation details from markdown
+   - Code blocks with copy functionality
+   - Safe link handling with external target attributes
 
 ### Previous Improvements
 
@@ -612,6 +621,38 @@ interface DeleteRequest {
 ```
 
 This pattern allows the n8n webhook to handle multiple types of requests from different frontend components, routing them to appropriate workflow nodes based on the action type.
+
+## AI Chat Citation System
+
+### Overview
+The AI Chat interface includes a sophisticated citation system that allows legal professionals to navigate between inline citations and detailed citation information seamlessly.
+
+### Citation Features
+
+1. **Inline Citation Support**:
+   - Two formats supported: `<cite id="X">text</cite>` and `[X]` 
+   - Automatic highlighting on hover
+   - Click to open citation panel and navigate to specific citation
+
+2. **Citation Panel**:
+   - Slides in from right side (50% viewport width)
+   - Claude-style artifact window behavior
+   - Fixed position below navigation bar for accessibility
+   - Smooth transitions and animations
+
+3. **Bidirectional Navigation**:
+   - Click inline citation → Opens panel and highlights citation entry
+   - Click citation in panel → Scrolls to and highlights inline citation
+   - Visual pulse animation for clicked citations
+
+4. **Citation Entry Format**:
+   - Numbered badges for easy identification
+   - Title, court, date, case number metadata
+   - Excerpts and key holdings displayed
+   - Hover effects and click interactions
+
+### Usage
+When the AI responds with citations, a "View Citations" button appears below the message. Clicking toggles the citation panel open/closed. All citations are interactive for seamless navigation between references and source material.
 
 ## Hierarchical Summarization Navigation
 
