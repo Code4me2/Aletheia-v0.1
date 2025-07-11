@@ -72,6 +72,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       PYTHONPATH: /app
+      COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
     volumes:
       - ./court-data/pdfs:/data/pdfs
       - ./court-data/logs:/data/logs

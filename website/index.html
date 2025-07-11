@@ -125,34 +125,31 @@
 
             <!-- Chat Section -->
             <section id="chat" class="content-section">
-                <div class="section-header">
-                    <div class="section-actions">
-                        <button id="chat-history-toggle" class="history-toggle-btn" onclick="toggleChatHistoryDrawer()" title="Show Chat History" style="display: none;">
-                            <i class="fas fa-history"></i>
-                        </button>
-                        <button class="new-chat-btn" onclick="startNewChat()" title="New Chat" style="display: none;">
-                            <i class="fas fa-plus"></i>
-                        </button>
+                <div class="chat-wrapper">
+                    <div class="section-header">
+                        <div class="section-actions">
+                            <button class="new-chat-btn" onclick="startNewChat()" title="New Chat" style="display: none;">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div>
+                            <h2 class="section-title">AI Chat Interface</h2>
+                        </div>
                     </div>
-                    <div>
-                        <h2 class="section-title">AI Chat Interface</h2>
-                        <p class="section-subtitle">Chat with DeepSeek R1 through n8n workflows</p>
+                    
+                    <!-- Chat Mode Toggle -->
+                    <div class="chat-mode-toggle">
+                        <label class="toggle-label">
+                            <input type="radio" name="chat-mode" value="local" checked>
+                            <span class="mode-option">Local</span>
+                        </label>
+                        <label class="toggle-label">
+                            <input type="radio" name="chat-mode" value="public">
+                            <span class="mode-option">Public</span>
+                        </label>
                     </div>
-                </div>
-                
-                <!-- Chat Mode Toggle -->
-                <div class="chat-mode-toggle">
-                    <label class="toggle-label">
-                        <input type="radio" name="chat-mode" value="local" checked>
-                        <span class="mode-option">Local</span>
-                    </label>
-                    <label class="toggle-label">
-                        <input type="radio" name="chat-mode" value="public">
-                        <span class="mode-option">Public</span>
-                    </label>
-                </div>
-                
-                <div class="chat-container">
+                    
+                    <div class="chat-container">
                     <div id="chat-messages" class="chat-messages">
                         <div class="message bot">
                             Welcome! I'm your AI assistant powered by DeepSeek R1. How can I help you today?
@@ -174,6 +171,7 @@
                     
                     <div id="chat-status" class="chat-status"></div>
                 </div>
+                </div> <!-- End chat-wrapper -->
                 
                 <!-- Chat History Drawer (inside chat section) -->
                 <aside id="chat-history-drawer" class="history-drawer">
@@ -187,6 +185,21 @@
                     </div>
                     <div id="chat-history-list" class="history-list">
                         <div class="history-empty">No conversations yet</div>
+                    </div>
+                </aside>
+                
+                <!-- Citation Panel (inside chat section) -->
+                <aside id="citation-panel" class="citation-panel">
+                    <div class="citation-panel-header">
+                        <h3 class="citation-panel-title">
+                            <i class="fas fa-bookmark"></i> Citations
+                        </h3>
+                        <button class="citation-panel-close" onclick="window.app.toggleCitationPanel()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="citation-panel-content" class="citation-panel-content">
+                        <div class="citation-panel-empty">No citations to display</div>
                     </div>
                 </aside>
             </section>
@@ -697,6 +710,10 @@
             });
         };
     </script>
+    
+    <!-- Markdown parsing libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
     
     <!-- Application JavaScript -->
     <script src="js/app.js"></script>

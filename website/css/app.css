@@ -28,7 +28,7 @@
     --level-3-border: #9c27b0;
     
     /* Layout */
-    --container-max-width: 1000px;
+    --container-max-width: 1440px;  /* Wider container for citation panel */
     --border-radius: 8px;
     --border-radius-sm: 4px;
     --shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -326,6 +326,11 @@ body {
     display: block;
 }
 
+/* Special handling for chat section */
+#chat.content-section {
+    padding: 20px 0; /* Vertical padding only, horizontal handled by inner elements */
+}
+
 /* Ensure proper layering when drawer is open */
 .content-section:has(.history-drawer.open) {
     z-index: 10;
@@ -433,7 +438,7 @@ body {
 }
 
 .toggle-label {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     cursor: pointer;
     padding: 8px 16px;
@@ -441,6 +446,7 @@ body {
     background: var(--light-bg);
     transition: var(--transition);
     border: 2px solid transparent;
+    font-size: 0.95rem;
 }
 
 .toggle-label:hover {
@@ -493,6 +499,492 @@ body {
     color: var(--text-primary);
     border: 1px solid var(--border-color);
     border-bottom-left-radius: 4px;
+}
+
+/* Markdown styles for chat messages */
+.message h1, .message h2, .message h3, 
+.message h4, .message h5, .message h6 {
+    margin: 0.5em 0 0.3em 0;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--primary-color);
+}
+
+.message h1 { font-size: 1.5em; }
+.message h2 { font-size: 1.3em; }
+.message h3 { font-size: 1.1em; }
+.message h4 { font-size: 1.0em; }
+.message h5 { font-size: 0.9em; }
+.message h6 { font-size: 0.85em; }
+
+.message p {
+    margin: 0.5em 0;
+    line-height: 1.5;
+}
+
+.message code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: var(--code-font);
+    font-size: 0.9em;
+    color: var(--danger-color);
+}
+
+.message pre {
+    background: var(--dark-bg);
+    color: var(--light-text);
+    padding: 0;
+    border-radius: var(--border-radius-sm);
+    overflow-x: auto;
+    margin: 0.5em 0;
+    position: relative;
+}
+
+.message pre code {
+    display: block;
+    background: none;
+    padding: 1em;
+    color: inherit;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+/* Code block wrapper for copy button */
+.code-block-wrapper {
+    position: relative;
+    margin: 0.5em 0;
+}
+
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--light-text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    font-size: 0.8em;
+}
+
+.code-copy-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.message ul, .message ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.message ul li, .message ol li {
+    margin: 0.25em 0;
+    line-height: 1.5;
+}
+
+.message ul {
+    list-style-type: disc;
+}
+
+.message ol {
+    list-style-type: decimal;
+}
+
+.message ul ul, .message ol ol, .message ul ol, .message ol ul {
+    margin: 0.25em 0;
+}
+
+.message table {
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+}
+
+.message th, .message td {
+    border: 1px solid var(--border-color);
+    padding: 0.5em;
+    text-align: left;
+}
+
+.message th {
+    background: var(--light-bg);
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.message tr:nth-child(even) {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.message blockquote {
+    border-left: 4px solid var(--secondary-color);
+    margin: 0.5em 0;
+    padding-left: 1em;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.message a {
+    color: var(--secondary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.message a:hover {
+    text-decoration: underline;
+}
+
+.message hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 1em 0;
+}
+
+.message strong {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.message em {
+    font-style: italic;
+}
+
+.message del {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+
+/* Fix for nested lists */
+.message li > p {
+    margin: 0;
+}
+
+/* Ensure images in messages are responsive */
+.message img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius-sm);
+    margin: 0.5em 0;
+}
+
+/* Citation formatting styles */
+.citation-link, .citation-ref {
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.citation-link {
+    border-bottom: 1px dotted var(--secondary-color);
+    color: var(--secondary-color);
+    padding: 0 2px;
+}
+
+.citation-link:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-bottom-style: solid;
+}
+
+.citation-ref {
+    color: var(--secondary-color);
+    font-weight: 600;
+    margin: 0 2px;
+}
+
+.citation-ref:hover {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+/* Citation highlighting */
+.citation-highlighted {
+    background-color: rgba(52, 152, 219, 0.2) !important;
+    border-color: var(--secondary-color) !important;
+    animation: citation-pulse 0.5s ease-in-out;
+}
+
+.citation-entry-highlighted {
+    background-color: rgba(52, 152, 219, 0.15);
+    border-left: 4px solid var(--secondary-color);
+    padding-left: 12px;
+    margin-left: -16px;
+    transition: all 0.3s ease;
+}
+
+@keyframes citation-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Citation section styling */
+.message h2:has(+ p:contains("Citations")) {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5em;
+    margin-top: 1em;
+}
+
+/* Style citation entries for better readability */
+.message ul li strong:first-child {
+    color: var(--primary-color);
+}
+
+/* Citation metadata styling */
+.message ul li ul {
+    margin-top: 0.25em;
+    font-size: 0.95em;
+}
+
+.message ul li ul li {
+    color: var(--text-secondary);
+}
+
+.message ul li ul li strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Citation Panel Styles */
+.citation-panel {
+    position: fixed;
+    top: 110px; /* Below app header (50px) + nav (60px) */
+    right: -50%; /* Hide by sliding out 50% of viewport */
+    width: 50%; /* Take half the viewport width */
+    height: calc(100vh - 110px);
+    background: var(--white);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: right 0.3s ease;
+    z-index: 999; /* Below app header (1002) but above content */
+    display: flex;
+    flex-direction: column;
+}
+
+.citation-panel.open {
+    right: 0;
+}
+
+.citation-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--light-bg);
+}
+
+.citation-panel-title {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.citation-panel-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition);
+}
+
+.citation-panel-close:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.citation-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.citation-panel-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px 20px;
+}
+
+/* Citation Entry Styles */
+.citation-entry {
+    margin-bottom: 24px;
+    padding: 24px;
+    background: var(--white);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.citation-entry:hover {
+    background: var(--light-bg);
+    border-color: var(--secondary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.citation-entry-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.citation-id {
+    font-weight: 700;
+    color: var(--white);
+    background: var(--secondary-color);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    min-width: 28px;
+    text-align: center;
+}
+
+.citation-title {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 1.05rem;
+    line-height: 1.5;
+    flex: 1;
+}
+
+.citation-metadata {
+    margin-top: 16px;
+    padding-left: 40px; /* Align with title */
+}
+
+.citation-meta-item {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    display: flex;
+    gap: 8px;
+}
+
+.meta-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    min-width: 100px;
+}
+
+.meta-value {
+    color: var(--text-primary);
+    flex: 1;
+}
+
+/* Citation highlighting in panel */
+.citation-entry.citation-entry-highlighted {
+    background: rgba(52, 152, 219, 0.15);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Citation pulse animation for inline citations */
+@keyframes citation-pulse {
+    0% {
+        background-color: transparent;
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4);
+    }
+    50% {
+        background-color: rgba(52, 152, 219, 0.2);
+        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
+    }
+}
+
+/* Message Citation Button */
+.message-citation-btn {
+    margin: 10px 0 10px 0;
+    padding: 8px 16px;
+    background: var(--light-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.message-citation-btn:hover {
+    background: var(--secondary-color);
+    color: var(--white);
+    border-color: var(--secondary-color);
+}
+
+.message-citation-btn i {
+    font-size: 0.85rem;
+}
+
+/* Chat section layout wrapper */
+.chat-wrapper {
+    transition: margin-right 0.3s ease;
+}
+
+#chat.citation-active .chat-wrapper {
+    margin-right: 50%; /* Make room for citation panel */
+}
+
+/* Chat container default state - centered like before */
+.chat-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Section header in chat should remain centered */
+#chat .section-header {
+    max-width: 800px;
+    margin: 0 auto 1rem auto; /* Reduced margin since no subtitle */
+}
+
+/* Chat mode toggle should remain centered */
+#chat .chat-mode-toggle {
+    max-width: 800px;
+    margin: 0 auto 20px auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .citation-panel {
+        width: 60%; /* Slightly wider on smaller screens */
+        right: -60%;
+    }
+    
+    #chat.citation-active .chat-wrapper {
+        margin-right: 60%;
+    }
+}
+
+@media (max-width: 768px) {
+    .citation-panel {
+        width: 100%;
+        right: -100%;
+    }
+    
+    #chat.citation-active .chat-wrapper {
+        display: none; /* Hide chat when panel is open on mobile */
+    }
 }
 
 .chat-input-area {
@@ -815,6 +1307,12 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+}
+
+/* Special positioning for chat section's new chat button */
+#chat .section-actions {
+    left: -10px; /* Slight overlap into margin */
+    top: -15px; /* Overlap above header */
 }
 
 .history-toggle-btn,

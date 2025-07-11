@@ -89,13 +89,20 @@ class DataComposeApp {
             onShow: () => {
                 this.initializeChatIfNeeded();
                 this.loadChatHistory();
-                document.getElementById('chat-history-toggle').style.display = 'flex';
-                document.querySelector('.new-chat-btn').style.display = 'flex';
+                const newChatBtn = document.querySelector('.new-chat-btn');
+                if (newChatBtn) {
+                    newChatBtn.style.display = 'flex';
+                }
             },
             onHide: () => {
-                document.getElementById('chat-history-drawer').classList.remove('open');
-                document.getElementById('chat-history-toggle').style.display = 'none';
-                document.querySelector('.new-chat-btn').style.display = 'none';
+                const drawer = document.getElementById('chat-history-drawer');
+                if (drawer) {
+                    drawer.classList.remove('open');
+                }
+                const newChatBtn = document.querySelector('.new-chat-btn');
+                if (newChatBtn) {
+                    newChatBtn.style.display = 'none';
+                }
             }
         });
 
@@ -182,7 +189,164 @@ class DataComposeApp {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
         messageDiv.classList.add(isUser ? 'user' : 'bot');
-        messageDiv.textContent = text;
+        
+        if (isUser) {
+            // User messages remain plain text for security
+            messageDiv.textContent = text;
+        } else {
+            // AI messages get markdown parsing
+            try {
+                // Configure marked options for better security and formatting
+                marked.setOptions({
+                    breaks: true,  // Convert \n to <br>
+                    gfm: true,     // GitHub Flavored Markdown
+                    headerIds: false,  // Don't add IDs to headers
+                    mangle: false,  // Don't escape autolinks
+                    sanitize: false  // We'll use DOMPurify instead
+                });
+                
+                // Parse markdown to HTML
+                let rawHtml = marked.parse(text);
+                
+                // Process custom citation markup BEFORE sanitization
+                // Convert <cite id="...">text</cite> to spans with data attributes
+                rawHtml = rawHtml.replace(
+                    /<cite\s+id="([^"]+)">([^<]+)<\/cite>/g,
+                    '<span class="citation-link" data-cite-id="$1">$2</span>'
+                );
+                
+                // Convert [1], [2a], etc. to superscript citations
+                rawHtml = rawHtml.replace(
+                    /\[(\d+[a-z]?(?:,\s*\d+[a-z]?)*)\]/g,
+                    (match, ids) => {
+                        const idList = ids.split(',').map(id => id.trim());
+                        return idList.map(id => 
+                            `<sup class="citation-ref" data-cite-id="${id}">[${id}]</sup>`
+                        ).join('');
+                    }
+                );
+                
+                // Sanitize HTML to prevent XSS
+                const cleanHtml = DOMPurify.sanitize(rawHtml, {
+                    ADD_ATTR: ['target', 'rel', 'data-cite-id'],
+                    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr',
+                                  'strong', 'em', 'del', 'code', 'pre', 'blockquote',
+                                  'ul', 'ol', 'li', 'a', 'table', 'thead', 'tbody', 
+                                  'tr', 'td', 'th', 'img', 'span', 'sup', 'cite'],
+                    ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'src', 'alt', 'data-cite-id']
+                });
+                
+                messageDiv.innerHTML = cleanHtml;
+                
+                // Check if this message contains a Citations section
+                const hasCitations = cleanHtml.includes('<h2>Citations</h2>') || 
+                                   cleanHtml.includes('<strong>Citations</strong>');
+                
+                if (hasCitations) {
+                    // Extract citations from the message
+                    const citations = this.extractCitations(cleanHtml);
+                    
+                    if (citations.length > 0) {
+                        // Store citations for this message
+                        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        messageDiv.setAttribute('data-message-id', messageId);
+                        messageDiv.setAttribute('data-has-citations', 'true');
+                        
+                        // Store citations in a map
+                        if (!this.messageCitations) {
+                            this.messageCitations = new Map();
+                        }
+                        this.messageCitations.set(messageId, citations);
+                        
+                        // Add citation button below the message
+                        const citationBtn = document.createElement('button');
+                        citationBtn.className = 'message-citation-btn';
+                        citationBtn.innerHTML = '<i class="fas fa-bookmark"></i> View Citations';
+                        citationBtn.onclick = () => {
+                            const panel = document.getElementById('citation-panel');
+                            if (panel && panel.classList.contains('open') && this.currentMessageId === messageId) {
+                                // If panel is open for this message, close it
+                                this.toggleCitationPanel();
+                            } else {
+                                // Otherwise, show citations for this message
+                                this.showCitationsForMessage(messageId);
+                            }
+                        };
+                        
+                        // Insert button after message
+                        setTimeout(() => {
+                            messageDiv.parentNode.insertBefore(citationBtn, messageDiv.nextSibling);
+                        }, 10);
+                    }
+                }
+                
+                // Post-process links for security
+                messageDiv.querySelectorAll('a').forEach(link => {
+                    link.setAttribute('target', '_blank');
+                    link.setAttribute('rel', 'noopener noreferrer');
+                });
+                
+                // Add copy buttons to code blocks
+                messageDiv.querySelectorAll('pre code').forEach(codeBlock => {
+                    const pre = codeBlock.parentElement;
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'code-block-wrapper';
+                    pre.parentNode.insertBefore(wrapper, pre);
+                    wrapper.appendChild(pre);
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'code-copy-btn';
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                    copyBtn.title = 'Copy code';
+                    copyBtn.onclick = () => {
+                        navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+                            copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                            setTimeout(() => {
+                                copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                            }, 2000);
+                        });
+                    };
+                    wrapper.appendChild(copyBtn);
+                });
+                
+                // Add citation hover interactions
+                messageDiv.querySelectorAll('.citation-link, .citation-ref').forEach(citation => {
+                    citation.addEventListener('mouseenter', (e) => {
+                        const citeId = e.target.dataset.citeId;
+                        this.highlightCitation(citeId);
+                    });
+                    
+                    citation.addEventListener('mouseleave', () => {
+                        this.clearCitationHighlights();
+                    });
+                    
+                    citation.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const citeId = e.target.dataset.citeId;
+                        
+                        // Find the message that contains this citation
+                        const messageEl = e.target.closest('.message');
+                        const messageId = messageEl ? messageEl.getAttribute('data-message-id') : null;
+                        
+                        // If this message has citations, show the panel
+                        if (messageId && this.messageCitations && this.messageCitations.has(messageId)) {
+                            this.showCitationsForMessage(messageId);
+                            // After panel opens, highlight and scroll to specific citation
+                            setTimeout(() => {
+                                this.scrollToCitation(citeId);
+                            }, 350); // Wait for panel animation
+                        } else {
+                            // Fallback: just scroll to citation in message
+                            this.scrollToCitation(citeId);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Markdown parsing error:', error);
+                // Fallback to plain text if parsing fails
+                messageDiv.textContent = text;
+            }
+        }
         
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -252,6 +416,319 @@ class DataComposeApp {
         const statusElement = document.getElementById('chat-status');
         if (statusElement) {
             statusElement.textContent = message;
+        }
+    }
+    
+    // Citation highlighting methods
+    highlightCitation(citeId) {
+        // Highlight all inline citation markers
+        document.querySelectorAll(`[data-cite-id="${citeId}"]`).forEach(el => {
+            el.classList.add('citation-highlighted');
+        });
+        
+        // If citation panel is open, highlight the citation entry there
+        const citationPanel = document.getElementById('citation-panel');
+        if (citationPanel && citationPanel.classList.contains('open')) {
+            const citationEntry = citationPanel.querySelector(`[data-citation-id="${citeId}"]`);
+            if (citationEntry) {
+                citationEntry.classList.add('citation-entry-highlighted');
+            }
+        }
+        
+        // Also highlight in message if visible (fallback for when panel is closed)
+        document.querySelectorAll('.message').forEach(msg => {
+            const citationMatch = msg.innerHTML.match(new RegExp(`\\[${citeId}\\]\\s*<strong>.*?</strong>`, 's'));
+            if (citationMatch) {
+                const walker = document.createTreeWalker(
+                    msg,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let node;
+                while (node = walker.nextNode()) {
+                    if (node.textContent.includes(`[${citeId}]`)) {
+                        let parent = node.parentElement;
+                        while (parent && parent !== msg) {
+                            if (parent.tagName === 'LI' || parent.tagName === 'P') {
+                                parent.classList.add('citation-entry-highlighted');
+                                break;
+                            }
+                            parent = parent.parentElement;
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    clearCitationHighlights() {
+        document.querySelectorAll('.citation-highlighted').forEach(el => {
+            el.classList.remove('citation-highlighted');
+        });
+        document.querySelectorAll('.citation-entry-highlighted').forEach(el => {
+            el.classList.remove('citation-entry-highlighted');
+        });
+    }
+    
+    scrollToCitation(citeId) {
+        // If citation panel is open, highlight the citation there
+        const citationPanel = document.getElementById('citation-panel');
+        if (citationPanel && citationPanel.classList.contains('open')) {
+            const citationEntry = citationPanel.querySelector(`[data-citation-id="${citeId}"]`);
+            if (citationEntry) {
+                citationEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                citationEntry.classList.add('citation-entry-highlighted');
+                setTimeout(() => {
+                    citationEntry.classList.remove('citation-entry-highlighted');
+                }, 2000);
+                return;
+            }
+        }
+        
+        // Otherwise, find in message (fallback)
+        let found = false;
+        document.querySelectorAll('.message').forEach(msg => {
+            if (!found) {
+                const walker = document.createTreeWalker(
+                    msg,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let node;
+                while (node = walker.nextNode()) {
+                    if (node.textContent.includes(`[${citeId}]`) && 
+                        (node.textContent.includes('**') || node.parentElement.tagName === 'STRONG')) {
+                        let parent = node.parentElement;
+                        while (parent && parent !== msg) {
+                            if (parent.tagName === 'LI' || parent.tagName === 'P') {
+                                parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                // Flash highlight
+                                parent.classList.add('citation-entry-highlighted');
+                                setTimeout(() => {
+                                    parent.classList.remove('citation-entry-highlighted');
+                                }, 2000);
+                                found = true;
+                                break;
+                            }
+                            parent = parent.parentElement;
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Scroll to citation in message when clicking in panel
+    scrollToCitationInMessage(citeId) {
+        // Find inline citation markers
+        const citationLinks = document.querySelectorAll(`[data-cite-id="${citeId}"]`);
+        
+        if (citationLinks.length > 0) {
+            // Scroll to the first occurrence
+            citationLinks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight all occurrences
+            citationLinks.forEach(link => {
+                link.classList.add('citation-highlighted');
+                // Add a pulsing animation for visibility
+                link.style.animation = 'citation-pulse 2s ease-in-out';
+            });
+            
+            // Remove highlights after 3 seconds
+            setTimeout(() => {
+                citationLinks.forEach(link => {
+                    link.classList.remove('citation-highlighted');
+                    link.style.animation = '';
+                });
+            }, 3000);
+        } else {
+            // Fallback: search in citation list at bottom of message
+            let found = false;
+            document.querySelectorAll('.message').forEach(msg => {
+                if (!found && msg.getAttribute('data-has-citations') === 'true') {
+                    const walker = document.createTreeWalker(
+                        msg,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    
+                    let node;
+                    while (node = walker.nextNode()) {
+                        if (node.textContent.includes(`[${citeId}]`) && 
+                            node.parentElement.tagName === 'STRONG') {
+                            let parent = node.parentElement;
+                            while (parent && parent !== msg) {
+                                if (parent.tagName === 'LI' || parent.tagName === 'P') {
+                                    parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    parent.classList.add('citation-entry-highlighted');
+                                    setTimeout(() => {
+                                        parent.classList.remove('citation-entry-highlighted');
+                                    }, 3000);
+                                    found = true;
+                                    break;
+                                }
+                                parent = parent.parentElement;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // Extract citations from message HTML
+    extractCitations(html) {
+        const citations = [];
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Find the Citations section
+        let citationSection = null;
+        const headers = tempDiv.querySelectorAll('h2');
+        headers.forEach(h2 => {
+            if (h2.textContent.trim() === 'Citations') {
+                citationSection = h2;
+            }
+        });
+        
+        if (!citationSection) return citations;
+        
+        // Process all elements after the Citations header
+        let currentElement = citationSection.nextElementSibling;
+        let currentCitation = null;
+        
+        while (currentElement) {
+            // Check if this is a new citation entry (starts with [#])
+            const text = currentElement.textContent.trim();
+            const citationMatch = text.match(/^\[(\d+[a-z]?)\]\s*(.+)/);
+            
+            if (citationMatch) {
+                // Save previous citation if exists
+                if (currentCitation) {
+                    citations.push(currentCitation);
+                }
+                
+                // Start new citation
+                const [, id, titleText] = citationMatch;
+                currentCitation = {
+                    id: id,
+                    title: titleText.replace(/\*\*/g, ''), // Remove markdown bold
+                    metadata: [],
+                    fullHtml: currentElement.outerHTML
+                };
+            } else if (currentCitation && currentElement.tagName === 'UL') {
+                // Process metadata list items
+                const listItems = currentElement.querySelectorAll('li');
+                listItems.forEach(li => {
+                    const liText = li.textContent.trim();
+                    const metaMatch = liText.match(/^([^:]+):\s*(.+)/);
+                    if (metaMatch) {
+                        currentCitation.metadata.push({
+                            label: metaMatch[1].replace(/\*\*/g, ''),
+                            value: metaMatch[2]
+                        });
+                    }
+                    currentCitation.fullHtml += li.outerHTML;
+                });
+            }
+            
+            // Stop if we hit another h2 (new section)
+            if (currentElement.tagName === 'H2' && currentElement !== citationSection) {
+                break;
+            }
+            
+            currentElement = currentElement.nextElementSibling;
+        }
+        
+        // Don't forget the last citation
+        if (currentCitation) {
+            citations.push(currentCitation);
+        }
+        
+        return citations;
+    }
+    
+    // Show citations for a specific message
+    showCitationsForMessage(messageId) {
+        const citations = this.messageCitations.get(messageId);
+        if (!citations || citations.length === 0) return;
+        
+        const panel = document.getElementById('citation-panel');
+        const content = document.getElementById('citation-panel-content');
+        
+        // Clear existing content
+        content.innerHTML = '';
+        
+        // Add citations to panel
+        citations.forEach(citation => {
+            const citationDiv = document.createElement('div');
+            citationDiv.className = 'citation-entry';
+            citationDiv.setAttribute('data-citation-id', citation.id);
+            
+            // Add click handler to scroll to citation in message
+            citationDiv.addEventListener('click', () => {
+                this.scrollToCitationInMessage(citation.id);
+            });
+            
+            // Add hover handlers to highlight in message
+            citationDiv.addEventListener('mouseenter', () => {
+                this.highlightCitation(citation.id);
+            });
+            citationDiv.addEventListener('mouseleave', () => {
+                this.clearCitationHighlights();
+            });
+            
+            // Citation header with ID
+            const header = document.createElement('div');
+            header.className = 'citation-entry-header';
+            header.innerHTML = `<span class="citation-id">[${citation.id}]</span> <span class="citation-title">${citation.title}</span>`;
+            citationDiv.appendChild(header);
+            
+            // Citation metadata
+            if (citation.metadata.length > 0) {
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'citation-metadata';
+                citation.metadata.forEach(meta => {
+                    const metaItem = document.createElement('div');
+                    metaItem.className = 'citation-meta-item';
+                    metaItem.innerHTML = `<span class="meta-label">${meta.label}:</span> <span class="meta-value">${meta.value}</span>`;
+                    metaDiv.appendChild(metaItem);
+                });
+                citationDiv.appendChild(metaDiv);
+            }
+            
+            content.appendChild(citationDiv);
+        });
+        
+        // Update panel visibility
+        this.currentMessageId = messageId;
+        panel.classList.add('open');
+        
+        // Update chat section for proper layout
+        const chatSection = document.getElementById('chat');
+        if (chatSection) {
+            chatSection.classList.add('citation-active');
+        }
+    }
+    
+    // Toggle citation panel
+    toggleCitationPanel() {
+        const panel = document.getElementById('citation-panel');
+        const chatSection = document.getElementById('chat');
+        
+        if (panel.classList.contains('open')) {
+            panel.classList.remove('open');
+            if (chatSection) {
+                chatSection.classList.remove('citation-active');
+            }
+            this.clearCitationHighlights();
+        } else if (this.currentMessageId) {
+            this.showCitationsForMessage(this.currentMessageId);
         }
     }
 
@@ -2494,4 +2971,45 @@ function restartServices() {
         alert('Service restart command would be executed here.\n\nTo manually restart services, run:\ndocker-compose restart');
     }
 }
+
+// Test function for citation panel
+window.testCitationPanel = function() {
+    const testMessage = `Based on my analysis of the legal precedents, there are several key points to consider:
+
+1. The principle of stare decisis requires courts to follow established precedent <cite id="1">Smith v. Jones, 123 F.3d 456 (2d Cir. 2020)</cite>. This has been consistently applied in numerous cases.
+
+2. Contract interpretation must consider the plain meaning of terms [2], as established in multiple jurisdictions.
+
+3. The doctrine of equitable estoppel prevents a party from asserting rights that would work injustice <cite id="3">Johnson v. State, 789 P.2d 234 (Cal. 2019)</cite>.
+
+## Citations
+
+1. **Smith v. Jones** [1]
+   - Court: United States Court of Appeals, Second Circuit
+   - Date: March 15, 2020
+   - Case Number: 19-1234
+   - Key holding: "Stare decisis is not merely a matter of precedent but a fundamental principle ensuring legal consistency and predictability."
+
+2. **Brown v. Board of Education** [2]
+   - Court: United States Supreme Court
+   - Date: May 17, 1954
+   - Case Number: 347 U.S. 483
+   - Excerpt: "Separate educational facilities are inherently unequal, violating the Equal Protection Clause of the Fourteenth Amendment."
+
+3. **Johnson v. State** [3]
+   - Court: California Supreme Court
+   - Date: December 10, 2019
+   - Case Number: S254321
+   - Note: This case expanded the application of equitable estoppel to government entities under specific circumstances.`;
+
+    if (window.app) {
+        // Switch to chat section
+        window.app.showSection('chat');
+        // Add the test message
+        setTimeout(() => {
+            window.app.addMessage(testMessage, false);
+            console.log('Test message with citations added. Look for "View Citations" button below the message.');
+        }, 100);
+    }
+};
 
