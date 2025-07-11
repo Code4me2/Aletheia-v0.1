@@ -30,8 +30,15 @@
     /* Layout */
     --container-max-width: 1000px;
     --border-radius: 8px;
+    --border-radius-sm: 4px;
     --shadow: 0 4px 6px rgba(0,0,0,0.1);
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
     --transition: all 0.3s ease;
+    
+    /* Additional Theme Variables */
+    --dark-bg: #1a1a1a;
+    --light-text: #e0e0e0;
+    --code-font: 'Fira Code', 'Courier New', monospace;
 }
 
 /* Reset and Base */
@@ -301,6 +308,7 @@ body {
     background: var(--white);
     margin-top: 110px; /* Account for header (50px) + nav (60px) */
     overflow-y: auto;
+    overflow-x: visible; /* Allow drawer to extend outside */
     height: calc(100vh - 110px);
 }
 
@@ -310,6 +318,8 @@ body {
     animation: fadeIn 0.3s ease-in;
     position: relative;
     overflow: visible;
+    /* Allow drawer to extend outside */
+    clip-path: none;
 }
 
 .content-section.active {
@@ -840,21 +850,23 @@ body {
 .history-drawer {
     position: absolute;
     top: 0;
-    left: -320px;
-    width: 300px;
+    left: -280px; /* Hidden just outside content's left edge */
+    width: 280px;
     height: calc(100vh - 150px);
     background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(10px);
     box-shadow: 2px 0 15px rgba(0,0,0,0.15);
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 0 8px 8px 0;
     z-index: 100;
     overflow-y: auto;
-    border-radius: 0 8px 8px 0;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .history-drawer.open {
-    left: -20px; /* Slight offset from content edge for visual appeal */
+    left: -300px; /* Slides further left, creating gap from content edge */
 }
+
+/* Removed overlay - not needed for this drawer implementation */
 
 .drawer-header {
     display: flex;
@@ -1822,9 +1834,17 @@ body {
 /* Developer Dashboard Styles */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
     margin-top: 30px;
+    grid-auto-rows: minmax(min-content, 1fr);
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
 }
 
 .dashboard-card {
@@ -1834,11 +1854,23 @@ body {
     padding: 25px;
     box-shadow: var(--shadow-sm);
     transition: var(--transition);
+    display: flex;
+    flex-direction: column;
 }
 
 .dashboard-card:hover {
     box-shadow: var(--shadow);
     transform: translateY(-2px);
+}
+
+/* Ensure consistent card content spacing */
+.dashboard-card > * {
+    margin-bottom: 15px;
+}
+
+.dashboard-card > *:last-child {
+    margin-bottom: 0;
+    margin-top: auto;
 }
 
 .dashboard-card h3 {
@@ -1865,33 +1897,65 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
+    padding: 12px 18px;
     background: var(--light-bg);
     border-radius: var(--border-radius-sm);
+    border-left: 4px solid transparent;
+    transition: var(--transition);
+}
+
+.service-item:hover {
+    background: var(--bg-secondary);
+    transform: translateX(2px);
 }
 
 .service-name {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-primary);
+    font-size: 0.95rem;
 }
 
 .service-status {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.service-status i {
+    font-size: 1.1rem;
 }
 
 .service-status.online {
     color: var(--success-color);
 }
 
+.service-status.online + .service-item {
+    border-left-color: var(--success-color);
+}
+
 .service-status.offline {
     color: var(--danger-color);
 }
 
+.service-status.offline + .service-item {
+    border-left-color: var(--danger-color);
+}
+
 .service-status.checking {
     color: var(--warning-color);
+}
+
+.service-status.checking + .service-item {
+    border-left-color: var(--warning-color);
+}
+
+/* Service Status Timestamps */
+.service-last-check {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
 }
 
 /* Quick Actions */
@@ -1955,18 +2019,90 @@ body {
 .log-viewer {
     background: var(--dark-bg);
     border-radius: var(--border-radius-sm);
-    padding: 15px;
-    max-height: 300px;
-    overflow-y: auto;
+    padding: 0;
+    max-height: 400px;
+    overflow: hidden;
     margin-top: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+}
+
+.log-viewer-header {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.log-viewer-title {
+    color: var(--light-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.log-viewer-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.log-viewer-action {
+    background: none;
+    border: none;
+    color: var(--light-text);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    padding: 4px 8px;
+    border-radius: var(--border-radius-sm);
+}
+
+.log-viewer-action:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.log-viewer-content {
+    overflow-y: auto;
+    max-height: 350px;
+    padding: 15px;
 }
 
 .log-viewer pre {
     margin: 0;
     color: var(--light-text);
-    font-family: 'Courier New', monospace;
+    font-family: var(--code-font);
     font-size: 0.85rem;
-    line-height: 1.4;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Log level highlighting */
+.log-line {
+    padding: 2px 0;
+    border-radius: 2px;
+}
+
+.log-line.error {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.log-line.warning {
+    color: #ffd93d;
+    background: rgba(255, 217, 61, 0.1);
+}
+
+.log-line.info {
+    color: #6bcf7f;
+    background: rgba(107, 207, 127, 0.1);
+}
+
+.log-line.debug {
+    color: #a8a8a8;
+    opacity: 0.8;
 }
 
 /* Documentation Links */
@@ -1977,25 +2113,50 @@ body {
 }
 
 .doc-links li {
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.doc-links li:last-child {
-    border-bottom: none;
+    margin-bottom: 8px;
 }
 
 .doc-links a {
-    color: var(--secondary-color);
+    color: var(--text-primary);
     text-decoration: none;
     transition: var(--transition);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    padding: 10px 15px;
+    border-radius: var(--border-radius-sm);
+    background: var(--light-bg);
+    border: 1px solid transparent;
+    font-size: 0.95rem;
 }
 
 .doc-links a:hover {
-    color: var(--primary-color);
+    background: var(--bg-secondary);
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+    transform: translateX(3px);
+}
+
+.doc-links a::before {
+    content: '📄';
+    font-size: 1.1rem;
+}
+
+.doc-links a[href*="github"]::before {
+    content: '🔗';
+}
+
+.doc-links a[onclick*="setup"]::before {
+    content: '🚀';
+}
+
+.doc-links a[onclick*="api"]::before {
+    content: '📚';
+}
+
+.doc-links a[onclick*="troubleshooting"]::before {
+    content: '🔧';
+}
     transform: translateX(5px);
 }
 
@@ -2010,14 +2171,25 @@ body {
     gap: 10px;
 }
 
+.dev-tools .btn {
+    justify-content: center;
+    font-weight: 500;
+}
+
+.dev-tools .btn i {
+    margin-right: 8px;
+}
+
 .btn-warning {
     background: var(--warning-color);
     color: var(--white);
+    border: 1px solid var(--warning-color);
 }
 
 .btn-warning:hover {
     background: #e67e22;
-    transform: translateY(-2px);
+    border-color: #e67e22;
+    transform: translateY(-1px);
 }
 
 /* Utility classes for dashboard */
@@ -2064,4 +2236,51 @@ body {
         width: 250px;
         left: -250px;
     }
+}
+
+/* RAG Testing Dashboard Integration Styles */
+.dashboard-card-wide {
+    grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+    .dashboard-card-wide {
+        grid-column: span 1;
+    }
+}
+
+.card-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+}
+
+.rag-dashboard-container {
+    margin-top: 15px;
+}
+
+.rag-interface-collapsed {
+    display: none;
+}
+
+.rag-interface-expanded {
+    display: block;
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 20px;
+    background: var(--background-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    margin-top: 15px;
+}
+
+/* Ensure RAG sections have proper spacing in dashboard mode */
+.rag-interface-expanded .rag-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rag-interface-expanded .rag-section:last-child {
+    border-bottom: none;
 }

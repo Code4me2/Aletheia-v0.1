@@ -76,6 +76,9 @@
                 <button class="nav-tab" data-section="workflows">
                     <i class="fas fa-project-diagram"></i> Workflows
                 </button>
+                <button class="nav-tab" data-section="rag-testing">
+                    <i class="fas fa-vial"></i> RAG Testing
+                </button>
                 <button class="nav-tab" data-section="developer-dashboard">
                     <i class="fas fa-cogs"></i> Developer Dashboard
                 </button>
@@ -375,6 +378,120 @@
                 </aside>
             </section>
 
+            <!-- RAG Testing Section -->
+            <section id="rag-testing" class="content-section">
+                <h2 class="section-title">RAG Testing Interface</h2>
+                <p class="section-subtitle">Test the Haystack RAG service capabilities</p>
+                
+                <!-- Service Status -->
+                <div id="rag-service-status" class="rag-section">
+                    <h3>Service Status</h3>
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Checking service status...
+                    </div>
+                </div>
+
+                <!-- Document Ingestion -->
+                <div class="rag-section">
+                    <h3>Document Ingestion</h3>
+                    <form id="rag-ingest-form" class="rag-form">
+                        <div class="form-group">
+                            <label for="doc-content">Document Content</label>
+                            <textarea id="doc-content" placeholder="Enter document content here..." required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Metadata (Optional)</label>
+                            <div id="metadata-fields">
+                                <div class="metadata-field">
+                                    <input type="text" class="metadata-key" placeholder="Key (e.g., source)">
+                                    <input type="text" class="metadata-value" placeholder="Value (e.g., legal_doc)">
+                                    <button type="button" class="remove-metadata" onclick="ragTesting.removeMetadataField(this)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" id="add-metadata-field" class="btn-secondary">
+                                <i class="fas fa-plus"></i> Add Metadata Field
+                            </button>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-upload"></i> Ingest Document
+                        </button>
+                    </form>
+                    
+                    <div id="ingest-results" class="results-container"></div>
+                </div>
+
+                <!-- Search -->
+                <div class="rag-section">
+                    <h3>Search Documents</h3>
+                    <form id="rag-search-form" class="rag-form">
+                        <div class="form-group">
+                            <label for="search-query">Search Query</label>
+                            <input type="text" id="search-query" placeholder="Enter search terms..." required>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="search-type">Search Type</label>
+                                <select id="search-type">
+                                    <option value="hybrid">Hybrid (Recommended)</option>
+                                    <option value="vector">Vector Only</option>
+                                    <option value="bm25">BM25 Only</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="top-k">Results Count</label>
+                                <input type="number" id="top-k" value="10" min="1" max="100">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="filter-key">Filter Key (Optional)</label>
+                                <input type="text" id="filter-key" placeholder="e.g., source">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="filter-value">Filter Value</label>
+                                <input type="text" id="filter-value" placeholder="e.g., legal_doc">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </form>
+                    
+                    <div id="search-results" class="results-container"></div>
+                </div>
+
+                <!-- Document Viewer -->
+                <div class="rag-section">
+                    <h3>Document Viewer</h3>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="document-id-input">Document ID</label>
+                            <input type="text" id="document-id-input" placeholder="Enter document ID to view...">
+                        </div>
+                        <button id="lookup-document" class="btn-primary">
+                            <i class="fas fa-file-alt"></i> View Document
+                        </button>
+                    </div>
+                    
+                    <div id="document-viewer" class="results-container"></div>
+                </div>
+
+                <!-- Actions -->
+                <div class="text-center mt-20">
+                    <button id="clear-results" class="btn-secondary">
+                        <i class="fas fa-trash"></i> Clear All Results
+                    </button>
+                </div>
+            </section>
 
             <!-- Developer Dashboard Section -->
             <section id="developer-dashboard" class="content-section">
@@ -550,132 +667,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- RAG Testing Card (full-width) -->
-                    <div class="dashboard-card dashboard-card-wide">
-                        <h3><i class="fas fa-vial"></i> RAG Testing Interface</h3>
-                        <div class="card-description">
-                            Test the Haystack RAG service capabilities directly from the dashboard
-                        </div>
-                        
-                        <!-- Collapsible RAG Interface -->
-                        <div class="rag-dashboard-container">
-                            <button class="btn btn-primary" onclick="window.app.toggleRAGInterface()">
-                                <i class="fas fa-expand" id="rag-toggle-icon"></i> <span id="rag-toggle-text">Open RAG Testing</span>
-                            </button>
-                            
-                            <div id="rag-interface-container" class="rag-interface-collapsed">
-                                <!-- Service Status -->
-                                <div id="dashboard-rag-service-status" class="rag-section">
-                                    <h3>Service Status</h3>
-                                    <div class="loading">
-                                        <i class="fas fa-spinner fa-spin"></i> Checking service status...
-                                    </div>
-                                </div>
-
-                                <!-- Document Ingestion -->
-                                <div class="rag-section">
-                                    <h3>Document Ingestion</h3>
-                                    <form id="dashboard-rag-ingest-form" class="rag-form">
-                                        <div class="form-group">
-                                            <label for="dashboard-doc-content">Document Content</label>
-                                            <textarea id="dashboard-doc-content" placeholder="Enter document content here..." required></textarea>
-                                        </div>
-                                        
-                                        <div class="form-group">
-                                            <label>Metadata (Optional)</label>
-                                            <div id="dashboard-metadata-fields">
-                                                <div class="metadata-field">
-                                                    <input type="text" class="metadata-key" placeholder="Key (e.g., source)">
-                                                    <input type="text" class="metadata-value" placeholder="Value (e.g., legal_doc)">
-                                                    <button type="button" class="remove-metadata" onclick="window.ragTestingDashboard.removeMetadataField(this)">
-                                                        <i class="fas fa-times"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <button type="button" id="dashboard-add-metadata-field" class="btn-secondary">
-                                                <i class="fas fa-plus"></i> Add Metadata Field
-                                            </button>
-                                        </div>
-                                        
-                                        <button type="submit" class="btn-primary">
-                                            <i class="fas fa-upload"></i> Ingest Document
-                                        </button>
-                                    </form>
-                                    
-                                    <div id="dashboard-ingest-results" class="results-container"></div>
-                                </div>
-
-                                <!-- Search -->
-                                <div class="rag-section">
-                                    <h3>Search Documents</h3>
-                                    <form id="dashboard-rag-search-form" class="rag-form">
-                                        <div class="form-group">
-                                            <label for="dashboard-search-query">Search Query</label>
-                                            <input type="text" id="dashboard-search-query" placeholder="Enter search terms..." required>
-                                        </div>
-                                        
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label for="dashboard-search-type">Search Type</label>
-                                                <select id="dashboard-search-type">
-                                                    <option value="hybrid">Hybrid (Recommended)</option>
-                                                    <option value="vector">Vector Only</option>
-                                                    <option value="bm25">BM25 Only</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="form-group">
-                                                <label for="dashboard-top-k">Results Count</label>
-                                                <input type="number" id="dashboard-top-k" value="10" min="1" max="100">
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label for="dashboard-filter-key">Filter Key (Optional)</label>
-                                                <input type="text" id="dashboard-filter-key" placeholder="e.g., source">
-                                            </div>
-                                            
-                                            <div class="form-group">
-                                                <label for="dashboard-filter-value">Filter Value</label>
-                                                <input type="text" id="dashboard-filter-value" placeholder="e.g., legal_doc">
-                                            </div>
-                                        </div>
-                                        
-                                        <button type="submit" class="btn-primary">
-                                            <i class="fas fa-search"></i> Search
-                                        </button>
-                                    </form>
-                                    
-                                    <div id="dashboard-search-results" class="results-container"></div>
-                                </div>
-
-                                <!-- Document Viewer -->
-                                <div class="rag-section">
-                                    <h3>Document Viewer</h3>
-                                    <div class="form-row">
-                                        <div class="form-group" style="flex: 2;">
-                                            <label for="dashboard-document-id-input">Document ID</label>
-                                            <input type="text" id="dashboard-document-id-input" placeholder="Enter document ID to view...">
-                                        </div>
-                                        <button id="dashboard-lookup-document" class="btn-primary">
-                                            <i class="fas fa-file-alt"></i> View Document
-                                        </button>
-                                    </div>
-                                    
-                                    <div id="dashboard-document-viewer" class="results-container"></div>
-                                </div>
-
-                                <!-- Actions -->
-                                <div class="text-center mt-20">
-                                    <button id="dashboard-clear-results" class="btn-secondary">
-                                        <i class="fas fa-trash"></i> Clear All Results
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </section>
         </main>
@@ -701,5 +692,6 @@
     <!-- Application JavaScript -->
     <script src="js/app.js"></script>
     <script src="js/tests.js"></script>
+    <script src="js/rag-testing.js"></script>
 </body>
 </html>

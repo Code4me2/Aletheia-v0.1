@@ -9,13 +9,21 @@ class RAGTestingManager {
         this.documentIds = [];
         this.searchResults = [];
         this.serviceStatus = null;
+        this.dashboardMode = false; // Flag to indicate if running in dashboard
+    }
+
+    /**
+     * Get element ID based on dashboard mode
+     */
+    getElementId(baseId) {
+        return this.dashboardMode ? `dashboard-${baseId}` : baseId;
     }
 
     /**
      * Initialize the RAG testing interface
      */
     async initialize() {
-        console.log('Initializing RAG Testing Manager...');
+        console.log('Initializing RAG Testing Manager...', this.dashboardMode ? '(Dashboard Mode)' : '(Standalone Mode)');
         
         // Check service health on load
         await this.checkServiceHealth();
@@ -32,31 +40,31 @@ class RAGTestingManager {
      */
     setupEventListeners() {
         // Document ingestion form
-        const ingestForm = document.getElementById('rag-ingest-form');
+        const ingestForm = document.getElementById(this.getElementId('rag-ingest-form'));
         if (ingestForm) {
             ingestForm.addEventListener('submit', (e) => this.handleIngestSubmit(e));
         }
 
         // Add metadata field button
-        const addMetadataBtn = document.getElementById('add-metadata-field');
+        const addMetadataBtn = document.getElementById(this.getElementId('add-metadata-field'));
         if (addMetadataBtn) {
             addMetadataBtn.addEventListener('click', () => this.addMetadataField());
         }
 
         // Search form
-        const searchForm = document.getElementById('rag-search-form');
+        const searchForm = document.getElementById(this.getElementId('rag-search-form'));
         if (searchForm) {
             searchForm.addEventListener('submit', (e) => this.handleSearchSubmit(e));
         }
 
         // Document lookup
-        const lookupBtn = document.getElementById('lookup-document');
+        const lookupBtn = document.getElementById(this.getElementId('lookup-document'));
         if (lookupBtn) {
             lookupBtn.addEventListener('click', () => this.lookupDocument());
         }
 
         // Clear results button
-        const clearBtn = document.getElementById('clear-results');
+        const clearBtn = document.getElementById(this.getElementId('clear-results'));
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearResults());
         }
@@ -82,7 +90,7 @@ class RAGTestingManager {
      * Update health status display
      */
     updateHealthDisplay(error = null) {
-        const statusEl = document.getElementById('rag-service-status');
+        const statusEl = document.getElementById(this.getElementId('rag-service-status'));
         if (!statusEl) return;
 
         if (error) {
@@ -146,7 +154,7 @@ class RAGTestingManager {
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ingesting...';
             
             // Collect form data
-            const content = form.querySelector('#doc-content').value;
+            const content = form.querySelector('#' + this.getElementId('doc-content')).value;
             const metadata = this.collectMetadata();
             
             // Prepare documents array
@@ -213,7 +221,7 @@ class RAGTestingManager {
      * Add a new metadata field
      */
     addMetadataField() {
-        const container = document.getElementById('metadata-fields');
+        const container = document.getElementById(this.getElementId('metadata-fields'));
         const fieldDiv = document.createElement('div');
         fieldDiv.className = 'metadata-field';
         fieldDiv.innerHTML = `
@@ -237,7 +245,7 @@ class RAGTestingManager {
      * Reset metadata fields to default
      */
     resetMetadataFields() {
-        const container = document.getElementById('metadata-fields');
+        const container = document.getElementById(this.getElementId('metadata-fields'));
         container.innerHTML = `
             <div class="metadata-field">
                 <input type="text" class="metadata-key" placeholder="Key (e.g., source)">
@@ -253,7 +261,7 @@ class RAGTestingManager {
      * Show ingestion success message
      */
     showIngestSuccess(result) {
-        const resultsEl = document.getElementById('ingest-results');
+        const resultsEl = document.getElementById(this.getElementId('ingest-results'));
         resultsEl.innerHTML = `
             <div class="success-message">
                 <i class="fas fa-check-circle"></i>
@@ -291,14 +299,14 @@ class RAGTestingManager {
             
             // Collect search parameters
             const searchParams = {
-                query: form.querySelector('#search-query').value,
-                top_k: parseInt(form.querySelector('#top-k').value),
-                search_type: form.querySelector('#search-type').value
+                query: form.querySelector('#' + this.getElementId('search-query')).value,
+                top_k: parseInt(form.querySelector('#' + this.getElementId('top-k')).value),
+                search_type: form.querySelector('#' + this.getElementId('search-type')).value
             };
             
             // Add filters if any
-            const filterKey = form.querySelector('#filter-key').value.trim();
-            const filterValue = form.querySelector('#filter-value').value.trim();
+            const filterKey = form.querySelector('#' + this.getElementId('filter-key')).value.trim();
+            const filterValue = form.querySelector('#' + this.getElementId('filter-value')).value.trim();
             if (filterKey && filterValue) {
                 searchParams.filters = {
                     [filterKey]: filterValue
@@ -338,7 +346,7 @@ class RAGTestingManager {
      * Display search results
      */
     displaySearchResults(result) {
-        const resultsEl = document.getElementById('search-results');
+        const resultsEl = document.getElementById(this.getElementId('search-results'));
         
         if (result.results.length === 0) {
             resultsEl.innerHTML = `
@@ -408,7 +416,7 @@ class RAGTestingManager {
      * Lookup a specific document
      */
     async lookupDocument() {
-        const input = document.getElementById('document-id-input');
+        const input = document.getElementById(this.getElementId('document-id-input'));
         const documentId = input.value.trim();
         
         if (!documentId) {
@@ -423,7 +431,7 @@ class RAGTestingManager {
      * View a specific document
      */
     async viewDocument(documentId) {
-        const viewerEl = document.getElementById('document-viewer');
+        const viewerEl = document.getElementById(this.getElementId('document-viewer'));
         
         try {
             viewerEl.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading document...</div>';
@@ -471,7 +479,7 @@ class RAGTestingManager {
             `;
             
             // Update the input field
-            document.getElementById('document-id-input').value = documentId;
+            document.getElementById(this.getElementId('document-id-input')).value = documentId;
             
         } catch (error) {
             console.error('Document lookup failed:', error);
@@ -488,9 +496,9 @@ class RAGTestingManager {
      * Clear all results
      */
     clearResults() {
-        document.getElementById('ingest-results').innerHTML = '';
-        document.getElementById('search-results').innerHTML = '';
-        document.getElementById('document-viewer').innerHTML = '';
+        document.getElementById(this.getElementId('ingest-results')).innerHTML = '';
+        document.getElementById(this.getElementId('search-results')).innerHTML = '';
+        document.getElementById(this.getElementId('document-viewer')).innerHTML = '';
     }
 
     /**

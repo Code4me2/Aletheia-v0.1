@@ -122,6 +122,14 @@ class DataComposeApp {
             }
         });
 
+        // RAG Testing Section
+        this.registerSection('rag-testing', {
+            onShow: () => {
+                if (window.ragTesting) {
+                    window.ragTesting.initialize();
+                }
+            }
+        });
 
         // Developer Dashboard Section
         this.registerSection('developer-dashboard', {
@@ -130,13 +138,6 @@ class DataComposeApp {
                 checkAllServices();
                 // Update the timestamp
                 document.getElementById('last-updated').textContent = new Date().toLocaleString();
-                
-                // Ensure RAG Testing script is loaded
-                if (!window.RAGTestingManager && !document.querySelector('script[src*="rag-testing.js"]')) {
-                    const script = document.createElement('script');
-                    script.src = 'js/rag-testing.js';
-                    document.body.appendChild(script);
-                }
             }
         });
     }
@@ -517,34 +518,6 @@ class DataComposeApp {
         
         localStorage.setItem('hierarchical_summaries_history', JSON.stringify(history));
         this.loadSummarizationHistory();
-    }
-
-    // Toggle RAG Interface in Developer Dashboard
-    toggleRAGInterface() {
-        const container = document.getElementById('rag-interface-container');
-        const toggleIcon = document.getElementById('rag-toggle-icon');
-        const toggleText = document.getElementById('rag-toggle-text');
-        
-        if (container.classList.contains('rag-interface-collapsed')) {
-            // Expand
-            container.classList.remove('rag-interface-collapsed');
-            container.classList.add('rag-interface-expanded');
-            toggleIcon.className = 'fas fa-compress';
-            toggleText.textContent = 'Close RAG Testing';
-            
-            // Initialize RAG Testing if not already done
-            if (!window.ragTestingDashboard) {
-                window.ragTestingDashboard = new RAGTestingManager();
-                window.ragTestingDashboard.dashboardMode = true;
-                window.ragTestingDashboard.initialize();
-            }
-        } else {
-            // Collapse
-            container.classList.remove('rag-interface-expanded');
-            container.classList.add('rag-interface-collapsed');
-            toggleIcon.className = 'fas fa-expand';
-            toggleText.textContent = 'Open RAG Testing';
-        }
     }
 }
 
