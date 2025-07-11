@@ -201,16 +201,8 @@ export class HaystackSearch implements INodeType {
             body = {
               query: this.getNodeParameter('query', i) as string,
               top_k: this.getNodeParameter('topK', i) as number,
+              search_type: this.getNodeParameter('searchType', i) as string,
             };
-            
-            const searchType = this.getNodeParameter('searchType', i) as string;
-            if (searchType === 'hybrid') {
-              body.use_hybrid = true;
-            } else if (searchType === 'vector') {
-              body.use_vector = true;
-            } else if (searchType === 'bm25') {
-              body.use_bm25 = true;
-            }
 
             const filtersParam = this.getNodeParameter('filters', i);
             if (filtersParam) {

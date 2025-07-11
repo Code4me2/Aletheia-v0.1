@@ -128,7 +128,7 @@ async function runTests() {
       payload: {
         query: "test",
         top_k: 5,
-        use_hybrid: true
+        search_type: "hybrid"
       },
       options: {
         validateResponse: (res) => res && (res.documents !== undefined || res.results !== undefined)
