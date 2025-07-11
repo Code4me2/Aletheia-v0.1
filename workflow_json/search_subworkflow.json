@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": " {\n    \"query\": \"tax court jurisdiction\",\n    \"searchType\": \"hybrid\",\n    \"topK\": 10,\n    \"filters\": \"{\\\"court\\\": \\\"tax\\\"}\"\n  }"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "cde14bc3-6f5f-4b6f-9437-215b900dea20",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "query": "={{ $json.query }}",
+        "searchType": "={{ $json.searchType || 'hybrid' }}",
+        "topK": "={{ $json.topK || 5 }}",
+        "filters": "={{ $json.filters || '{}' }}"
+      },
+      "type": "CUSTOM.haystackSearch",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ],
+      "id": "9997bed0-6041-4cc3-a361-c2743d032904",
+      "name": "Haystack Search"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Haystack Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "4831bbd38dd63d2d9401abefbc42583492031872a4afa363243d72ca8bf05984"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "nodeName": "Haystack Search Node",
+  "timestamp": "2025-07-10T20:13:25.550Z",
+  "summary": {
+    "passed": 3,
+    "failed": 2,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "name": "Node Structure Validation",
+      "status": "passed",
+      "description": "Validates node compilation and structure"
+    },
+    {
+      "name": "Haystack Configuration",
+      "status": "passed",
+      "description": "Validates Haystack node configuration"
+    },
+    {
+      "name": "Elasticsearch Mock Tests",
+      "status": "passed",
+      "description": "Tests node behavior with mocked Elasticsearch responses"
+    },
+    {
+      "name": "Hierarchy Operations",
+      "status": "failed",
+      "description": "Tests document hierarchy tracking and batch operations"
+    },
+    {
+      "name": "API Integration",
+      "status": "failed",
+      "description": "Tests connection to Haystack service"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "name": "Haystack Search Test Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "haystack-search-test",
+        "options": {}
+      },
+      "id": "webhook-trigger-001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "haystack-search-test"
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $workflow.id }}",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "workflowData": "={\n  \"query\": \"{{ $json.body.query || 'tax court opinion' }}\",\n  \"searchType\": \"{{ $json.body.searchType || 'hybrid' }}\",\n  \"topK\": \"{{ $json.body.topK || 5 }}\",\n  \"filters\": \"{{ JSON.stringify($json.body.filters || {}) }}\"\n}"
+      },
+      "id": "execute-subworkflow-001",
+      "name": "Execute Haystack Search",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Haystack Search Test Results\n\n**Query**: {{ $node['Webhook'].json.body.query }}\n\n**Search Type**: {{ $node['Webhook'].json.body.searchType || 'hybrid' }}\n\n**Results Count**: {{ $json.totalResults }}\n\n### Search Results:\n{{ $json.results }}",
+        "options": {}
+      },
+      "id": "respond-webhook-001",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute Haystack Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Haystack Search": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["testing", "haystack"]
+}
