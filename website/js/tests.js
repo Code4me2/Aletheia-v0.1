@@ -184,10 +184,17 @@
             result.duration = duration;
             
             this.updateTestStatus(testName, result.status, result.error, result);
-            this.logOutput(
-                `${result.status.toUpperCase()}: ${testName} (${duration}s)`,
-                result.status === 'passed' ? 'success' : 'error'
-            );
+            
+            // Log with appropriate type based on status and warnings
+            let logType = result.status === 'passed' ? 'success' : 'error';
+            let logMessage = `${result.status.toUpperCase()}: ${testName} (${duration}s)`;
+            
+            if (result.status === 'passed' && result.details && result.details.warnings) {
+                logMessage += ' - with warnings';
+                logType = 'warning';
+            }
+            
+            this.logOutput(logMessage, logType);
         }
 
         async testHealth() {
@@ -241,38 +248,100 @@
         }
 
         async testSearch() {
+            // Test with correct parameters
             const queries = [
-                { query: 'test document', type: 'BM25', use_bm25: true },
-                { query: 'Aletheia RAG', type: 'Vector', use_vector: true },
-                { query: 'testing', type: 'Hybrid', use_hybrid: true }
+                { query: 'test document', type: 'BM25', search_type: 'bm25' },
+                { query: 'Aletheia RAG', type: 'Vector', search_type: 'vector' },
+                { query: 'testing', type: 'Hybrid', search_type: 'hybrid' }
             ];
             
             const results = [];
+            let errors = [];
+            let warnings = [];
             
-            for (const queryConfig of queries) {
-                const { type, ...params } = queryConfig;
-                const response = await fetch(`${this.testApiUrl}/search`, {
+            // First, test with old incorrect parameters to ensure they fail
+            try {
+                const oldParamsResponse = await fetch(`${this.testApiUrl}/search`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...params, top_k: 5 })
+                    body: JSON.stringify({ 
+                        query: 'test',
+                        topK: 5,  // Wrong parameter name
+                        use_hybrid: true  // Wrong parameter
+                    })
                 });
                 
-                const data = await response.json();
+                const oldData = await oldParamsResponse.json();
                 
-                if (!response.ok) {
-                    throw new Error(`${type} search failed: ${response.status}`);
+                // The API is lenient and accepts wrong params, but we should warn
+                if (oldParamsResponse.ok) {
+                    warnings.push('API accepted old parameter format (topK, use_hybrid). Consider making API stricter.');
                 }
-                
+            } catch (error) {
+                // This is actually good - old params should fail
                 results.push({
-                    type,
-                    total_results: data.total_results,
-                    search_type: data.search_type
+                    type: 'Parameter Validation',
+                    status: 'Good - Old format rejected',
+                    error: error.message
                 });
             }
             
+            // Now test with correct parameters
+            for (const queryConfig of queries) {
+                const { type, ...params } = queryConfig;
+                try {
+                    const response = await fetch(`${this.testApiUrl}/search`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            query: params.query,
+                            top_k: 5,  // Correct parameter name
+                            search_type: params.search_type  // Correct parameter
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        const errorDetail = data.detail || data.error || 'Unknown error';
+                        throw new Error(`${type} search failed (${response.status}): ${errorDetail}`);
+                    }
+                    
+                    // Validate response structure
+                    if (data.search_type !== params.search_type) {
+                        warnings.push(`${type}: Expected search_type '${params.search_type}', got '${data.search_type}'`);
+                    }
+                    
+                    results.push({
+                        type,
+                        total_results: data.total_results || 0,
+                        search_type: data.search_type,
+                        query_used: data.query,
+                        status: 'success'
+                    });
+                } catch (error) {
+                    errors.push(`${type} search error: ${error.message}`);
+                    results.push({
+                        type,
+                        status: 'failed',
+                        error: error.message
+                    });
+                }
+            }
+            
+            // Only fail if there are actual errors, not warnings
+            const hasErrors = errors.length > 0 || results.some(r => r.status === 'failed');
+            const hasWarnings = warnings.length > 0;
+            
             return {
-                status: 'passed',
-                details: { searches: results }
+                status: hasErrors ? 'failed' : 'passed',
+                error: errors.length > 0 ? errors.join('; ') : null,
+                details: { 
+                    searches: results,
+                    parameter_format: 'Using correct format: top_k (not topK), search_type (not use_hybrid/use_vector/use_bm25)',
+                    warnings: hasWarnings ? warnings : undefined,
+                    errors: errors.length > 0 ? errors : undefined
+                }
             };
         }
 
@@ -324,11 +393,40 @@
                 }
                 
                 if (details.details) {
-                    detailText += `\nDetails:\n${JSON.stringify(details.details, null, 2)}`;
+                    // Format details for better readability
+                    if (details.details.parameter_format) {
+                        detailText += `\nParameter Format:\n${details.details.parameter_format}\n`;
+                    }
+                    
+                    if (details.details.warnings && details.details.warnings.length > 0) {
+                        detailText += `\nWarnings:\n`;
+                        details.details.warnings.forEach(warning => {
+                            detailText += `⚠️  ${warning}\n`;
+                        });
+                    }
+                    
+                    if (details.details.searches) {
+                        detailText += `\nSearch Results:\n`;
+                        details.details.searches.forEach(search => {
+                            detailText += `- ${search.type}: `;
+                            if (search.status === 'success') {
+                                detailText += `✅ ${search.total_results} results found (${search.search_type})\n`;
+                            } else {
+                                detailText += `❌ ${search.error || 'Failed'}\n`;
+                            }
+                        });
+                    } else {
+                        detailText += `\nDetails:\n${JSON.stringify(details.details, null, 2)}`;
+                    }
                 }
                 
                 detailContent.textContent = detailText;
                 detailsElement.style.display = detailText ? 'block' : 'none';
+                
+                // Automatically expand details for failed tests
+                if (status === 'failed') {
+                    detailsElement.style.display = 'block';
+                }
             }
         }
 
@@ -347,9 +445,28 @@
             const timestamp = new Date().toLocaleTimeString();
             const entry = document.createElement('div');
             entry.className = `test-log-entry test-log-${type}`;
+            
+            // Add special formatting for parameter errors
+            let formattedMessage = this.escapeHtml(message);
+            if (message.includes('parameter') || message.includes('topK') || message.includes('use_hybrid')) {
+                formattedMessage = formattedMessage
+                    .replace(/topK/g, '<span style="color: #ff6b6b; font-weight: bold;">topK</span>')
+                    .replace(/top_k/g, '<span style="color: #51cf66; font-weight: bold;">top_k</span>')
+                    .replace(/use_hybrid/g, '<span style="color: #ff6b6b; font-weight: bold;">use_hybrid</span>')
+                    .replace(/use_vector/g, '<span style="color: #ff6b6b; font-weight: bold;">use_vector</span>')
+                    .replace(/use_bm25/g, '<span style="color: #ff6b6b; font-weight: bold;">use_bm25</span>')
+                    .replace(/search_type/g, '<span style="color: #51cf66; font-weight: bold;">search_type</span>');
+            }
+            
+            // Add icon for warning type
+            let icon = '';
+            if (type === 'warning') {
+                icon = '<i class="fas fa-exclamation-triangle" style="color: #ffc107; margin-right: 5px;"></i>';
+            }
+            
             entry.innerHTML = `
                 <span class="test-log-time">${timestamp}</span>
-                <span class="test-log-message">${this.escapeHtml(message)}</span>
+                <span class="test-log-message">${icon}${formattedMessage}</span>
             `;
             
             this.elements.testOutput.appendChild(entry);
