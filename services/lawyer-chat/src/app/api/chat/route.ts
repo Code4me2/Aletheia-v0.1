@@ -94,8 +94,13 @@ export async function POST(request: NextRequest) {
             // Stream the fallback message
             const chunkSize = 2;
             for (let i = 0; i < fallbackText.length; i += chunkSize) {
-              const chunk = fallbackText.slice(i, i + chunkSize);
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk, type: 'text' })}\n\n`));
+              const chunk = fallbackText.slice(i, Math.min(i + chunkSize, fallbackText.length));
+              // Ensure chunk is properly encoded to prevent unicode issues
+              const safeChunk = {
+                text: chunk,
+                type: 'text'
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(safeChunk)}\n\n`));
               await new Promise(resolve => setTimeout(resolve, 30));
             }
             
@@ -182,8 +187,13 @@ export async function POST(request: NextRequest) {
         // Send text in chunks for smooth streaming effect
         const chunkSize = 2; // Characters per chunk for smoother effect
         for (let i = 0; i < text.length; i += chunkSize) {
-          const chunk = text.slice(i, i + chunkSize);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk, type: 'text' })}\n\n`));
+          const chunk = text.slice(i, Math.min(i + chunkSize, text.length));
+          // Ensure chunk is properly encoded to prevent unicode issues
+          const safeChunk = {
+            text: chunk,
+            type: 'text'
+          };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(safeChunk)}\n\n`));
           
           // Small delay for typing effect (adjust as needed)
           await new Promise(resolve => setTimeout(resolve, 30));

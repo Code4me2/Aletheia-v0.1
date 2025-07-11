@@ -8,7 +8,10 @@ export interface Chat {
   createdAt: Date | string;
   updatedAt: Date | string;
   userId: string;
-  messages: ChatMessage[];
+  messages?: ChatMessage[]; // Made optional since API might not always include messages
+  _count?: {
+    messages: number;
+  };
 }
 
 export interface ChatMessage {

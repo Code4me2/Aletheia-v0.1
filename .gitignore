@@ -93,6 +93,7 @@ coverage/
 # Specific project files to ignore
 n8n/custom-nodes/n8n-nodes-bitnet/.env.bitnet
 n8n/mock-server.logcookies.txt
+services/lawyer-chat/auth.md
 
 # Test files and E2E
 /e2e/
