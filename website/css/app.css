@@ -287,6 +287,65 @@ body {
   opacity: 0.9;
 }
 
+/* Chat History in Menu */
+.app-menu-section {
+  margin-top: 20px;
+  padding: 0 15px;
+  border-top: 1px solid var(--border-color);
+}
+
+.app-menu-section-title {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 15px 0 10px 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-chat-history {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.menu-chat-item {
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background: var(--light-bg);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.menu-chat-item:hover {
+  background: var(--bg-secondary);
+  transform: translateX(5px);
+}
+
+.menu-chat-item-preview {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.menu-chat-item-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.menu-chat-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+  font-size: 0.85rem;
+}
+
 /* Old Navigation - Removed, navigation now in header */
 /* Keeping classes for backwards compatibility with any remaining references */
 
@@ -814,10 +873,10 @@ body {
 /* Citation Panel Styles */
 .citation-panel {
   position: fixed;
-  top: 110px; /* Below app header (50px) + nav (60px) */
+  top: 50px; /* Aligned with chat window, below app header */
   right: -50%; /* Hide by sliding out 50% of viewport */
   width: 50%; /* Take half the viewport width */
-  height: calc(100vh - 110px);
+  height: calc(100vh - 50px);
   background: var(--white);
   border-left: 1px solid var(--border-color);
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
@@ -1014,68 +1073,19 @@ body {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
-  padding-left: 100px; /* Account for side controls */
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative; /* For absolute positioning of plus button */
 }
 
-/* Side controls panel */
-.chat-side-controls {
-  position: fixed;
-  left: 20px;
-  top: 70px; /* Below header */
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  z-index: 1001; /* High z-index to stay above citation panel (1000) */
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: var(--border-radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Vertical mode toggle */
-.chat-mode-toggle-vertical {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.toggle-label-vertical {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: var(--white);
-  font-size: 0.9rem;
-  min-width: 80px;
-}
-
-.toggle-label-vertical input[type='radio'] {
-  display: none;
-}
-
-.toggle-label-vertical:hover {
-  background: var(--light-bg);
-  border-color: var(--secondary-color);
-}
-
-.toggle-label-vertical:has(input:checked) {
-  background: var(--secondary-color);
-  color: var(--white);
-  border-color: var(--secondary-color);
-}
-
-/* New chat button in side panel */
-#chat .new-chat-btn {
-  width: 40px;
-  height: 40px;
+/* New Chat Button inside chat container */
+#chat .new-chat-btn.floating-plus {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -1086,12 +1096,56 @@ body {
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100; /* High enough to be above chat messages */
+  opacity: 0.9;
 }
 
-#chat .new-chat-btn:hover {
+#chat .new-chat-btn.floating-plus:hover {
   transform: scale(1.1);
   background: var(--secondary-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  opacity: 1;
+}
+
+/* Compact mode toggle in input area */
+.chat-mode-toggle-compact {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background: var(--white);
+}
+
+.toggle-label-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--white);
+  font-size: 0.9rem;
+  border-right: 1px solid var(--border-color);
+}
+
+.toggle-label-compact:last-child {
+  border-right: none;
+}
+
+.toggle-label-compact input[type='radio'] {
+  display: none;
+}
+
+.toggle-label-compact:hover {
+  background: var(--light-bg);
+}
+
+.toggle-label-compact:has(input:checked) {
+  background: var(--secondary-color);
+  color: var(--white);
 }
 
 /* Responsive adjustments */

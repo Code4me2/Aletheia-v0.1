@@ -72,6 +72,16 @@
                     </div>
                 </a>
             </div>
+            
+            <!-- Chat History Section -->
+            <div class="app-menu-section">
+                <h4 class="app-menu-section-title">
+                    <i class="fas fa-history"></i> Chat History
+                </h4>
+                <div id="menu-chat-history" class="menu-chat-history">
+                    <div class="menu-chat-empty">No chat history</div>
+                </div>
+            </div>
         </div>
 
         <!-- Main Content Container -->
@@ -80,24 +90,11 @@
             <!-- Chat Section -->
             <section id="chat" class="content-section active">
                 <div class="chat-wrapper">
-                    <!-- Side Controls Panel -->
-                    <div class="chat-side-controls">
-                        <button class="new-chat-btn" onclick="startNewChat()" title="New Chat" style="display: none;">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                        <div class="chat-mode-toggle-vertical">
-                            <label class="toggle-label-vertical">
-                                <input type="radio" name="chat-mode" value="local" checked>
-                                <span class="mode-option">Local</span>
-                            </label>
-                            <label class="toggle-label-vertical">
-                                <input type="radio" name="chat-mode" value="public">
-                                <span class="mode-option">Public</span>
-                            </label>
-                        </div>
-                    </div>
-                    
                     <div class="chat-container">
+                    <!-- Floating New Chat Button -->
+                    <button class="new-chat-btn floating-plus" onclick="startNewChat()" title="New Chat" style="display: none;">
+                        <i class="fas fa-plus"></i>
+                    </button>
                     <div id="chat-messages" class="chat-messages">
                         <div class="message bot">
                             Welcome! I'm your AI assistant powered by DeepSeek R1. How can I help you today?
@@ -112,6 +109,16 @@
                             placeholder="Type your message here..."
                             autocomplete="off"
                         >
+                        <div class="chat-mode-toggle-compact">
+                            <label class="toggle-label-compact">
+                                <input type="radio" name="chat-mode" value="local" checked>
+                                <span class="mode-option">Local</span>
+                            </label>
+                            <label class="toggle-label-compact">
+                                <input type="radio" name="chat-mode" value="public">
+                                <span class="mode-option">Public</span>
+                            </label>
+                        </div>
                         <button onclick="sendMessage()" class="btn btn-primary">
                             <i class="fas fa-paper-plane"></i> Send
                         </button>
@@ -120,21 +127,6 @@
                     <div id="chat-status" class="chat-status"></div>
                 </div>
                 </div> <!-- End chat-wrapper -->
-                
-                <!-- Chat History Drawer (inside chat section) -->
-                <aside id="chat-history-drawer" class="history-drawer">
-                    <div class="drawer-header">
-                        <h3 class="drawer-title">
-                            <i class="fas fa-comments"></i> Chat History
-                        </h3>
-                        <button class="drawer-close" onclick="toggleChatHistoryDrawer()">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div id="chat-history-list" class="history-list">
-                        <div class="history-empty">No conversations yet</div>
-                    </div>
-                </aside>
                 
                 <!-- Citation Panel (inside chat section) -->
                 <aside id="citation-panel" class="citation-panel">

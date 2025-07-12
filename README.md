@@ -5,88 +5,127 @@ A sophisticated web application that integrates workflow automation (n8n) with A
 ## Quick Start
 
 ### Prerequisites
+
 - Docker & Docker Compose
-- WSL, linux, or MacOS (to utilize docker and docker compose)
-- 4GB+ available RAM
+- Python 3.8+ (for data import scripts)
+- 8GB+ RAM recommended (Elasticsearch uses 2GB, PostgreSQL 2GB, other services 4GB)
 - Modern web browser
+- Ports available: 8080, 5678, 9200, 8000
 - (Optional) Ollama with DeepSeek model for AI features (not available for windows yet)
 
 ### 1. Clone the repository
+
 ```bash
 git clone https://github.com/Code4me2/Aletheia-v0.1.git
 cd Aletheia-v0.1
 ```
 
 ### 2. Configure environment variables
+
 ```bash
 cp .env.example .env
-# Edit .env with your secure credentials --> not fully set up, this is a placeholder for deployment requirements
+# Note: Default values in .env work for local development
+# Add API keys for optional features:
+# - COURTLISTENER_API_TOKEN for court data import
+# - NEXTAUTH_SECRET for production deployments
 ```
 
-### 3. Start Docker Compose
+### 3. Start all services
+
 ```bash
+# Main services
 docker-compose up -d
+
+# Haystack/Elasticsearch (required for search features)
+cd n8n && ./start_haystack_services.sh && cd ..
 ```
 
-### 4. Access the application
+### 4. Verify services are healthy
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+# All services should show "(healthy)" status
+```
+
+### 5. Access the application
+
 - **Web Interface**: http://localhost:8080
 - **Lawyer-Chat**: http://localhost:8080/chat
 - **n8n Workflows**: http://localhost:8080/n8n/
 
-### 5. Import the basic workflow
+### 6. Import the basic workflow
+
 1. Access n8n at http://localhost:8080/n8n/
 2. Create your account if first time
 3. Click menu (⋮) → Import from file
 4. Select `workflow_json/web_UI_basic`
 5. Activate the workflow
 
-### 6. Test the AI Chat
+### 7. Test the AI Chat
+
 Navigate to the "AI Chat" tab in the web interface and start chatting!
 
 ## Notes for WSL:
-***WSL and docker can be finnicky when working together, here are some methods to check and fix common issues:**
+
+**\*WSL and docker can be finnicky when working together, here are some methods to check and fix common issues:**
+
 1. before trying to start docker desktop, execute the following commands in sequence:
+
 ```powershell
 wsl --shutdown
 ```
+
 ```powershell
 wsl -d ubuntu
 ```
+
 2. From your newly opened ubuntu (or other distribution) instance, execute this:
+
 ```bash
 docker version
 ```
+
 ```bash
 docker ps
 ```
+
 If both of those processes return results that indicate docker is connected to your WSL instance, cd to your Aletheia-v0.1 clone and execute:
+
 ```bash
 docker compose up -d
 ```
+
 and follow the rest of the quickstart guide to test things out.
 If bash don't recognize docker commands, go into the docker desktop dashboard --> settings --> resources --> advanced --> WSL integration, and select your WSL integration (if using ubuntu, it will show up ther as an option) then restart docker.
 
 ## Common Issues
-When starting up with this project, there are a few common issues, especially given the early development phase.
-1. **Inactive workflow**
-  - When using the developer (or production) interface, if the n8n workflow is not activated the workflow will not run. This means the webhook won't pick up any of the signals sent to it from the UI.
-2. **Unresponsive webhook**
-  - When the webhook is not responsive, the easiest method to check is to use `curl` through the CLI:
-  ```bash
-  curl -X POST \
-    -H "Content-Type: application/json" \
-    -d '{"test": "data", "timestamp": "2025-06-09"}' \
-    -v \
-    http://localhost:8080/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177
-  ```
-  if the webhook test is listening, it should return a response from the default chat setup out of workflow_json
-3. **No session ID**
-  - With the AI agent node in workflow_json/web_UI_basic, having the simple memory in place without a session ID halts the workflow, and can be temporarily fixed when testing with curl by removing the simple memory node, or by simply filling in any sequence of numbers as a fixed key value.
 
+When starting up with this project, there are a few common issues, especially given the early development phase.
+
+1. **Inactive workflow**
+
+- When using the developer (or production) interface, if the n8n workflow is not activated the workflow will not run. This means the webhook won't pick up any of the signals sent to it from the UI.
+
+2. **Unresponsive webhook**
+
+- When the webhook is not responsive, the easiest method to check is to use `curl` through the CLI:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"test": "data", "timestamp": "2025-06-09"}' \
+  -v \
+  http://localhost:8080/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177
+```
+
+if the webhook test is listening, it should return a response from the default chat setup out of workflow_json 3. **No session ID**
+
+- With the AI agent node in workflow_json/web_UI_basic, having the simple memory in place without a session ID halts the workflow, and can be temporarily fixed when testing with curl by removing the simple memory node, or by simply filling in any sequence of numbers as a fixed key value.
 
 ## Overview
 
 Data Compose combines multiple technologies to create a powerful document processing platform:
+
 - **n8n** workflow automation engine with custom AI nodes
 - **DeepSeek R1 1.5B** AI model integration via Ollama
 - **Court Opinion Scraper** for automated judicial document collection
@@ -98,6 +137,7 @@ Data Compose combines multiple technologies to create a powerful document proces
 ## Data Integration Documentation
 
 ### 📚 Documentation Links
+
 - **[CourtListener Integration](./court-processor/courtlistener_integration/README.md)** - Complete guide for CourtListener API integration
 - **[Haystack/RAG System](./n8n/haystack-service/README.md)** - Document search and analysis with Elasticsearch
 - **[Data Pipeline Overview](./docs/data-pipeline.md)** - Visual guide to data flow from sources to RAG
@@ -105,12 +145,14 @@ Data Compose combines multiple technologies to create a powerful document proces
 ## Key Features
 
 ### 🤖 AI-Powered Chat Interface
+
 - Real-time chat with DeepSeek R1 1.5B model
 - Webhook-based communication
 - Thinking process visibility
 - Context-aware responses
 
 ### ⚖️ Court Opinion Processing
+
 - Automated daily scraping of federal court opinions
 - Judge-centric database organization
 - PDF text extraction with OCR fallback
@@ -119,14 +161,16 @@ Data Compose combines multiple technologies to create a powerful document proces
 - Full-text search across all opinions
 
 ### 📄 Document Processing (Haystack RAG Integration)
+
 - **RAG-Only Implementation**: Streamlined for pure retrieval-augmented generation
 - **Hybrid Search**: BM25 + 384-dimensional vector embeddings (BAAI/bge-small-en-v1.5)
-- **FastAPI Service**: Running `haystack_service_rag.py` with development server
+- **FastAPI Service**: Running `haystack_service_rag.py` (RAG-only version)
 - **5 Core Endpoints**: Health, Ingest, Search, Import, Get Document
 - **Dual Mode Support**: Standalone or unified with PostgreSQL integration
 - **Direct Elasticsearch**: Uses Elasticsearch client without full Haystack library
 
 ### 🔄 Workflow Automation
+
 - Visual workflow creation with n8n
 - Custom nodes for AI and document processing
 - Pre-configured workflows included
@@ -135,6 +179,7 @@ Data Compose combines multiple technologies to create a powerful document proces
 - YAKE keyword extraction for automatic key phrase identification
 
 ### 💼 Lawyer Chat Application
+
 - Enterprise-grade legal AI assistant with Next.js 15.3
 - Type-safe architecture with full TypeScript support
 - Flexible deployment with configurable base paths (`/chat` subpath)
@@ -144,6 +189,7 @@ Data Compose combines multiple technologies to create a powerful document proces
 - Comprehensive test suite (unit, integration, E2E with Playwright)
 
 ### 🎨 Modern Web Interface
+
 - Single Page Application (SPA)
 - Responsive design
 - Tab-based navigation
@@ -300,18 +346,21 @@ Aletheia-v0.1 is a microservices-based platform that combines workflow automatio
 ### Deployment Options
 
 #### 1. **Single Host Deployment** (Default)
+
 ```yaml
 # Standard deployment on a single server
 docker-compose up -d
 ```
 
 #### 2. **Multi-Host Deployment** (Swarm)
+
 ```yaml
 # Distributed deployment across multiple servers
 docker stack deploy -c docker-compose.swarm.yml aletheia
 ```
 
 #### 3. **Development Deployment**
+
 ```yaml
 # Local development with hot-reload
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -319,26 +368,25 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ### Port Mapping
 
-| Service | Internal Port | External Port | Purpose | Optional |
-|---------|---------------|---------------|----------|----------|
-| Web (NGINX) | 80 | 8080 | Main reverse proxy | No |
-| n8n | 5678 | 5678 | Workflow automation | No |
-| PostgreSQL (db) | 5432 | - | Database (internal only) | No |
-| Lawyer Chat | 3000 | 3001 | AI chat interface | No |
-| AI Portal | 3000 | - | Internal only (via ai-portal-nginx) | No |
-| AI Portal NGINX | 80 | 8085 | AI portal proxy | No |
-| Elasticsearch | 9200, 9300 | 9200, 9300 | Document search & cluster communication | Yes |
-| Haystack | 8000 | 8000 | Document API | Yes |
+| Service         | Internal Port | External Port | Purpose                                 | Optional |
+| --------------- | ------------- | ------------- | --------------------------------------- | -------- |
+| Web (NGINX)     | 80            | 8080          | Main reverse proxy                      | No       |
+| n8n             | 5678          | 5678          | Workflow automation                     | No       |
+| PostgreSQL (db) | 5432          | -             | Database (internal only)                | No       |
+| Lawyer Chat     | 3000          | 3001          | AI chat interface                       | No       |
+| AI Portal       | 3000          | -             | Internal only (via ai-portal-nginx)     | No       |
+| AI Portal NGINX | 80            | 8085          | AI portal proxy                         | No       |
+| Elasticsearch   | 9200, 9300    | 9200, 9300    | Document search & cluster communication | Yes      |
+| Haystack        | 8000          | 8000          | Document API                            | Yes      |
 
 ### Additional Services (When Enabled)
 
-| Service | Internal Port | External Port | Purpose | Docker Compose File |
-|---------|---------------|---------------|----------|-------------------|
-| Prometheus | 9090 | 9090 | Metrics collection | docker-compose.production.yml |
-| Grafana | 3000 | 3001 | Dashboards | docker-compose.production.yml |
-| Loki | 3100 | 3100 | Log aggregation | docker-compose.production.yml |
-| Node Exporter | 9100 | 9100 | System metrics | docker-compose.staging.yml |
-
+| Service       | Internal Port | External Port | Purpose            | Docker Compose File           |
+| ------------- | ------------- | ------------- | ------------------ | ----------------------------- |
+| Prometheus    | 9090          | 9090          | Metrics collection | docker-compose.production.yml |
+| Grafana       | 3000          | 3001          | Dashboards         | docker-compose.production.yml |
+| Loki          | 3100          | 3100          | Log aggregation    | docker-compose.production.yml |
+| Node Exporter | 9100          | 9100          | System metrics     | docker-compose.staging.yml    |
 
 ### Key Architectural Decisions
 
@@ -414,7 +462,8 @@ Aletheia-v0.1/
     │   └── run-all-node-tests.js   # Master test runner
     ├── docker-compose.haystack.yml # Haystack services config
     ├── haystack-service/          # Haystack API implementation
-    │   └── haystack_service.py    # Main service (7 implemented endpoints)
+    │   ├── haystack_service.py    # Full service with hierarchy support
+    │   └── haystack_service_rag.py # RAG-only service (currently active)
     └── local-files/              # Persistent storage
 ```
 
@@ -427,14 +476,16 @@ The application now supports flexible deployment at any base path through enviro
 #### Setting the Base Path
 
 1. **Docker Compose** (Recommended):
+
    ```yaml
    services:
      legal-chat:
        environment:
-         - BASE_PATH=/legal-chat  # Deploy at /legal-chat
+         - BASE_PATH=/legal-chat # Deploy at /legal-chat
    ```
 
 2. **Development**:
+
    ```bash
    BASE_PATH=/legal-chat npm run dev
    ```
@@ -455,6 +506,7 @@ The lawyer-chat application includes a robust type-safe path configuration syste
 - **Zero hardcoded paths** - Complete flexibility for deployment
 
 Example usage in code:
+
 ```typescript
 import { buildApiUrl, apiClient } from '@/lib/paths';
 
@@ -496,6 +548,7 @@ Aletheia uses PostgreSQL with multiple schemas for different components. The mai
 For detailed database schema documentation including tables, views, functions, and usage examples, see [docs/DATABASE.md](docs/DATABASE.md).
 
 **Quick Overview:**
+
 - **judges** - Judge information and court affiliations
 - **opinions** - Court opinions with full text and metadata
 - **processing_log** - Tracking and statistics for data processing
@@ -510,6 +563,7 @@ The DeepSeek node serves as an excellent template for creating new custom nodes.
 #### 1. **Node Structure Setup**
 
 Create a new folder in `n8n/custom-nodes/` following this structure:
+
 ```
 n8n-nodes-yournode/
 ├── nodes/
@@ -529,88 +583,89 @@ Based on the DeepSeek implementation, here's a template for `YourNode.node.ts`:
 
 ```typescript
 import {
-    IExecuteFunctions,
-    INodeExecutionData,
-    INodeType,
-    INodeTypeDescription,
-    NodeOperationError,
+  IExecuteFunctions,
+  INodeExecutionData,
+  INodeType,
+  INodeTypeDescription,
+  NodeOperationError,
 } from 'n8n-workflow';
 
 export class YourNode implements INodeType {
-    description: INodeTypeDescription = {
-        displayName: 'Your Node Name',
-        name: 'yourNode',
-        icon: 'file:youricon.svg',  // Add icon to nodes/YourNode/
-        group: ['transform'],
-        version: 1,
-        description: 'Description of what your node does',
-        defaults: {
-            name: 'Your Node',
-        },
-        inputs: ['main'],
-        outputs: ['main'],
-        properties: [
-            // Node properties (fields shown in UI)
-            {
-                displayName: 'Operation',
-                name: 'operation',
-                type: 'options',
-                options: [
-                    {
-                        name: 'Process',
-                        value: 'process',
-                        description: 'Process data',
-                    },
-                ],
-                default: 'process',
-                noDataExpression: true,
-            },
-            // Add more properties as needed
+  description: INodeTypeDescription = {
+    displayName: 'Your Node Name',
+    name: 'yourNode',
+    icon: 'file:youricon.svg', // Add icon to nodes/YourNode/
+    group: ['transform'],
+    version: 1,
+    description: 'Description of what your node does',
+    defaults: {
+      name: 'Your Node',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      // Node properties (fields shown in UI)
+      {
+        displayName: 'Operation',
+        name: 'operation',
+        type: 'options',
+        options: [
+          {
+            name: 'Process',
+            value: 'process',
+            description: 'Process data',
+          },
         ],
-    };
+        default: 'process',
+        noDataExpression: true,
+      },
+      // Add more properties as needed
+    ],
+  };
 
-    async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-        const items = this.getInputData();
-        const returnData: INodeExecutionData[] = [];
+  async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+    const items = this.getInputData();
+    const returnData: INodeExecutionData[] = [];
 
-        for (let i = 0; i < items.length; i++) {
-            try {
-                // Get parameters from UI
-                const operation = this.getNodeParameter('operation', i) as string;
-                
-                // Process your data here
-                const result = await this.processData(items[i].json, operation);
-                
-                returnData.push({
-                    json: result,
-                    pairedItem: { item: i },
-                });
-            } catch (error) {
-                if (this.continueOnFail()) {
-                    returnData.push({
-                        json: { error: error.message },
-                        pairedItem: { item: i },
-                    });
-                    continue;
-                }
-                throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
-            }
+    for (let i = 0; i < items.length; i++) {
+      try {
+        // Get parameters from UI
+        const operation = this.getNodeParameter('operation', i) as string;
+
+        // Process your data here
+        const result = await this.processData(items[i].json, operation);
+
+        returnData.push({
+          json: result,
+          pairedItem: { item: i },
+        });
+      } catch (error) {
+        if (this.continueOnFail()) {
+          returnData.push({
+            json: { error: error.message },
+            pairedItem: { item: i },
+          });
+          continue;
         }
-
-        return [returnData];
+        throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+      }
     }
 
-    // Helper methods
-    private async processData(input: any, operation: string): Promise<any> {
-        // Your processing logic here
-        return { processed: input, operation };
-    }
+    return [returnData];
+  }
+
+  // Helper methods
+  private async processData(input: any, operation: string): Promise<any> {
+    // Your processing logic here
+    return { processed: input, operation };
+  }
 }
 ```
 
 #### 3. **Package Configuration**
 
 Create `package.json`:
+
 ```json
 {
   "name": "n8n-nodes-yournode",
@@ -635,14 +690,10 @@ Create `package.json`:
     "lint": "eslint nodes credentials package.json",
     "lintfix": "eslint nodes credentials package.json --fix"
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "nodes": [
-      "dist/nodes/YourNode/YourNode.node.js"
-    ]
+    "nodes": ["dist/nodes/YourNode/YourNode.node.js"]
   },
   "devDependencies": {
     "@types/node": "^16.11.26",
@@ -701,6 +752,7 @@ npm run test:quick       # Quick structure validation
 ```
 
 **Test Structure**:
+
 ```
 n8n-nodes-yournode/
 └── test/
@@ -713,6 +765,7 @@ n8n-nodes-yournode/
 ```
 
 **Using Shared Test Utilities**:
+
 - `test-utils/common/test-runner.js` - Unified test execution
 - `test-utils/common/node-validator.js` - Node structure validation
 - `test-utils/common/env-loader.js` - Environment configuration
@@ -756,6 +809,7 @@ The project demonstrates advanced patterns for integrating custom AI nodes with 
 To create custom nodes that work with n8n's AI Agent system:
 
 1. **Implement the Supply Data Interface**:
+
    ```typescript
    async supplyData(this: ISupplyDataFunctions): Promise<any> {
      return {
@@ -768,6 +822,7 @@ To create custom nodes that work with n8n's AI Agent system:
    ```
 
 2. **Configure Output Type**:
+
    ```typescript
    outputs: [NodeConnectionType.AiLanguageModel],
    outputNames: ['Model']
@@ -780,6 +835,7 @@ To create custom nodes that work with n8n's AI Agent system:
 #### Integration Examples
 
 **1. Chat with BitNet Model**:
+
 ```
 [Chat Trigger] → [Conversational Agent] → [Response]
                          ↓
@@ -787,6 +843,7 @@ To create custom nodes that work with n8n's AI Agent system:
 ```
 
 **2. Document Processing Pipeline**:
+
 ```
 [Document] → [Hierarchical Summarization] → [Summary]
                         ↓
@@ -794,6 +851,7 @@ To create custom nodes that work with n8n's AI Agent system:
 ```
 
 **3. Advanced Workflow with Tools**:
+
 ```
 [Chat Trigger] → [Tools Agent] → [Response]
                       ↓
@@ -818,39 +876,46 @@ The frontend uses a modular architecture for easy extension:
 
 ```javascript
 // Add new sections to the SPA
-window.app.addSection('newsection', 'New Feature', 'icon-class', 
-    '<h2>Content</h2>', 
-    { onShow: () => initialize() }
-);
+window.app.addSection('newsection', 'New Feature', 'icon-class', '<h2>Content</h2>', {
+  onShow: () => initialize(),
+});
 ```
 
 ### UI Features & Hidden Functionality
 
 #### App Menu Cabinet
+
 The application includes a slide-out menu system that provides quick access to additional features:
+
 - **Access**: Click the menu icon or use `window.app.toggleAppMenu()`
 - **Keyboard Support**: Press `Escape` to close the menu
 - **Auto-close**: Clicks outside the menu will automatically close it
 
 #### History Management
+
 The Hierarchical Summarization feature includes advanced history capabilities:
+
 - **History Drawer**: Collapsible sidebar showing all previous summarizations
-- **Quick Actions**: 
+- **Quick Actions**:
   - Plus (+) button for new summarization without opening history
   - Right-click on history items to delete
   - Auto-switch to form view when active item is deleted
 - **Context Menus**: Right-click functionality for additional options
 
 #### Chat Interface Modes
+
 The AI chat system supports multiple operational modes:
+
 - **Local Mode**: Direct connection to local AI services (DeepSeek via Ollama)
 - **Public Mode**: Connection to cloud-based AI services
 - **Mode Switching**: Available through UI controls or programmatically
 
 #### Keyboard Navigation
+
 Comprehensive keyboard shortcuts throughout the application:
 
 **Hierarchical Summarization Visualization**:
+
 - `←` Navigate to parent (toward final summary)
 - `→` Navigate to children (toward source documents)
 - `↑` Previous sibling at same level
@@ -860,12 +925,15 @@ Comprehensive keyboard shortcuts throughout the application:
 - `Ctrl+/` Open search dialog
 
 **General Navigation**:
+
 - `Escape` Close modals, drawers, and menus
 - `Tab` Navigate between sections
 - `Enter` Activate selected items
 
 #### Advanced Visualization Features
+
 The document hierarchy visualization includes:
+
 - **Minimap**: Interactive overview of entire document tree
 - **Search Functionality**: Full-text search with highlighting
 - **Quick Jump**: Dropdown navigation with node previews
@@ -873,22 +941,26 @@ The document hierarchy visualization includes:
 - **Real-time Updates**: Visual indicators for processing status
 
 #### Developer Console Features
+
 Hidden debugging and development features accessible via browser console:
+
 - `window.app.debug()` - Enable debug mode with verbose logging
 - `window.app.sections` - View all registered sections
 - `window.app.config` - Access runtime configuration
 - `window.testConnection()` - Test webhook connectivity
 
 #### CSS Theme Customization
+
 The application uses CSS custom properties for easy theming:
+
 ```css
 /* Override in browser dev tools or custom CSS */
 :root {
-    --primary-color: #2c3e50;
-    --secondary-color: #3498db;
-    --accent-color: #e74c3c;
-    --background-color: #f8f9fa;
-    --text-color: #333333;
+  --primary-color: #2c3e50;
+  --secondary-color: #3498db;
+  --accent-color: #e74c3c;
+  --background-color: #f8f9fa;
+  --text-color: #333333;
 }
 ```
 
@@ -909,10 +981,11 @@ N8N_ENCRYPTION_KEY=your_encryption_key
 ### Webhook Configuration
 
 Update `website/js/config.js` with your webhook ID:
+
 ```javascript
 const CONFIG = {
-  WEBHOOK_ID: "c188c31c-1c45-4118-9ece-5b6057ab5177",
-  WEBHOOK_URL: `${window.location.protocol}//${window.location.host}/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177`
+  WEBHOOK_ID: 'c188c31c-1c45-4118-9ece-5b6057ab5177',
+  WEBHOOK_URL: `${window.location.protocol}//${window.location.host}/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177`,
 };
 ```
 
@@ -923,11 +996,12 @@ const CONFIG = {
 The Haystack integration provides document processing with hierarchical analysis and search capabilities. It's designed for legal document processing with a 4-level hierarchy system.
 
 #### Key Features:
+
 - **Hierarchical Document Processing**: 4-level document hierarchy with parent-child relationships
 - **Advanced Search**: Hybrid search combining BM25 and 384-dimensional vector embeddings
 - **Direct Elasticsearch Integration**: Uses Elasticsearch directly without full Haystack framework
 - **Development Server**: FastAPI service with auto-reload (not production-ready)
-- **7 Implemented API Endpoints**: 
+- **7 Implemented API Endpoints**:
   - `POST /import_from_node` - Import documents from n8n workflow nodes
   - `POST /search` - Hybrid search with BM25 and vector embeddings
   - `POST /hierarchy` - Get document parent-child relationships
@@ -953,6 +1027,7 @@ cd n8n && ./start_haystack_services.sh
 3. **Connect to other nodes** for document processing pipelines
 
 Example workflow pattern:
+
 ```
 PostgreSQL Query → Haystack Import → Search/Navigate Documents
 ```
@@ -1009,6 +1084,7 @@ docker-compose exec db psql -U your_db_user -d your_db_name -c "SELECT * FROM co
 ```
 
 #### Supported Courts:
+
 - **tax**: US Tax Court (✅ Fully implemented)
 - **ca9**: Ninth Circuit Court of Appeals (⚠️ Configuration exists, implementation pending)
 - **ca1**: First Circuit Court of Appeals (⚠️ Configuration exists, implementation pending)
@@ -1017,6 +1093,7 @@ docker-compose exec db psql -U your_db_user -d your_db_name -c "SELECT * FROM co
 **Note**: Currently, only the Tax Court scraper is fully implemented. Other courts have configuration entries but require additional development.
 
 #### Features:
+
 - Automatic judge name extraction from PDF text
 - Daily scheduled scraping via cron
 - Full-text search across all opinions
@@ -1029,12 +1106,14 @@ For detailed documentation, see `court-processor/README.md`
 The YAKE (Yet Another Keyword Extractor) node provides automatic keyword and key phrase extraction from documents:
 
 #### Features:
+
 - **Language-agnostic**: Works with multiple languages
 - **Unsupervised**: No training data required
 - **Statistical approach**: Uses word co-occurrence and frequency
 - **Configurable**: Adjust window size, deduplication threshold, and max keywords
 
 #### Usage in n8n:
+
 1. Add YAKE node to your workflow
 2. Connect document input
 3. Configure extraction parameters:
@@ -1045,6 +1124,7 @@ The YAKE (Yet Another Keyword Extractor) node provides automatic keyword and key
 4. Output: Ranked list of keywords with confidence scores
 
 #### Example Use Cases:
+
 - Document tagging and categorization
 - Search engine optimization
 - Content summarization
@@ -1057,27 +1137,34 @@ The YAKE (Yet Another Keyword Extractor) node provides automatic keyword and key
 Aletheia-v0.1 includes comprehensive monitoring capabilities for production deployments.
 
 **Note**: The project includes two separate monitoring configurations:
+
 1. **Production Monitoring** (`docker-compose.production.yml`): General application monitoring with Prometheus, Grafana, and Loki
 2. **Haystack Monitoring** (`monitoring/docker-compose.monitoring.yml`): Specialized monitoring for Haystack/Elasticsearch services
 
 ⚠️ **Important**: These stacks share Prometheus port 9090. Run only one at a time or reconfigure ports to avoid conflicts.
 
 #### Prometheus Metrics Export
+
 The Haystack service includes a Prometheus exporter (`n8n/monitoring/haystack_exporter.py`) that provides:
+
 - **Search Performance Metrics**: Latency tracking by search type (hybrid, vector, BM25)
 - **Document Processing Metrics**: Ingestion rates and processing times
 - **Elasticsearch Health**: Cluster status and node availability
 - **Error Tracking**: Categorized error counts by operation type
 
 #### Grafana Dashboards
+
 Pre-configured dashboards for visualizing:
+
 - RAG performance metrics
 - Service health status
 - Query response times
 - Document processing throughput
 
 #### Alert Rules
+
 Prometheus alerting for:
+
 - Service downtime
 - High error rates
 - Performance degradation
@@ -1086,45 +1173,55 @@ Prometheus alerting for:
 ### Developer Tools
 
 #### Workflow Analysis Scripts
+
 Located in the root directory:
+
 - **`analyze_workflow.py`**: Analyzes n8n workflow JSON for optimization opportunities
 - **`connection_analyzer.py`**: Debugs service connectivity issues
 - **`workflow_validator.py`**: Validates workflow configurations
 - **`simplify_workflow.py`**: Simplifies complex workflow structures
 
 #### Testing Infrastructure
+
 - **Parallel Testing**: `docker-compose.parallel-test.yml` for concurrent test execution
 - **Performance Benchmarking**: `benchmark_rag_performance.py` for RAG system testing
 - **Integration Tests**: Comprehensive test suites for all services
 
 #### Deployment Utilities
+
 Located in `scripts/` directory:
+
 - **`standardize-names.sh`**: Converts filenames to kebab-case across the project
 - **`rollback.sh`**: Advanced deployment rollback with version management
 - **`wait-for-health.sh`**: Dynamic health check polling for services
 - **`health-check.sh`**: Comprehensive multi-service health verification
 
 #### Database Management
+
 - **`scripts/init-databases.sh`**: Database initialization and schema setup
 - **Migration Scripts**: Automated database migration tools
 
 ### Hidden Utilities
 
 #### Energy Monitoring (BitNet)
+
 - **`scripts/monitor_energy.py`**: Tracks power consumption during AI inference
 - Useful for optimizing deployment costs and environmental impact
 
 #### Service Monitoring
+
 - **`monitor_server.sh`**: Real-time monitoring of BitNet server
 - Provides slot status, resource usage, and performance metrics
 
 #### Test Runners
+
 - **`n8n/custom-nodes/run-all-node-tests.js`**: Master test runner for all custom nodes
 - **`run_tests.py`**: Python test orchestrator with coverage reporting
 
 ### Development Workflows
 
 #### Local Development Setup
+
 ```bash
 # Run development environment with hot-reload
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -1140,6 +1237,7 @@ python connection_analyzer.py
 ```
 
 #### Performance Analysis
+
 ```bash
 # Benchmark RAG performance
 python benchmark_rag_performance.py
@@ -1152,6 +1250,7 @@ python scripts/monitor_energy.py
 ```
 
 #### Debugging Tools
+
 ```bash
 # Debug service connectivity
 python connection_analyzer.py --verbose
@@ -1167,37 +1266,98 @@ python workflow_validator.py workflow.json
 
 ### Common Issues
 
-1. **n8n not starting**: Check logs with `docker-compose logs n8n`
-2. **Chat not working**: Ensure workflow is activated in n8n
-3. **Ollama connection**: Verify Ollama is running and accessible
-4. **Port conflicts**: Ensure ports 8080, 5678, 9200, 8000 are free
-5. **Service communication failures**: 
-   - Ensure `COMPOSE_PROJECT_NAME=aletheia` is set in `.env`
-   - Verify services are on correct networks (frontend/backend)
-   - Check network names match: `docker network ls | grep aletheia`
+1. **Services showing as unhealthy**:
+   - Elasticsearch may crash after extended use (memory issues)
+   - Haystack becomes unhealthy when Elasticsearch dies
+   - Solution: Restart all services (see Clean Restart below)
+
+2. **Browser hanging/not loading**:
+   - Usually indicates services need restart
+   - Clear browser cache and cookies for localhost
+   - Try incognito/private browsing mode
+
+3. **"Connection refused" errors**:
+   - Services may need 30-60 seconds to fully start
+   - Elasticsearch takes longest to initialize
+   - Wait and retry, or check logs
+
+4. **n8n workflow not responding**:
+   - Ensure workflow is activated (toggle switch in n8n)
+   - Check webhook URL matches in `website/js/config.js`
+   - Verify with curl test (see below)
+
+5. **Port conflicts**:
+   - Ensure ports 8080, 5678, 9200, 8000 are free
+   - Check with: `lsof -i :8080` (repeat for each port)
+   - Kill conflicting processes or change ports in docker-compose.yml
+
+6. **Network errors**:
+   - If you see "Network aletheia_backend Resource is still in use"
+   - Run: `docker network prune` (after stopping all containers)
+
+### Clean Restart Procedure
+
+```bash
+# Stop everything properly
+docker-compose down
+cd n8n && docker-compose -f docker-compose.haystack.yml down && cd ..
+
+# Remove any stuck networks (if needed)
+docker network prune
+
+# Start fresh
+docker-compose up -d
+cd n8n && ./start_haystack_services.sh
+
+# Wait for services to be healthy (check every 10 seconds)
+watch docker ps
+```
+
+### Service Health Checks
+
+```bash
+# Check all service statuses at once
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# Individual health checks
+curl http://localhost:8080/                    # Web interface
+curl http://localhost:8080/n8n/healthz         # n8n
+curl http://localhost:8000/health              # Haystack
+curl http://localhost:9200/_cluster/health     # Elasticsearch
+
+# Test webhook (replace with your webhook ID)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"test": "data", "timestamp": "2025-01-11"}' \
+  http://localhost:8080/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177
+```
 
 ### Useful Commands
 
 ```bash
-# View logs
+# View logs for debugging
 docker-compose logs -f [service_name]
+docker-compose logs -f elasticsearch-judicial  # Common culprit
 
-# Restart services
-docker-compose restart
+# Restart individual service
+docker-compose restart [service_name]
 
-# Clean restart
-docker-compose down && docker-compose up -d
+# Check resource usage
+docker stats
 
-# Check service health
-curl http://localhost:8080/n8n/healthz
-curl http://localhost:8000/health
-
-# Run tests for all custom nodes
+# Run tests for custom nodes
 cd n8n/custom-nodes
 node run-all-node-tests.js
+```
 
-# Test specific node
-node run-all-node-tests.js bitnet
+### Memory Issues (Elasticsearch)
+
+If Elasticsearch keeps crashing:
+
+```yaml
+# Edit n8n/docker-compose.haystack.yml
+environment:
+  - 'ES_JAVA_OPTS=-Xms1g -Xmx1g' # Reduce from 2g if needed
 ```
 
 ## Data Management
@@ -1231,11 +1391,54 @@ docker exec aletheia-n8n-1 tar czf - -C /home/node/.n8n . > n8n_backup_$(date +%
 - **Always check volume mounts** before removing containers
 - **Use safe migration scripts** for network or configuration changes
 
+## CourtListener Data Import (Optional)
+
+### Prerequisites
+
+```bash
+# Install Python dependencies
+pip install -r court-processor/courtlistener_integration/requirements.txt
+
+# Add API key to .env
+echo "COURTLISTENER_API_TOKEN=your_api_key_here" >> .env
+```
+
+### Quick Start Import
+
+```bash
+# 1. Initialize database schema
+docker exec -i aletheia-db-1 psql -U $DB_USER -d $DB_NAME < court-processor/scripts/init_courtlistener_schema.sql
+
+# 2. Download recent court data (example: Texas Eastern District, last 30 days)
+python court-processor/courtlistener_integration/bulk_download.py \
+  --court txed --days 30 --output-dir /tmp/courtlistener
+
+# 3. Load to PostgreSQL
+python court-processor/courtlistener_integration/load_to_postgres.py \
+  --input-dir /tmp/courtlistener/txed
+
+# 4. Index in Haystack for search
+python court-processor/courtlistener_integration/ingest_to_haystack.py \
+  --haystack-url http://localhost:8000 --limit 100
+```
+
+### Available Courts
+
+- `ded` - District of Delaware
+- `txed` - Eastern District of Texas
+- `cand` - Northern District of California
+- `cafc` - Court of Appeals for the Federal Circuit
+- `cacd` - Central District of California
+- `nysd` - Southern District of New York
+
+For detailed instructions, see [CourtListener Integration Guide](./court-processor/courtlistener_integration/README.md)
+
 ## Production Deployment
 
 ### Security Considerations
 
 1. **Generate Strong Credentials**:
+
    ```bash
    # Generate secure passwords
    DB_PASSWORD=$(openssl rand -base64 32)
@@ -1287,7 +1490,7 @@ Aletheia-v0.1 uses GitHub Actions for continuous integration and deployment, wit
 
 ### Continuous Integration
 
-The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull request to `main` and `develop` branches:
+The CI pipeline (`.github/workflows/ci.yml`) runs on every push and pull request to `main` and `develop` branches:
 
 1. **Linting & Formatting**: ESLint and Prettier checks
 2. **JavaScript Tests**: Jest tests on Node.js 18 and 20
@@ -1299,6 +1502,7 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
 ### Deployment Pipeline
 
 #### Staging Deployment
+
 - **Trigger**: Push to `develop` branch
 - **Workflow**: `.github/workflows/deploy-staging.yml`
 - **Features**:
@@ -1308,6 +1512,7 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
   - Slack notifications
 
 #### Production Deployment
+
 - **Trigger**: GitHub release or manual workflow dispatch
 - **Workflow**: `.github/workflows/deploy-production.yml`
 - **Features**:
@@ -1320,6 +1525,7 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
 ### Key CI/CD Features
 
 1. **Health Check Polling**: Dynamic service readiness checks replace hardcoded waits
+
    ```bash
    ./scripts/wait-for-health.sh <url> [timeout] [interval]
    ```
@@ -1329,7 +1535,8 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
    - Database credentials secured in container environment
    - Input validation for deployment parameters
 
-3. **Rollback Capability**: 
+3. **Rollback Capability**:
+
    ```bash
    ./scripts/rollback.sh [staging|production] [version]
    ```
@@ -1349,6 +1556,7 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
 ### Setting Up CI/CD
 
 1. **Configure GitHub Secrets**:
+
    ```
    STAGING_HOST, STAGING_USER, STAGING_SSH_KEY
    PRODUCTION_HOST, PRODUCTION_USER, PRODUCTION_SSH_KEY
@@ -1361,11 +1569,12 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
    - Set monitoring endpoints
 
 3. **Test Locally**:
+
    ```bash
    # Run tests
    npm test
    pytest
-   
+
    # Test deployment script
    ./scripts/deploy.sh staging
    ```
@@ -1373,6 +1582,7 @@ The CI pipeline (``.github/workflows/ci.yml``) runs on every push and pull reque
 ### Monitoring & Observability
 
 Production deployments include:
+
 - Prometheus metrics collection
 - Grafana dashboards
 - Loki log aggregation

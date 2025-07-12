@@ -90,10 +90,6 @@ class DataComposeApp {
                 }
             },
             onHide: () => {
-                const drawer = document.getElementById('chat-history-drawer');
-                if (drawer) {
-                    drawer.classList.remove('open');
-                }
                 const newChatBtn = document.querySelector('.new-chat-btn');
                 if (newChatBtn) {
                     newChatBtn.style.display = 'none';
@@ -180,6 +176,9 @@ class DataComposeApp {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
         messageDiv.classList.add(isUser ? 'user' : 'bot');
+        
+        // Store raw content for history persistence
+        messageDiv.setAttribute('data-raw-content', text);
         
         if (isUser) {
             // User messages remain plain text for security
@@ -747,7 +746,7 @@ class DataComposeApp {
             messageCount: messages.length,
             preview: messages[1]?.textContent.substring(0, 100) || 'New conversation',
             messages: Array.from(messages).map(msg => ({
-                content: msg.textContent,
+                content: msg.getAttribute('data-raw-content') || msg.textContent,
                 isUser: msg.classList.contains('user'),
                 timestamp: new Date().toISOString()
             }))
@@ -774,19 +773,19 @@ class DataComposeApp {
 
     loadChatHistory() {
         const history = this.getChatHistory();
-        const historyList = document.getElementById('chat-history-list');
+        const menuHistoryList = document.getElementById('menu-chat-history');
         
-        if (!historyList) return;
+        if (!menuHistoryList) return;
         
         if (history.length === 0) {
-            historyList.innerHTML = '<div class="history-empty">No conversations yet</div>';
+            menuHistoryList.innerHTML = '<div class="menu-chat-empty">No chat history</div>';
         } else {
-            historyList.innerHTML = history.map(item => `
-                <div class="history-item" 
-                     onclick="window.app.loadChatConversation('${item.id}')"
+            menuHistoryList.innerHTML = history.map(item => `
+                <div class="menu-chat-item" 
+                     onclick="window.app.loadChatConversation('${item.id}'); closeAppMenu();"
                      oncontextmenu="window.app.showChatHistoryContextMenu(event, '${item.id}'); return false;">
-                    <div class="history-item-title">${item.preview}</div>
-                    <div class="history-item-meta">
+                    <div class="menu-chat-item-preview">${item.preview}</div>
+                    <div class="menu-chat-item-time">
                         ${new Date(item.timestamp).toLocaleDateString()} • 
                         ${item.messageCount} messages
                     </div>
@@ -805,13 +804,9 @@ class DataComposeApp {
         const chatMessages = document.getElementById('chat-messages');
         chatMessages.innerHTML = '';
         
-        // Load messages
+        // Load messages - use addMessage to re-parse markdown
         conversation.messages.forEach(msg => {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            messageDiv.classList.add(msg.isUser ? 'user' : 'bot');
-            messageDiv.textContent = msg.content;
-            chatMessages.appendChild(messageDiv);
+            this.addMessage(msg.content, msg.isUser);
         });
         
         // Update current chat ID
@@ -819,9 +814,6 @@ class DataComposeApp {
         
         // Scroll to bottom
         chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        // Close drawer
-        document.getElementById('chat-history-drawer').classList.remove('open');
     }
 
     showChatHistoryContextMenu(event, chatId) {
@@ -1030,6 +1022,11 @@ function toggleAppMenu() {
     
     cabinet.classList.toggle('show');
     overlay.classList.toggle('show');
+    
+    // Load chat history when menu is opened
+    if (cabinet.classList.contains('show') && window.app) {
+        window.app.loadChatHistory();
+    }
 }
 
 function closeAppMenu() {
@@ -1068,13 +1065,6 @@ window.toggleHistoryDrawer = function() {
     }
 }
 
-window.toggleChatHistoryDrawer = function() {
-    const drawer = document.getElementById('chat-history-drawer');
-    if (drawer) {
-        drawer.classList.toggle('open');
-    }
-}
-
 window.startNewChat = function() {
     if (window.app) {
         window.app.startNewChat();
@@ -1085,21 +1075,12 @@ window.startNewChat = function() {
 document.addEventListener('click', function(event) {
     const drawer = document.getElementById('history-drawer');
     const toggleBtn = document.getElementById('history-toggle');
-    const chatDrawer = document.getElementById('chat-history-drawer');
-    const chatToggleBtn = document.getElementById('chat-history-toggle');
     
     // Check if click is outside history drawer and toggle button
     if (drawer && drawer.classList.contains('open') && 
         !drawer.contains(event.target) && 
         toggleBtn && !toggleBtn.contains(event.target)) {
         drawer.classList.remove('open');
-    }
-    
-    // Check if click is outside chat history drawer and toggle button
-    if (chatDrawer && chatDrawer.classList.contains('open') && 
-        !chatDrawer.contains(event.target) && 
-        chatToggleBtn && !chatToggleBtn.contains(event.target)) {
-        chatDrawer.classList.remove('open');
     }
 });
 
