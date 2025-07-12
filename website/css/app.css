@@ -61,7 +61,6 @@ body {
   max-width: var(--container-max-width);
   margin: 0 auto;
   padding: 0;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -356,7 +355,6 @@ body {
   margin-top: 50px; /* Account for header only now */
   overflow-y: auto;
   overflow-x: visible; /* Allow drawer to extend outside */
-  height: calc(100vh - 50px);
 }
 
 .content-section {
@@ -367,6 +365,12 @@ body {
   overflow: visible;
   /* Allow drawer to extend outside */
   clip-path: none;
+  min-height: auto; /* Prevent content sections from inheriting min-height */
+}
+
+/* Developer Dashboard specific styling */
+#developer-dashboard.content-section {
+  padding-top: 20px;
 }
 
 .content-section.active {
@@ -1472,9 +1476,13 @@ body {
 
 /* Hierarchical Summarization Layout */
 .hierarchical-container {
-  height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* Only apply min-height when this section is active */
+#hierarchical-summarization.active .hierarchical-container {
+  min-height: 100%;
 }
 
 .section-header {
@@ -2541,7 +2549,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
-  margin-top: 30px;
+  margin-top: 0;
   grid-auto-rows: minmax(min-content, 1fr);
 }
 
