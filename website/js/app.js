@@ -125,11 +125,27 @@ class DataComposeApp {
                 // Update the timestamp
                 document.getElementById('last-updated').textContent = new Date().toLocaleString();
                 
+                // Start auto-refresh timer (every 30 seconds)
+                if (window.serviceRefreshInterval) {
+                    clearInterval(window.serviceRefreshInterval);
+                }
+                window.serviceRefreshInterval = setInterval(() => {
+                    checkAllServices();
+                    document.getElementById('last-updated').textContent = new Date().toLocaleString();
+                }, 30000);
+                
                 // Ensure RAG Testing script is loaded
                 if (!window.RAGTestingManager && !document.querySelector('script[src*="rag-testing.js"]')) {
                     const script = document.createElement('script');
                     script.src = 'js/rag-testing.js';
                     document.body.appendChild(script);
+                }
+            },
+            onHide: () => {
+                // Clear the auto-refresh interval when leaving dashboard
+                if (window.serviceRefreshInterval) {
+                    clearInterval(window.serviceRefreshInterval);
+                    window.serviceRefreshInterval = null;
                 }
             }
         });
@@ -1013,6 +1029,14 @@ class DataComposeApp {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new DataComposeApp();
+    
+    // Initialize dark mode from localStorage
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateDarkModeIcon(savedTheme);
+    
+    // Initialize keyboard shortcuts
+    initializeKeyboardShortcuts();
 });
 
 // App Menu Cabinet Functions
@@ -2820,7 +2844,7 @@ async function checkService(url, statusId, serviceName, isExternal = false) {
     }
 }
 
-function viewLogs() {
+async function viewLogs() {
     const service = document.getElementById('log-service').value;
     const logViewer = document.getElementById('log-viewer');
     const logContent = document.getElementById('log-content');
@@ -2837,9 +2861,69 @@ function viewLogs() {
         logTitle.textContent = `${service.toUpperCase()} Logs`;
     }
     
-    // Simulate log content with formatting
-    const sampleLogs = generateSampleLogs(service);
-    logContent.innerHTML = sampleLogs;
+    // Show loading state
+    logContent.innerHTML = '<span class="log-line info">Fetching logs...</span>';
+    
+    try {
+        // Fetch actual Docker logs via a webhook or API endpoint
+        const logs = await fetchDockerLogs(service);
+        logContent.innerHTML = logs;
+    } catch (error) {
+        // Fall back to sample logs if real logs are not available
+        const sampleLogs = generateSampleLogs(service);
+        logContent.innerHTML = sampleLogs;
+    }
+}
+
+async function fetchDockerLogs(service) {
+    // Map service names to Docker container names
+    const containerMap = {
+        'n8n': 'aletheia-v01_n8n_1',
+        'db': 'aletheia-v01_db_1',
+        'web': 'aletheia-v01_web_1',
+        'haystack': 'aletheia-v01_haystack_api_1'
+    };
+    
+    const containerName = containerMap[service];
+    if (!containerName) {
+        throw new Error('Unknown service');
+    }
+    
+    // In a production environment, you would call a backend API that executes docker logs
+    // For now, we'll make a request to a hypothetical endpoint
+    // This would need to be implemented on the backend
+    const response = await fetch(`/api/docker/logs/${containerName}?lines=100`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'text/plain'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error('Failed to fetch logs');
+    }
+    
+    const rawLogs = await response.text();
+    return formatDockerLogs(rawLogs);
+}
+
+function formatDockerLogs(rawLogs) {
+    const lines = rawLogs.split('\n');
+    return lines.map(line => {
+        let cssClass = 'log-line';
+        if (line.includes('ERROR') || line.includes('error')) cssClass += ' error';
+        else if (line.includes('WARNING') || line.includes('warn')) cssClass += ' warning';
+        else if (line.includes('INFO') || line.includes('info')) cssClass += ' info';
+        else if (line.includes('DEBUG') || line.includes('debug')) cssClass += ' debug';
+        
+        return `<span class="${cssClass}">${escapeHtml(line)}</span>`;
+    }).join('\n');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function generateSampleLogs(service) {
@@ -2852,9 +2936,9 @@ function generateSampleLogs(service) {
         `<span class="log-line info">[${timestamp}] INFO: Health check endpoint responding normally</span>`,
         `<span class="log-line debug">[${timestamp}] DEBUG: Processing request from 127.0.0.1</span>`,
         ``,
-        `<span class="log-line" style="color: #888;">Note: In production, this would show real-time logs from your infrastructure.</span>`,
-        `<span class="log-line" style="color: #888;">For now, you can view actual logs using:</span>`,
-        `<span class="log-line" style="color: #4a9eff; font-family: var(--code-font);">docker-compose logs -f ${service}</span>`
+        `<span class="log-line" style="color: #888;">Note: Docker log API endpoint not configured.</span>`,
+        `<span class="log-line" style="color: #888;">To enable real logs, implement /api/docker/logs endpoint.</span>`,
+        `<span class="log-line" style="color: #888;">Run <code>docker logs ${service}</code> in terminal for actual logs.</span>`
     ];
     
     return logs.join('\n');
@@ -2986,4 +3070,258 @@ window.testCitationPanel = function() {
         }, 100);
     }
 };
+
+// Dark Mode Functions
+function toggleDarkMode() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateDarkModeIcon(newTheme);
+}
+
+function updateDarkModeIcon(theme) {
+    const icon = document.getElementById('dark-mode-icon');
+    if (icon) {
+        icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+}
+
+// Keyboard Shortcuts
+function initializeKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Don't trigger shortcuts when typing in input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // Show help with '?'
+        if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            showKeyboardShortcutsHelp();
+        }
+        
+        // Quick navigation shortcuts
+        if (e.altKey && !e.ctrlKey && !e.metaKey) {
+            switch(e.key) {
+                case '1':
+                    e.preventDefault();
+                    window.app.showSection('chat');
+                    break;
+                case '2':
+                    e.preventDefault();
+                    window.app.showSection('hierarchical-summarization');
+                    break;
+                case '3':
+                    e.preventDefault();
+                    window.app.showSection('developer-dashboard');
+                    break;
+                case 'd':
+                    e.preventDefault();
+                    toggleDarkMode();
+                    break;
+                case 'm':
+                    e.preventDefault();
+                    toggleAppMenu();
+                    break;
+            }
+        }
+    });
+}
+
+function showKeyboardShortcutsHelp() {
+    // Check if help modal already exists
+    let helpModal = document.getElementById('keyboard-shortcuts-modal');
+    if (helpModal) {
+        helpModal.style.display = 'block';
+        return;
+    }
+    
+    // Create help modal
+    helpModal = document.createElement('div');
+    helpModal.id = 'keyboard-shortcuts-modal';
+    helpModal.className = 'shortcuts-modal';
+    helpModal.innerHTML = `
+        <div class="shortcuts-modal-content">
+            <div class="shortcuts-modal-header">
+                <h3>Keyboard Shortcuts</h3>
+                <button class="shortcuts-modal-close" onclick="hideKeyboardShortcutsHelp()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="shortcuts-modal-body">
+                <div class="shortcut-group">
+                    <h4>Navigation</h4>
+                    <div class="shortcut-item">
+                        <kbd>Alt</kbd> + <kbd>1</kbd> - AI Chat
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Alt</kbd> + <kbd>2</kbd> - Hierarchical Summarization
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Alt</kbd> + <kbd>3</kbd> - Developer Dashboard
+                    </div>
+                </div>
+                
+                <div class="shortcut-group">
+                    <h4>General</h4>
+                    <div class="shortcut-item">
+                        <kbd>?</kbd> - Show this help
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Alt</kbd> + <kbd>D</kbd> - Toggle dark mode
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Alt</kbd> + <kbd>M</kbd> - Toggle app menu
+                    </div>
+                </div>
+                
+                <div class="shortcut-group">
+                    <h4>Hierarchical Summarization</h4>
+                    <div class="shortcut-item">
+                        <kbd>←</kbd> - Navigate to parent
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>→</kbd> - Navigate to children
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>↑</kbd> / <kbd>↓</kbd> - Navigate siblings
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl</kbd> + <kbd>/</kbd> - Search
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(helpModal);
+    
+    // Add CSS for the modal
+    if (!document.getElementById('shortcuts-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'shortcuts-modal-styles';
+        style.textContent = `
+            .shortcuts-modal {
+                display: block;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                animation: fadeIn 0.2s ease;
+            }
+            
+            .shortcuts-modal-content {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--white);
+                border-radius: var(--border-radius);
+                box-shadow: var(--shadow);
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            
+            .shortcuts-modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 20px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            
+            .shortcuts-modal-header h3 {
+                margin: 0;
+                color: var(--text-primary);
+            }
+            
+            .shortcuts-modal-close {
+                background: none;
+                border: none;
+                font-size: 1.2rem;
+                color: var(--text-secondary);
+                cursor: pointer;
+                padding: 5px;
+            }
+            
+            .shortcuts-modal-close:hover {
+                color: var(--text-primary);
+            }
+            
+            .shortcuts-modal-body {
+                padding: 20px;
+            }
+            
+            .shortcut-group {
+                margin-bottom: 25px;
+            }
+            
+            .shortcut-group:last-child {
+                margin-bottom: 0;
+            }
+            
+            .shortcut-group h4 {
+                margin: 0 0 10px 0;
+                color: var(--text-primary);
+                font-size: 1rem;
+            }
+            
+            .shortcut-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 0;
+                color: var(--text-secondary);
+            }
+            
+            .shortcut-item kbd {
+                background: var(--light-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 3px;
+                padding: 3px 8px;
+                font-family: var(--code-font);
+                font-size: 0.85rem;
+                color: var(--text-primary);
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            }
+            
+            @media (max-width: 768px) {
+                .shortcuts-modal-content {
+                    width: 95%;
+                    max-height: 90vh;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Close on click outside
+    helpModal.addEventListener('click', (e) => {
+        if (e.target === helpModal) {
+            hideKeyboardShortcutsHelp();
+        }
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape') {
+            hideKeyboardShortcutsHelp();
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    });
+}
+
+function hideKeyboardShortcutsHelp() {
+    const helpModal = document.getElementById('keyboard-shortcuts-modal');
+    if (helpModal) {
+        helpModal.style.display = 'none';
+    }
+}
 

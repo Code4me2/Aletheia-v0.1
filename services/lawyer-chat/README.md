@@ -33,10 +33,25 @@ docker-compose up -d
 - **Lawyer-Chat Interface**: http://localhost:8080/chat
 - **Health Check**: http://localhost:8080/chat/api/csrf
 
-### 5. Create an admin user
+### 5. Create demo users
+
+For quick testing, create pre-verified demo users:
+
 ```bash
-docker exec -it lawyer-chat npm run create-admin
+# See DEMO_CREDENTIALS_SETUP.md for the simplest method
+docker exec aletheia-db-1 psql -U your_db_user -d lawyerchat << 'EOF'
+INSERT INTO "User" (id, email, name, password, role, "emailVerified", "createdAt", "updatedAt", "failedLoginAttempts")
+VALUES 
+  ('demo-user-001', 'demo@reichmanjorgensen.com', 'Demo User', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW(), NOW(), 0),
+  ('admin-user-001', 'admin@reichmanjorgensen.com', 'Admin User', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', NOW(), NOW(), NOW(), 0);
+EOF
 ```
+
+**Demo Credentials:**
+- Demo: `demo@reichmanjorgensen.com` / `password`
+- Admin: `admin@reichmanjorgensen.com` / `password`
+
+**Note:** The `npm run create-admin` script requires tsx which is not available in production containers. See [DEMO_CREDENTIALS_SETUP.md](./DEMO_CREDENTIALS_SETUP.md) for details and alternative methods.
 
 ### 6. Configure n8n webhook
 1. Access n8n at http://localhost:8080/n8n/

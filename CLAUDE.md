@@ -99,7 +99,7 @@ The web frontend is now a Single Page Application (SPA) with seamless navigation
    - Claude-style artifact window behavior for citations
 3. **Workflows Section**: n8n workflow management and monitoring
 4. **Hierarchical Summarization**: Document processing with interactive visualization
-5. **Developer Dashboard**: System administration and testing tools
+5. **Developer Dashboard**: System administration and testing tools with real-time monitoring
 
 ### Frontend Configuration
 
@@ -132,7 +132,39 @@ Basic workflow that connects the web interface to the DeepSeek AI node:
 
 ## Recent Changes and Improvements
 
-### Latest Session Updates
+### Latest Session Updates (Developer Dashboard Enhancements)
+
+1. **Developer Dashboard UI Improvements**:
+   - Fixed excessive blank space issue by removing min-height constraints
+   - Removed title and subtitle for cleaner, content-focused interface
+   - Dashboard now displays only functional cards without extra padding
+
+2. **Real-time Service Monitoring**:
+   - Added auto-refresh timer (every 30 seconds) for service status
+   - Service health checks now display response times in milliseconds
+   - Visual indicators update automatically without manual refresh
+   - Auto-refresh stops when leaving dashboard to save resources
+
+3. **Dark Mode Support**:
+   - Added persistent dark mode toggle in application header
+   - Theme preference saved in localStorage
+   - Comprehensive dark theme with adjusted colors for all UI elements
+   - Smooth transitions between light and dark themes
+
+4. **Docker Logs Integration**:
+   - Prepared infrastructure for real Docker logs viewing
+   - Log viewer with syntax highlighting for different log levels
+   - Ready for backend API endpoint implementation (/api/docker/logs)
+   - Fallback to informative sample logs with setup instructions
+
+5. **Keyboard Shortcuts**:
+   - Press `?` to display keyboard shortcuts help modal
+   - `Alt+1/2/3` - Quick navigation between sections
+   - `Alt+D` - Toggle dark mode
+   - `Alt+M` - Toggle app menu
+   - Shortcuts disabled when typing in input fields
+
+### Previous Session Updates
 
 1. **Citation Panel System**:
    - Implemented hybrid citation panel with Claude-style artifact window behavior
@@ -718,6 +750,42 @@ Fixed critical navigation logic where left/right arrow directions were reversed.
 ### CSS Architecture
 All hierarchy levels use CSS custom properties for easy theming and consistency across the visualization.
 
+# n8n Custom Nodes Architecture
+
+## Important: Pre-Built Nodes
+
+All n8n custom nodes in this project are **pre-built and ready to use**. Key points:
+
+1. **No build required on startup**: The nodes come with compiled JavaScript in `dist/` directories
+2. **Direct mounting**: Docker mounts `./n8n/custom-nodes` directly into the n8n container
+3. **What n8n uses**: Only the `dist/` folders are needed for runtime - `node_modules` are NOT required
+4. **Development only**: The `node_modules` directories are only needed if you're modifying the TypeScript source
+
+### Custom Node Structure
+```
+n8n-nodes-[name]/
+├── dist/           # ✅ REQUIRED - Compiled JavaScript that n8n loads
+├── nodes/          # Source TypeScript (for development)
+├── node_modules/   # ❌ NOT REQUIRED for runtime (can be safely removed)
+├── package.json    # Node metadata
+└── tsconfig.json   # TypeScript config
+```
+
+### Space Optimization
+Since nodes are pre-built, you can safely remove all `node_modules` directories to save ~675MB:
+```bash
+# Safe to remove - nodes will still work
+rm -rf ./n8n/custom-nodes/*/node_modules
+```
+
+### If You Need to Modify a Node
+Only if modifying the TypeScript source:
+```bash
+cd n8n/custom-nodes/n8n-nodes-[name]
+npm install      # Restore dependencies
+npm run build    # Recompile to dist/
+```
+
 # DeepSeek Custom Node Details
 
 ## Node Architecture
@@ -843,6 +911,77 @@ cd n8n && ./start_haystack_services.sh
 - Complete feature documentation: `n8n/haystack_readme.md`
 - API Documentation: http://localhost:8000/docs
 - Archived planning/development docs: `n8n/archived-docs/`
+
+## Developer Dashboard
+
+### Overview
+The Developer Dashboard provides comprehensive system administration and monitoring tools for the Aletheia platform. It features a clean, card-based interface with real-time service monitoring, development tools, and testing capabilities.
+
+### Key Features
+
+1. **Service Status Monitoring**
+   - Real-time health checks for all services (n8n, PostgreSQL, Haystack/Elasticsearch, Lawyer Chat)
+   - Response time display in milliseconds
+   - Auto-refresh every 30 seconds
+   - Visual status indicators with color coding
+
+2. **Quick Actions**
+   - Direct links to service interfaces
+   - n8n workflow interface
+   - Lawyer Chat application
+   - Elasticsearch console
+   - Haystack API documentation
+
+3. **System Information**
+   - Project version and environment details
+   - Docker status monitoring
+   - Component version information
+   - Last update timestamps
+
+4. **Logs & Monitoring**
+   - Service log viewer with syntax highlighting
+   - Log level filtering (INFO, DEBUG, WARNING, ERROR)
+   - Copy, download, and clear log functions
+   - Ready for Docker logs API integration
+
+5. **Development Tools**
+   - Cache clearing functionality
+   - Configuration export (JSON format)
+   - Service restart capabilities
+   - RAG testing interface
+
+6. **RAG Testing Interface**
+   - Collapsible testing panel
+   - Document ingestion with metadata
+   - Multi-mode search (Hybrid/Vector/BM25)
+   - Document viewer by ID
+   - Service health status
+
+### User Interface Enhancements
+
+- **Dark Mode**: Persistent theme toggle with full application support
+- **Keyboard Shortcuts**: Quick navigation and actions (press `?` for help)
+- **Responsive Design**: Optimized grid layout for all screen sizes
+- **Clean Layout**: Minimal design with no unnecessary titles or text
+
+### Configuration
+
+The dashboard automatically detects and monitors services based on Docker container names:
+- `aletheia-v01_n8n_1` - n8n Workflow Engine
+- `aletheia-v01_db_1` - PostgreSQL Database
+- `aletheia-v01_web_1` - NGINX Web Server
+- `aletheia-v01_haystack_api_1` - Haystack/Elasticsearch
+
+### Keyboard Shortcuts Reference
+
+| Shortcut | Action |
+|----------|--------|
+| `?` | Show keyboard shortcuts help |
+| `Alt+1` | Navigate to AI Chat |
+| `Alt+2` | Navigate to Hierarchical Summarization |
+| `Alt+3` | Navigate to Developer Dashboard |
+| `Alt+D` | Toggle dark mode |
+| `Alt+M` | Toggle app menu |
 
 # Hierarchical Summarization Visualization
 

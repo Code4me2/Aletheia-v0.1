@@ -41,6 +41,33 @@
   --code-font: 'Fira Code', 'Courier New', monospace;
 }
 
+/* Dark Mode Theme */
+[data-theme="dark"] {
+  --primary-color: #3498db;
+  --secondary-color: #2c3e50;
+  --light-bg: #1e1e1e;
+  --white: #2d2d2d;
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+  --border-color: #404040;
+  --bg-primary: #2d2d2d;
+  --bg-secondary: #1e1e1e;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  
+  /* Adjust hierarchy colors for dark mode */
+  --level-0-bg: #1e3a5f;
+  --level-0-border: #64b5f6;
+  --level-1-bg: #1b3a1b;
+  --level-1-border: #81c784;
+  --level-2-bg: #3e2f1e;
+  --level-2-border: #ffb74d;
+  --level-3-bg: #3a1e3a;
+  --level-3-border: #ba68c8;
+}
+
 /* Reset and Base */
 * {
   margin: 0;
@@ -166,6 +193,34 @@ body {
 .header-nav-tab i {
   margin-right: 0.3rem;
   font-size: 0.8rem;
+}
+
+/* Dark Mode Toggle */
+.dark-mode-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 1rem;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  margin-left: 10px;
+}
+
+.dark-mode-toggle:hover {
+  background: var(--light-bg);
+  border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .dark-mode-toggle {
+  border-color: var(--border-color);
+  color: #ffd700;
+}
+
+[data-theme="dark"] .dark-mode-toggle:hover {
+  background: var(--bg-hover);
+  border-color: #ffd700;
 }
 
 /* App Menu Cabinet */

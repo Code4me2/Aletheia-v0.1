@@ -67,7 +67,6 @@ export class CitationChecker implements INodeType {
         type: NodeConnectionType.AiLanguageModel,
         displayName: 'Language Model',
         required: false,
-        description: 'AI model for citation appropriateness verification',
       },
     ],
     outputs: [NodeConnectionType.Main],
@@ -152,6 +151,9 @@ export class CitationChecker implements INodeType {
     const items = this.getInputData();
     const returnData: INodeExecutionData[] = [];
     const operation = this.getNodeParameter('operation', 0) as string;
+    
+    // Create citation helper instance
+    const citationHelper = new CitationChecker();
 
     // Get AI Language Model if connected
     let languageModel: any;
@@ -183,13 +185,13 @@ export class CitationChecker implements INodeType {
 
         if (operation === 'parse' || operation === 'fullValidation') {
           // Parse citations
-          const parsedCitations = this.parseCitations(text);
+          const parsedCitations = citationHelper.parseCitations(text);
           result.citations = {
             parsed: parsedCitations,
             summary: {
               total: parsedCitations.length,
-              inline: parsedCitations.filter((c) => c.type === 'inline').length,
-              references: parsedCitations.filter((c) => c.type === 'reference').length,
+              inline: parsedCitations.filter((c: ParsedCitation) => c.type === 'inline').length,
+              references: parsedCitations.filter((c: ParsedCitation) => c.type === 'reference').length,
             },
           };
         }
@@ -197,16 +199,16 @@ export class CitationChecker implements INodeType {
         if (operation === 'verify' || operation === 'fullValidation') {
           // Verify citations against database
           const dbConfig = this.getNodeParameter('dbConfig', itemIndex) as any;
-          const citations = result.citations?.parsed || this.parseCitations(text);
-          const verificationResults = await this.verifyCitations(citations, dbConfig);
+          const citations = result.citations?.parsed || citationHelper.parseCitations(text);
+          const verificationResults = await citationHelper.verifyCitations(citations, dbConfig);
 
           result.citations = {
             ...result.citations,
             verificationResults,
             summary: {
               ...result.citations?.summary,
-              verified: verificationResults.filter((r) => r.exists).length,
-              unverified: verificationResults.filter((r) => !r.exists).length,
+              verified: verificationResults.filter((r: VerificationResult) => r.exists).length,
+              unverified: verificationResults.filter((r: VerificationResult) => !r.exists).length,
             },
           };
         }
@@ -214,16 +216,16 @@ export class CitationChecker implements INodeType {
         if (operation === 'fullValidation' && languageModel) {
           // Validate citations with AI
           const citations = result.citations.parsed;
-          const validationResults = await this.validateCitations(citations, text, languageModel);
+          const validationResults = await citationHelper.validateCitations(citations, text, languageModel);
 
           result.citations = {
             ...result.citations,
             validationResults,
             summary: {
               ...result.citations.summary,
-              appropriate: validationResults.filter((r) => r.appropriate).length,
-              inappropriate: validationResults.filter((r) => !r.appropriate).length,
-              issues: validationResults.flatMap((r) => r.issues || []),
+              appropriate: validationResults.filter((r: ValidationResult) => r.appropriate).length,
+              inappropriate: validationResults.filter((r: ValidationResult) => !r.appropriate).length,
+              issues: validationResults.flatMap((r: ValidationResult) => r.issues || []),
             },
           };
         }
@@ -236,7 +238,7 @@ export class CitationChecker implements INodeType {
         if (this.continueOnFail()) {
           returnData.push({
             json: {
-              error: error.message,
+              error: error instanceof Error ? error.message : 'Unknown error',
               itemIndex,
             },
             pairedItem: { item: itemIndex },
@@ -250,7 +252,7 @@ export class CitationChecker implements INodeType {
     return [returnData];
   }
 
-  private parseCitations(text: string): ParsedCitation[] {
+  parseCitations(text: string): ParsedCitation[] {
     const citations: ParsedCitation[] = [];
     const citationMap = new Map<string, ParsedCitation>();
 
@@ -330,7 +332,7 @@ export class CitationChecker implements INodeType {
     return citations;
   }
 
-  private async verifyCitations(
+  async verifyCitations(
     citations: ParsedCitation[],
     dbConfig: any
   ): Promise<VerificationResult[]> {
@@ -403,7 +405,7 @@ export class CitationChecker implements INodeType {
             citationId: citation.id,
             exists: false,
             confidence: 0,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -413,7 +415,7 @@ export class CitationChecker implements INodeType {
         citationId: citation.id,
         exists: false,
         confidence: 0,
-        error: `Database connection error: ${error.message}`,
+        error: `Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       }));
     } finally {
       if (client) {
@@ -424,7 +426,7 @@ export class CitationChecker implements INodeType {
     return results;
   }
 
-  private async validateCitations(
+  async validateCitations(
     citations: ParsedCitation[],
     fullText: string,
     languageModel: any
@@ -443,7 +445,7 @@ export class CitationChecker implements INodeType {
         const contextStart = Math.max(0, citationIndex - contextRadius);
         const contextEnd = Math.min(
           fullText.length,
-          citationIndex + citation.rawText?.length + contextRadius
+          citationIndex + (citation.rawText?.length || 0) + contextRadius
         );
         const context = fullText.substring(contextStart, contextEnd);
 
@@ -520,7 +522,7 @@ Respond in JSON format:
             appropriate: true,
             confidence: 0.5,
             reasoning: 'Error parsing AI response',
-            issues: [`Parse error: ${parseError.message}`],
+            issues: [`Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`],
           };
         }
 
@@ -530,8 +532,8 @@ Respond in JSON format:
           citationId: citation.id,
           appropriate: false,
           confidence: 0,
-          reasoning: `Validation error: ${error.message}`,
-          issues: [`Error: ${error.message}`],
+          reasoning: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          issues: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
         });
       }
     }
