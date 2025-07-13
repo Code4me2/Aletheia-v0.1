@@ -2,7 +2,7 @@
  * Service for interacting with n8n workflows API
  */
 
-import type { Workflow, WorkflowsResponse } from '@types/api.types';
+import type { Workflow, WorkflowsResponse } from '@/types/api.types';
 
 export class WorkflowService {
   private baseUrl = '/n8n/rest';

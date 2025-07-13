@@ -2,7 +2,7 @@
  * Home module - Landing page for Data Compose
  */
 
-import type { AppModule, RouteParams } from '@types/module.types';
+import type { AppModule, RouteParams } from '@/types/module.types';
 import { getApp } from '@core/App';
 
 export class HomeModule implements AppModule {

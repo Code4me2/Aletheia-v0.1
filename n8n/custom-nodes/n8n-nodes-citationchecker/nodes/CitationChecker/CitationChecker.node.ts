@@ -50,6 +50,22 @@ interface ValidationResult {
   issues?: string[];
 }
 
+interface ScriptedValidationResult {
+  citationId: string;
+  formatValid: boolean;
+  formatIssues: string[];
+  structureValid: boolean;
+  metadataComplete: boolean;
+}
+
+// Resilience configuration interface
+interface ResilienceConfig {
+  retryEnabled: boolean;
+  maxRetries: number;
+  requestTimeout: number;
+  fallbackEnabled: boolean;
+}
+
 export class CitationChecker implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'Citation Checker',
@@ -90,6 +106,11 @@ export class CitationChecker implements INodeType {
             name: 'Full Validation',
             value: 'fullValidation',
             description: 'Parse, verify existence, and validate appropriateness',
+          },
+          {
+            name: 'Scripted Validation',
+            value: 'scriptedValidation',
+            description: 'Validate citation format and structure without AI',
           },
         ],
         default: 'fullValidation',
@@ -144,6 +165,48 @@ export class CitationChecker implements INodeType {
         default: true,
         description: 'Whether to include the original text in the output',
       },
+      {
+        displayName: 'AI Resilience Configuration',
+        name: 'resilienceConfig',
+        type: 'collection',
+        placeholder: 'Add Resilience Config',
+        default: {},
+        displayOptions: {
+          show: {
+            operation: ['fullValidation'],
+          },
+        },
+        options: [
+          {
+            displayName: 'Enable Retry Logic',
+            name: 'retryEnabled',
+            type: 'boolean',
+            default: true,
+            description: 'Retry failed AI requests with exponential backoff',
+          },
+          {
+            displayName: 'Max Retries',
+            name: 'maxRetries',
+            type: 'number',
+            default: 3,
+            description: 'Maximum number of retry attempts',
+          },
+          {
+            displayName: 'Request Timeout (ms)',
+            name: 'requestTimeout',
+            type: 'number',
+            default: 30000,
+            description: 'Timeout for each AI request in milliseconds',
+          },
+          {
+            displayName: 'Enable Fallback',
+            name: 'fallbackEnabled',
+            type: 'boolean',
+            default: true,
+            description: 'Use scripted validation if AI fails',
+          },
+        ],
+      },
     ],
   };
 
@@ -183,7 +246,7 @@ export class CitationChecker implements INodeType {
           ...(includeOriginal ? { originalText: text } : {}),
         };
 
-        if (operation === 'parse' || operation === 'fullValidation') {
+        if (operation === 'parse' || operation === 'fullValidation' || operation === 'scriptedValidation') {
           // Parse citations
           const parsedCitations = citationHelper.parseCitations(text);
           result.citations = {
@@ -213,10 +276,34 @@ export class CitationChecker implements INodeType {
           };
         }
 
+        if (operation === 'scriptedValidation' || operation === 'fullValidation') {
+          // Perform scripted validation
+          const citations = result.citations.parsed;
+          const scriptedResults = citations.map((citation: ParsedCitation) => 
+            citationHelper.validateCitationFormat(citation)
+          );
+          
+          result.citations = {
+            ...result.citations,
+            scriptedValidation: scriptedResults,
+            summary: {
+              ...result.citations.summary,
+              formatValid: scriptedResults.filter((r: ScriptedValidationResult) => r.formatValid).length,
+              formatInvalid: scriptedResults.filter((r: ScriptedValidationResult) => !r.formatValid).length,
+            },
+          };
+        }
+
         if (operation === 'fullValidation' && languageModel) {
           // Validate citations with AI
           const citations = result.citations.parsed;
-          const validationResults = await citationHelper.validateCitations(citations, text, languageModel);
+          const resilienceConfig = this.getNodeParameter('resilienceConfig', itemIndex) as ResilienceConfig || {
+            retryEnabled: true,
+            maxRetries: 3,
+            requestTimeout: 30000,
+            fallbackEnabled: true,
+          };
+          const validationResults = await citationHelper.validateCitations(citations, text, languageModel, resilienceConfig);
 
           result.citations = {
             ...result.citations,
@@ -252,6 +339,15 @@ export class CitationChecker implements INodeType {
     return [returnData];
   }
 
+  /**
+   * Parses citations from text in multiple formats:
+   * - Inline: <cite id="case-name">quoted text</cite>
+   * - References: [1], [2a], [2b]
+   * - Full citations from ## Citations markdown section
+   * 
+   * @param text - The text to parse for citations
+   * @returns Array of parsed citations with metadata
+   */
   parseCitations(text: string): ParsedCitation[] {
     const citations: ParsedCitation[] = [];
     const citationMap = new Map<string, ParsedCitation>();
@@ -332,6 +428,93 @@ export class CitationChecker implements INodeType {
     return citations;
   }
 
+  /**
+   * Validates citation format and structure without AI.
+   * Checks:
+   * - Citation ID format (alphanumeric + hyphens/underscores)
+   * - Required text fields
+   * - Reference number format
+   * - Metadata completeness
+   * - Valid connection types
+   * 
+   * @param citation - The parsed citation to validate
+   * @returns Validation result with specific issues
+   */
+  validateCitationFormat(citation: ParsedCitation): ScriptedValidationResult {
+    const issues: string[] = [];
+    let formatValid = true;
+    let structureValid = true;
+    let metadataComplete = true;
+
+    // Validate inline citations
+    if (citation.type === 'inline') {
+      // Check for valid cite ID format (should not contain spaces or special chars)
+      if (citation.id && !/^[a-zA-Z0-9-_]+$/.test(citation.id)) {
+        issues.push('Citation ID contains invalid characters');
+        formatValid = false;
+      }
+      
+      // Check cited text exists and is not empty
+      if (!citation.citedText || citation.citedText.trim().length === 0) {
+        issues.push('Inline citation missing quoted text');
+        structureValid = false;
+      }
+    }
+
+    // Validate reference citations
+    if (citation.type === 'reference') {
+      // Check reference number format
+      if (citation.referenceNumber && !/^\d+[a-z]?$/.test(citation.referenceNumber)) {
+        issues.push('Invalid reference number format');
+        formatValid = false;
+      }
+      
+      // Check if full citation exists
+      if (!citation.fullCitation) {
+        issues.push('Reference missing full citation details');
+        structureValid = false;
+      }
+    }
+
+    // Validate metadata if present
+    if (citation.metadata) {
+      const requiredFields = ['caseName', 'holding', 'relevance'];
+      const missingFields = requiredFields.filter(field => !citation.metadata?.[field as keyof typeof citation.metadata]);
+      
+      if (missingFields.length > 0) {
+        issues.push(`Missing metadata fields: ${missingFields.join(', ')}`);
+        metadataComplete = false;
+      }
+      
+      // Validate connection type
+      if (citation.metadata.connection) {
+        const validConnections = ['Primary', 'Supporting', 'Distinguishing', 'Background'];
+        if (!validConnections.includes(citation.metadata.connection)) {
+          issues.push(`Invalid connection type: ${citation.metadata.connection}`);
+          formatValid = false;
+        }
+      }
+    }
+
+    return {
+      citationId: citation.id,
+      formatValid: formatValid && structureValid,
+      formatIssues: issues,
+      structureValid,
+      metadataComplete,
+    };
+  }
+
+  /**
+   * Verifies citations exist in database.
+   * Supports:
+   * - Mock mode for testing (70% success rate)
+   * - PostgreSQL with fuzzy matching on case names
+   * 
+   * @param citations - Array of citations to verify
+   * @param dbConfig - Database configuration
+   * @returns Verification results with confidence scores
+   */
   async verifyCitations(
     citations: ParsedCitation[],
     dbConfig: any
@@ -426,10 +609,126 @@ export class CitationChecker implements INodeType {
     return results;
   }
 
+  /**
+   * Parses AI response from various provider formats.
+   * Supports 16+ different response structures including:
+   * - n8n default format
+   * - OpenAI, Anthropic, Google
+   * - Custom node formats
+   * 
+   * @param response - Raw AI response in any format
+   * @returns Extracted text content
+   * @throws Error if no text can be extracted
+   */
+  parseAIResponse(response: any): string {
+    if (!response) {
+      throw new Error('No response from AI model');
+    }
+    
+    // Direct string response
+    if (typeof response === 'string') {
+      return response;
+    }
+    
+    // Try various response formats in order of likelihood
+    const extractors = [
+      // n8n AI node format
+      () => response.response?.generations?.[0]?.[0]?.text,
+      () => response.generations?.[0]?.[0]?.text,
+      
+      // LangChain BaseMessage format
+      () => response.lc_kwargs?.content,
+      () => response.content && typeof response._getType === 'function' ? response.content : undefined,
+      
+      // OpenAI ChatGPT format
+      () => response.choices?.[0]?.message?.content,
+      () => response.choices?.[0]?.text,
+      
+      // Anthropic Claude format
+      () => response.content,
+      () => response.completion,
+      
+      // Google AI format
+      () => response.candidates?.[0]?.content?.parts?.[0]?.text,
+      () => response.candidates?.[0]?.text,
+      () => response.text,
+      
+      // Custom node formats
+      () => response.output,
+      () => response.result,
+      () => response.data?.content,
+      () => response.data?.text,
+    ];
+    
+    for (const extractor of extractors) {
+      try {
+        const result = extractor();
+        if (result && typeof result === 'string' && result.trim()) {
+          return result;
+        }
+      } catch (e) {
+        // Continue to next extractor
+      }
+    }
+    
+    throw new Error(`Unable to extract response from AI model. Response structure: ${JSON.stringify(response, null, 2).substring(0, 500)}`);
+  }
+
+  /**
+   * Implements retry logic with exponential backoff and jitter.
+   * Used for resilient AI connections.
+   * 
+   * @param operation - Async function to retry
+   * @param maxRetries - Maximum retry attempts
+   * @param initialDelay - Initial delay in ms (default: 1000)
+   * @returns Result of successful operation
+   * @throws Last error if all retries fail
+   */
+  async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    maxRetries: number,
+    initialDelay: number = 1000
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        
+        if (attempt < maxRetries - 1) {
+          const delay = initialDelay * Math.pow(2, attempt);
+          const jitter = delay * 0.1 * (Math.random() * 2 - 1); // ±10% jitter
+          const totalDelay = Math.min(delay + jitter, 30000); // Max 30 seconds
+          
+          console.log(`[Citation Checker] Retry ${attempt + 1}/${maxRetries} after ${Math.round(totalDelay)}ms`);
+          await new Promise(resolve => setTimeout(resolve, totalDelay));
+        }
+      }
+    }
+    
+    throw lastError;
+  }
+
+  /**
+   * Validates citation appropriateness using AI with resilience features.
+   * - Tries custom format first, falls back to default n8n format
+   * - Implements retry logic with exponential backoff
+   * - Falls back to scripted validation if AI fails
+   * - Extracts context around each citation
+   * 
+   * @param citations - Citations to validate
+   * @param fullText - Full text containing citations
+   * @param languageModel - Connected AI language model
+   * @param resilience - Resilience configuration
+   * @returns AI validation results with reasoning
+   */
   async validateCitations(
     citations: ParsedCitation[],
     fullText: string,
-    languageModel: any
+    languageModel: any,
+    resilience: ResilienceConfig
   ): Promise<ValidationResult[]> {
     if (!languageModel || typeof languageModel.invoke !== 'function') {
       return [];
@@ -449,7 +748,8 @@ export class CitationChecker implements INodeType {
         );
         const context = fullText.substring(contextStart, contextEnd);
 
-        const prompt = `Analyze this legal citation for appropriateness and accuracy.
+        const systemPrompt = 'You are a legal citation validator. Analyze citations for accuracy and appropriate use. Always respond with valid JSON.';
+        const userPrompt = `Analyze this legal citation for appropriateness and accuracy.
 
 Citation Details:
 - Citation ID: ${citation.id}
@@ -475,36 +775,71 @@ Respond in JSON format:
   "issues": ["issue1", "issue2"] or []
 }`;
 
-        const response = await languageModel.invoke({
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a legal citation validator. Analyze citations for accuracy and appropriate use.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        });
+        // Define the AI invocation operation
+        const invokeAI = async (): Promise<string> => {
+          let response;
+          
+          try {
+            // First try the custom node format (messages array)
+            response = await Promise.race([
+              languageModel.invoke({
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userPrompt }
+                ],
+                options: {
+                  temperature: 0.3,
+                  maxTokensToSample: 500,
+                }
+              }),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`AI request timeout after ${resilience.requestTimeout}ms`)), resilience.requestTimeout)
+              )
+            ]);
+          } catch (invokeError: any) {
+            // If it fails with toChatMessages error, try the default n8n format
+            if (invokeError.message?.includes('toChatMessages') || invokeError.message?.includes('messages')) {
+              console.log('[Citation Checker] Custom format failed, trying default n8n format');
+              const combinedPrompt = `${systemPrompt}\n\nHuman: ${userPrompt}\n\nAI:`;
+              
+              response = await Promise.race([
+                languageModel.invoke(combinedPrompt, {
+                  temperature: 0.3,
+                  maxTokensToSample: 500,
+                }),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error(`AI request timeout after ${resilience.requestTimeout}ms`)), resilience.requestTimeout)
+                )
+              ]);
+            } else {
+              throw invokeError;
+            }
+          }
+          
+          return this.parseAIResponse(response);
+        };
+
+        // Execute with retry logic if enabled
+        let responseText: string;
+        if (resilience.retryEnabled) {
+          responseText = await this.retryWithBackoff(invokeAI, resilience.maxRetries);
+        } else {
+          responseText = await invokeAI();
+        }
 
         // Parse AI response
         let validationResult: ValidationResult;
         try {
-          const responseText =
-            typeof response === 'string' ? response : response.text || JSON.stringify(response);
-
           // Try to extract JSON from the response
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             validationResult = {
               citationId: citation.id,
-              appropriate: parsed.appropriate || false,
-              confidence: parsed.confidence || 0.5,
+              appropriate: parsed.appropriate !== undefined ? parsed.appropriate : true,
+              confidence: parsed.confidence !== undefined ? parsed.confidence : 0.5,
               reasoning: parsed.reasoning || 'No reasoning provided',
-              issues: parsed.issues || [],
+              issues: Array.isArray(parsed.issues) ? parsed.issues : [],
             };
           } else {
             // Fallback if no JSON found
@@ -512,8 +847,8 @@ Respond in JSON format:
               citationId: citation.id,
               appropriate: true,
               confidence: 0.5,
-              reasoning: 'Could not parse AI response',
-              issues: [],
+              reasoning: 'Could not parse AI response as JSON',
+              issues: ['Response was not in expected JSON format'],
             };
           }
         } catch (parseError) {
@@ -528,13 +863,25 @@ Respond in JSON format:
 
         results.push(validationResult);
       } catch (error) {
-        results.push({
-          citationId: citation.id,
-          appropriate: false,
-          confidence: 0,
-          reasoning: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          issues: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        });
+        // If AI validation fails and fallback is enabled, use scripted validation
+        if (resilience.fallbackEnabled) {
+          const scriptedResult = this.validateCitationFormat(citation);
+          results.push({
+            citationId: citation.id,
+            appropriate: scriptedResult.formatValid,
+            confidence: 0.7,
+            reasoning: `[Fallback validation] ${scriptedResult.formatIssues.length === 0 ? 'Citation format is valid' : scriptedResult.formatIssues.join('; ')}`,
+            issues: scriptedResult.formatIssues,
+          });
+        } else {
+          results.push({
+            citationId: citation.id,
+            appropriate: false,
+            confidence: 0,
+            reasoning: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            issues: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
+          });
+        }
       }
     }
 

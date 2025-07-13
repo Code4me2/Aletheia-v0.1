@@ -2,8 +2,8 @@
  * Chat module - AI chat interface
  */
 
-import type { AppModule, RouteParams } from '@types/module.types';
-import type { ChatMessage } from '@types/api.types';
+import type { AppModule, RouteParams } from '@/types/module.types';
+import type { ChatMessage } from '@/types/api.types';
 import { ChatService } from './ChatService';
 import { configService } from '@services/config.service';
 import Alpine from 'alpinejs';

@@ -2,7 +2,7 @@
  * Router class for managing application navigation
  */
 
-import type { Route, NavigationGuard } from '@types/module.types';
+import type { Route, NavigationGuard } from '@/types/module.types';
 
 type NavigationHandler = (route: Route) => Promise<void> | void;
 
@@ -122,7 +122,7 @@ export class Router {
     let url = route.path;
     
     if (route.params) {
-      const queryParams = new URLSearchParams(route.params).toString();
+      const queryParams = new URLSearchParams(route.params as Record<string, string>).toString();
       if (queryParams) {
         url += `?${queryParams}`;
       }

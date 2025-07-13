@@ -2,8 +2,8 @@
  * Configuration service for Data Compose application
  */
 
-import type { WebhookConfig } from '@types/api.types';
-import type { TreeViewConfig, VisualizationTheme } from '@types/visualization.types';
+import type { WebhookConfig } from '@/types/api.types';
+import type { TreeViewConfig, VisualizationTheme } from '@/types/visualization.types';
 
 export interface AppConfig {
   webhook: WebhookConfig;
@@ -89,8 +89,8 @@ class ConfigService {
         },
       },
       features: {
-        enableDebugMode: process.env.NODE_ENV === 'development',
-        enableMockData: process.env.NODE_ENV === 'development',
+        enableDebugMode: import.meta.env.MODE === 'development',
+        enableMockData: import.meta.env.MODE === 'development',
         enableKeyboardShortcuts: true,
         enableExport: true,
       },

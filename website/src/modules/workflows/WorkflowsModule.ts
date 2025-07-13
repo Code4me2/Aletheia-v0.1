@@ -2,8 +2,8 @@
  * Workflows module - n8n workflow management
  */
 
-import type { AppModule, RouteParams } from '@types/module.types';
-import type { Workflow, WorkflowsResponse } from '@types/api.types';
+import type { AppModule, RouteParams } from '@/types/module.types';
+import type { Workflow } from '@/types/api.types';
 import { WorkflowService } from './WorkflowService';
 import Alpine from 'alpinejs';
 

@@ -14,7 +14,7 @@ export function debounce<T extends (...args: any[]) => any>(
     maxWait?: number;
   }
 ): T & { cancel(): void; flush(): void } {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   let previous = 0;
   let result: ReturnType<T>;
   
@@ -72,7 +72,7 @@ export function debounce<T extends (...args: any[]) => any>(
     return result;
   };
   
-  return debounced as T & { cancel(): void; flush(): void };
+  return debounced as any as T & { cancel(): void; flush(): void };
 }
 
 /**
@@ -132,7 +132,7 @@ export function debouncePromise<T extends (...args: any[]) => Promise<any>>(
   func: T,
   wait: number
 ): T {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   let resolvePromise: ((value: any) => void) | null = null;
   let rejectPromise: ((reason: any) => void) | null = null;
   

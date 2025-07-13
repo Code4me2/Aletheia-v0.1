@@ -3,8 +3,8 @@
  * This is a simplified stub implementation to be expanded with full D3.js functionality
  */
 
-import type { AppModule, RouteParams } from '@types/module.types';
-import type { HierarchyData, SummarizationHistory } from '@types/api.types';
+import type { AppModule, RouteParams } from '@/types/module.types';
+import type { HierarchyData, SummarizationHistory } from '@/types/api.types';
 import Alpine from 'alpinejs';
 
 interface VisualizationState {
@@ -18,6 +18,7 @@ interface VisualizationState {
   startSummarization(): Promise<void>;
   loadHistory(): void;
   selectHistoryItem(batchId: string): void;
+  createMockHierarchy(): HierarchyData;
 }
 
 export class VisualizationModule implements AppModule {
