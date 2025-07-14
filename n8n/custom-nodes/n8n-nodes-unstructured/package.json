@@ -1,0 +1,53 @@
+{
+  "name": "n8n-nodes-unstructured",
+  "version": "0.1.0",
+  "description": "n8n node for extracting text from documents, such as pdfs and word docs",
+  "keywords": [
+    "n8n",
+    "n8n-node",
+    "keyword",
+    "text-extraction",
+    "legal",
+    "document-search"
+  ],
+  "author": {
+    "name": "Judicial Access Team",
+    "email": "support@judicial-access.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/judicial-access/n8n-nodes-unstructured.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes --write",
+    "lint": "eslint nodes package.json --ext .js --ext .ts",
+    "lintfix": "eslint nodes package.json --ext .js --ext .ts --fix",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "nodes": [
+      "dist/nodes/unstructured/unstructured.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.26",
+    "@typescript-eslint/eslint-plugin": "^5.18.0",
+    "@typescript-eslint/parser": "^5.18.0",
+    "eslint": "^8.12.0",
+    "eslint-plugin-n8n-nodes-base": "^1.11.0",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "^1.0.0",
+    "prettier": "^2.6.2",
+    "typescript": "^4.6.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
