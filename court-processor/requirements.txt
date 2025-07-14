@@ -13,3 +13,18 @@ python-dotenv>=1.0.0
 
 # Juriscraper for court scraping
 juriscraper>=2.5.0
+
+# Free Law Project tools
+courts-db>=0.10.0
+eyecite>=2.5.0
+reporters-db>=3.2.0
+x-ray>=0.3.0  # For bad redaction detection
+judge-pics>=2.0.0  # For judge portraits
+
+# API framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.4.0
+
+# Async support
+aiohttp>=3.9.0

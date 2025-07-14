@@ -1,14 +1,20 @@
-# Court Processor for Data-Compose
+# Court Processor with Free Law Project Integration
 
-A lightweight court opinion processor that integrates with data-compose infrastructure, focusing on judge-based retrieval for RAG pipelines.
+A comprehensive court opinion processor that leverages Free Law Project tools to provide advanced legal document processing, supporting 200+ US courts with citation analysis, bad redaction detection, and judge information.
 
 ## Features
 
-- **PDF to Text Conversion**: Extracts text from court opinion PDFs with OCR fallback
-- **Judge-Centric Storage**: Organizes opinions by judge name and date
-- **Scheduled Updates**: Simple cron-based scheduling for daily updates
-- **PostgreSQL Integration**: Stores data in data-compose's existing PostgreSQL container
-- **Minimal Dependencies**: Lightweight extraction from court-scraping-server
+### Core Capabilities
+- **200+ Court Support**: Automated scraping via Juriscraper (expanded from 4 courts)
+- **Advanced PDF Processing**: OCR, text extraction, and thumbnail generation via Doctor
+- **Court Standardization**: 700+ court name variations resolved via Courts-DB
+- **Citation Analysis**: Extract and analyze legal citations with Eyecite
+- **Bad Redaction Detection**: Identify improperly redacted sensitive information with X-Ray
+- **Reporter Normalization**: Standardize legal reporter abbreviations with Reporters-DB
+- **Judge Photos**: Retrieve judge portraits via Judge-pics
+- **REST API**: Comprehensive API for all functionality
+- **PostgreSQL Integration**: Enhanced schema for legal metadata
+- **Scheduled Updates**: Automated court-specific scheduling
 
 ## Quick Start
 
