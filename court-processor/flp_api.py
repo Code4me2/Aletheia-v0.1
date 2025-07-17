@@ -188,21 +188,7 @@ async def list_judges_with_photos():
         logger.error(f"Error listing judges: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# X-Ray endpoints
-@app.post("/xray/check-redactions")
-async def check_redactions(file_path: str):
-    """Check PDF for bad redactions"""
-    try:
-        conn = get_db_connection()
-        flp = FLPIntegration(conn)
-        result = flp.check_bad_redactions(Path(file_path))
-        conn.close()
-        
-        return result
-    
-    except Exception as e:
-        logger.error(f"Error checking redactions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# X-Ray endpoints (placeholder for future features)
 
 # Comprehensive processing
 @app.post("/process/comprehensive")
@@ -261,8 +247,7 @@ async def get_statistics():
             
             # Total documents processed
             cursor.execute("""
-                SELECT COUNT(*) as total,
-                       COUNT(CASE WHEN has_bad_redactions THEN 1 END) as with_bad_redactions
+                SELECT COUNT(*) as total
                 FROM court_data.processed_documents_flp
             """)
             doc_stats = cursor.fetchone()

@@ -1,17 +1,34 @@
 # CourtListener RECAP & Transcript Integration
 
-This enhanced integration adds support for downloading and processing RECAP documents, with special focus on court transcripts and extended human dialogue.
+This integration provides infrastructure for downloading and processing RECAP documents, with special focus on court transcripts. 
 
-## New Capabilities
+## IMPORTANT: API Access Requirements
 
-### 1. RECAP Document Support
-- Download actual court filings (PDFs, documents)
-- Access to motions, briefs, orders, and **transcripts**
-- Full text extraction when available
-- Automatic transcript detection
+**As of July 2025, RECAP document access requires special permissions from CourtListener/Free Law Project.**
 
-### 2. Transcript Detection
-The system automatically identifies transcripts using:
+With basic API access, you can:
+- ✅ Search for documents mentioning transcripts (Search API)
+- ✅ Access court information (Courts API)
+- ✅ Limited access to docket metadata (Dockets API)
+- ❌ Cannot access RECAP documents (requires special permissions)
+- ❌ Cannot access docket entries (requires special permissions)
+- ❌ Cannot download actual transcript PDFs
+
+To get RECAP access:
+1. Contact Free Law Project via their [contact form](https://www.courtlistener.com/contact/) or [GitHub Discussions](https://github.com/freelawproject/courtlistener/discussions)
+2. Explain your use case (research, analysis, etc.)
+3. Reference your existing API token
+
+## Current Capabilities (with basic access)
+
+### 1. Search API Support
+- Search 8.4M+ documents for transcript references
+- Find opinions that quote transcript excerpts
+- Filter by court, date, and keywords
+- No document download required
+
+### 2. Transcript Detection (when RECAP access is granted)
+The system is built to automatically identify transcripts using:
 - Description keywords (transcript, hearing, deposition, etc.)
 - Document type classification
 - Specialized transcript_type detection:
@@ -23,31 +40,51 @@ The system automatically identifies transcripts using:
   - `status_conference` - Status conferences
   - `other` - Other transcript types
 
-### 3. Audio Recording Support
-- Download oral argument recordings
-- Link audio to related transcripts
-- Track duration and judge information
+### 3. Infrastructure Ready
+All code is ready for when RECAP access is granted:
+- Bulk download scripts
+- Database schema for transcript storage
+- Automatic categorization
+- Integration with FLP tools
 
 ## Usage
 
-### Quick Test (Transcripts Only)
+### With Basic API Access (Currently Available)
+
+#### Search for Transcript References
 ```bash
 cd court-processor/courtlistener_integration
-./run_transcript_test.sh
+python3 search_transcripts.py
 ```
 
-### Full Download with RECAP
-```bash
-# Download everything for Delaware (last 2 years)
-python3 bulk_download_enhanced.py --courts ded --days 730
+This script searches for opinions mentioning transcripts and can find:
+- Patent case transcripts
+- Trademark depositions
+- Hearing transcripts
+- Trial proceedings
 
-# Download only transcripts for multiple courts
+#### Test API Access
+```bash
+python3 test_recap_api.py
+```
+
+This will show which endpoints you have access to.
+
+### With RECAP Access (Requires Permission)
+
+Once you have RECAP permissions, these scripts will work:
+
+```bash
+# Test RECAP access
+./run_transcript_test.sh
+
+# Download transcripts for specific courts
 python3 bulk_download_enhanced.py \
     --courts ded txed cand \
     --transcripts-only \
     --days 365
 
-# High-priority courts with all RECAP documents
+# Full download with all documents
 python3 bulk_download_enhanced.py \
     --high-priority-only \
     --days 180

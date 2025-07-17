@@ -1,6 +1,6 @@
 # Court Processor with Free Law Project Integration
 
-A comprehensive court opinion processor that leverages Free Law Project tools to provide advanced legal document processing, supporting 200+ US courts with citation analysis, bad redaction detection, and judge information.
+A comprehensive court opinion processor that leverages Free Law Project tools to provide advanced legal document processing, supporting 200+ US courts with citation analysis and judge information.
 
 ## Features
 
@@ -9,7 +9,6 @@ A comprehensive court opinion processor that leverages Free Law Project tools to
 - **Advanced PDF Processing**: OCR, text extraction, and thumbnail generation via Doctor
 - **Court Standardization**: 700+ court name variations resolved via Courts-DB
 - **Citation Analysis**: Extract and analyze legal citations with Eyecite
-- **Bad Redaction Detection**: Identify improperly redacted sensitive information with X-Ray
 - **Reporter Normalization**: Standardize legal reporter abbreviations with Reporters-DB
 - **Judge Photos**: Retrieve judge portraits via Judge-pics
 - **REST API**: Comprehensive API for all functionality

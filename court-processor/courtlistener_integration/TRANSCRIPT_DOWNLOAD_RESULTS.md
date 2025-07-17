@@ -1,27 +1,33 @@
-# CourtListener Transcript Download Results
+# CourtListener API Access Status (July 2025)
 
 ## Summary
 
-We attempted to download transcript data from CourtListener for 3 high-volume courts (Texas Eastern District, Northern District of California, and Southern District of New York) for the last 90 days.
+Testing revealed that basic API access allows searching for transcript references but not downloading actual RECAP documents.
 
-## Key Findings
+## API Access Status
 
-### API Access Limitations
-1. **RECAP Documents Endpoint**: Permission denied - requires special access
-2. **Docket Entries Endpoint**: Permission denied 
-3. **Search Endpoint**: Connection issues during bulk queries
-4. **Opinions Endpoint**: ✓ Working - successfully downloaded opinion texts
+### ✅ Working with Basic Access
+1. **Search API**: Full access to 8.4M+ documents
+   - Found 65,731 documents mentioning transcripts
+   - Can search by court, date, keywords
+   - Returns snippets and metadata
 
-### Data Retrieved
-- **4 court opinions** that mention transcripts
-- Total size: ~104 KB of text data
-- Courts with data: CAND (2 opinions), NYSD (2 opinions)
+2. **Courts API**: Full access to 3,352 jurisdictions
 
-### Content Analysis
-The downloaded opinions primarily contain:
-- **Protective orders** mentioning deposition transcript procedures
-- **Case management orders** referencing transcript filing requirements
-- **Not actual transcript content** from hearings or depositions
+3. **Limited Dockets API**: Can list dockets (with some instability)
+
+### ❌ Requires RECAP Permissions
+1. **RECAP Documents Endpoint**: 403 Forbidden
+2. **Docket Entries Endpoint**: 403 Forbidden
+3. **Direct PDF downloads**: Not accessible
+
+### Search Results Summary
+Using the Search API, we found:
+- 36,695 results for "trial transcript"
+- 19,463 results for "hearing transcript"
+- 7,240 results for "deposition transcript"
+- 1,892 results for "court transcript"
+- 441 results for "oral argument transcript"
 
 ## Conclusions
 
