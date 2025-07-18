@@ -16,6 +16,7 @@ import { getRandomMockCitation } from '@/utils/mockCitations';
 import { mockAnalyticsData } from '@/utils/mockAnalytics';
 import { useCsrfStore } from '@/store/csrf';
 import { api } from '@/utils/api';
+import { getApiEndpoint } from '@/lib/api-config';
 import { createLogger } from '@/utils/logger';
 import { PDFGenerator, generateChatText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
 import { cleanAIResponse, detectTruncatedResponse } from '@/utils/textFilters';
@@ -214,7 +215,7 @@ function LawyerChatContent() {
 
   const fetchChatHistory = async () => {
     try {
-      const response = await api.get('/api/chats');
+      const response = await api.get(getApiEndpoint('/chats'));
       if (response.ok) {
         // Chat history is now managed by TaskBar component
         await response.json(); // Consume response to prevent memory leak
@@ -229,7 +230,7 @@ function LawyerChatContent() {
     
     try {
       setIsCreatingChat(true);
-      const response = await api.post('/api/chats', { title: 'New Chat' });
+      const response = await api.post(getApiEndpoint('/chats'), { title: 'New Chat' });
       
       if (response.ok) {
         const newChat = await response.json();
@@ -258,7 +259,7 @@ function LawyerChatContent() {
 
   const selectChat = async (chatId: string) => {
     try {
-      const response = await api.get(`/api/chats/${chatId}`);
+      const response = await api.get(getApiEndpoint(`/chats/${chatId}`));
       if (response.ok) {
         const chat = await response.json();
         setCurrentChatId(chatId);
@@ -285,7 +286,7 @@ function LawyerChatContent() {
     if (!session?.user || !chatIdToUse) return false;
     
     try {
-      const response = await api.post(`/api/chats/${chatIdToUse}/messages`, { role, content, references });
+      const response = await api.post(getApiEndpoint(`/chats/${chatIdToUse}/messages`), { role, content, references });
       if (!response.ok) {
         logger.error('Failed to save message', { status: response.status });
         return false;
@@ -319,7 +320,7 @@ function LawyerChatContent() {
     if (!chatIdToUse && messages.length === 0) {
       try {
         setIsCreatingChat(true);
-        const response = await api.post('/api/chats/with-message', {
+        const response = await api.post(getApiEndpoint('/chats/with-message'), {
           message: messageText,
           title: 'New Chat'
         });
@@ -366,7 +367,7 @@ function LawyerChatContent() {
 
     try {
       // Call the API endpoint
-      const response = await api.post('/api/chat', {
+      const response = await api.post(getApiEndpoint('/chat'), {
         message: inputText,
         tools: selectedTools,
         sessionKey: chatIdToUse || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
@@ -439,7 +440,7 @@ function LawyerChatContent() {
                           // First save - create the message with retry
                           saveInProgress = true;
                           try {
-                            const response = await api.post(`/api/chats/${chatIdToUse}/messages`, {
+                            const response = await api.post(getApiEndpoint(`/chats/${chatIdToUse}/messages`), {
                               role: 'assistant',
                               content: cleanedText,
                               references: sources
@@ -458,7 +459,7 @@ function LawyerChatContent() {
                           }
                         } else if (messageId && chatIdToUse) {
                           // Update existing message
-                          await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                          await api.patch(getApiEndpoint(`/chats/${chatIdToUse}/messages/${messageId}`), {
                             content: accumulatedText,
                             references: sources
                           });
@@ -502,7 +503,7 @@ function LawyerChatContent() {
                     try {
                       if (messageId && chatIdToUse) {
                         // Update existing message with final content
-                        const response = await api.patch(`/api/chats/${chatIdToUse}/messages/${messageId}`, {
+                        const response = await api.patch(getApiEndpoint(`/chats/${chatIdToUse}/messages/${messageId}`), {
                           content: cleanAIResponse(accumulatedText),
                           references: sources
                         });

@@ -6,6 +6,7 @@ import { useSidebarStore } from '@/store/sidebar';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { api } from '@/utils/api';
+import { getApiEndpoint } from '@/lib/api-config';
 import { createLogger } from '@/utils/logger';
 import { generateChatTitle } from '@/utils/chatUtils';
 import type { Chat } from '@/types';
@@ -54,8 +55,8 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
     try {
       setIsSearching(true);
       const url = searchTerm 
-        ? `/api/chats?search=${encodeURIComponent(searchTerm)}`
-        : '/api/chats';
+        ? getApiEndpoint(`/chats?search=${encodeURIComponent(searchTerm)}`)
+        : getApiEndpoint('/chats');
       
       const response = await api.get(url);
       if (response.ok) {
@@ -113,7 +114,7 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
       setDeleteConfirmation(null);
       
       // Make backend API call to permanently delete the chat
-      const response = await api.delete(`/api/chats/${chatId}`);
+      const response = await api.delete(getApiEndpoint(`/chats/${chatId}`));
       if (!response.ok) {
         // Revert on error
         logger.error('Failed to delete chat from backend', { chatId, status: response.status });

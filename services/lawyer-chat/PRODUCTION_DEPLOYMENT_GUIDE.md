@@ -12,6 +12,22 @@ This guide provides comprehensive step-by-step instructions for deploying the co
 - SMTP service credentials (optional but recommended)
 - Minimum 4GB RAM, 2 CPU cores, 20GB storage
 
+## Security Features Overview
+
+The lawyer-chat application includes comprehensive security features that are automatically enabled in production:
+
+- **Field-level encryption** for sensitive data (AES-256-GCM)
+- **User enumeration protection** to prevent account discovery
+- **Account lockout mechanism** after failed login attempts
+- **CSRF protection** on all state-changing requests
+- **Rate limiting** to prevent abuse and brute force attacks
+- **Comprehensive audit logging** for security monitoring
+- **Security headers** including CSP, HSTS, and more
+- **Input validation and sanitization** to prevent XSS
+- **Email failure resilience** with retry mechanism
+
+📖 See [SECURITY_FEATURES.md](./SECURITY_FEATURES.md) for complete security documentation
+
 ## Phase 1: Pre-Deployment Configuration (CRITICAL)
 
 ### 1.1 Generate Required Secrets
@@ -20,6 +36,10 @@ This guide provides comprehensive step-by-step instructions for deploying the co
 # Generate NEXTAUTH_SECRET (32+ characters)
 openssl rand -base64 32
 # Example: vK3kB5xTPc8pHbHmQX/NFxZKQXOqMwLm5nHuxQ6MYQM=
+
+# Generate FIELD_ENCRYPTION_KEY (64 character hex)
+openssl rand -hex 32
+# Example: a3f8b2c9d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1
 
 # Generate database password
 openssl rand -base64 24

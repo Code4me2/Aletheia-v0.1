@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { checkCsrf } from '@/utils/csrf';
+import { API_VERSION } from '@/lib/api-config';
 
 // Simple in-memory rate limiter for Edge Runtime
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -11,24 +12,44 @@ const RATE_LIMITS = {
   '/api/auth': 5,
   '/api/chat': 20,
   '/api/chats': 10,
+  [`/api/${API_VERSION}/chat`]: 20,
+  [`/api/${API_VERSION}/chats`]: 10,
   '/messages': 30,
   default: 100
 };
 
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl;
+  const pathname = url.pathname;
+
+  // Handle legacy API redirects (non-auth endpoints)
+  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/') && !pathname.startsWith(`/api/${API_VERSION}/`)) {
+    // Check if this is a non-auth endpoint that should be redirected
+    const legacyEndpoints = ['/api/chats', '/api/chat', '/api/admin', '/api/csrf'];
+    const shouldRedirect = legacyEndpoints.some(endpoint => pathname.startsWith(endpoint));
+    
+    if (shouldRedirect) {
+      // Redirect to versioned endpoint
+      const versionedPath = pathname.replace('/api/', `/api/${API_VERSION}/`);
+      url.pathname = versionedPath;
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Only apply to API routes
-  if (!request.nextUrl.pathname.startsWith('/api')) {
+  if (!pathname.startsWith('/api')) {
     return NextResponse.next();
   }
 
   // Skip CSRF for specific endpoints
   const csrfExemptPaths = [
     '/api/csrf', // CSRF token generation endpoint
+    `/api/${API_VERSION}/csrf`, // Versioned CSRF endpoint
     '/api/auth/', // All NextAuth endpoints handle their own CSRF
     '/api/health' // Health check endpoint
   ];
 
-  const path = request.nextUrl.pathname;
+  const path = pathname;
 
   // Check CSRF for state-changing requests (unless exempt)
   if (!csrfExemptPaths.some(exemptPath => path.startsWith(exemptPath))) {

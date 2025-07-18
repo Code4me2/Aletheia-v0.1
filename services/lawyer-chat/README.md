@@ -105,9 +105,17 @@ Lawyer-Chat is a Next.js-based web application designed for legal professionals 
 - CSRF token protection
 - Rate limiting (Edge + Redis)
 - Session encryption
+- Field-level encryption (AES-256-GCM)
 - Secure cookie handling
-- Input validation
+- Input validation & sanitization
 - XSS prevention
+- Account lockout mechanism
+- Comprehensive audit logging
+- User enumeration protection
+- Email failure resilience
+- Security headers (CSP, HSTS, etc.)
+
+📖 **See [SECURITY_FEATURES.md](./SECURITY_FEATURES.md) for complete security documentation**
 
 ## Architecture
 
