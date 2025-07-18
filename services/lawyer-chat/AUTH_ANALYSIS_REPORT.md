@@ -17,10 +17,10 @@
 
   2. Security Implementations
 
-  - ✅ Password Security: Bcrypt (cost 12) + complexity requirements
+  - ✅ Password Security: Bcrypt (cost 12) + validated regex pattern
   - ✅ Rate Limiting: Dual system (in-memory for Edge, Redis for
   server)
-  - ✅ CSRF Protection: Token-based on all state-changing requests
+  - ✅ CSRF Protection: HMAC-based tokens with timing-safe comparison
   - ✅ Cookie Security: Production-ready with __Secure- prefix,
   httpOnly, secure flags
   - ✅ Input Validation: DOMPurify XSS prevention + custom
@@ -28,6 +28,12 @@
   - ✅ Audit Logging: Complete trail of all auth events with IP
   tracking
   - ✅ Security Headers: HSTS, CSP, X-Frame-Options, etc. configured
+  - ✅ Field-Level Encryption: AES-256-GCM for sensitive data
+  - ✅ User Enumeration Protection: Identical responses for security
+  - ✅ Email Failure Resilience: Retry mechanism with exponential backoff
+  - ✅ API Authentication: HMAC signatures for webhook security
+
+  📖 See [SECURITY_FEATURES.md](./SECURITY_FEATURES.md) for complete documentation
 
   3. How It Works Right Now
 
@@ -49,6 +55,8 @@
   NEXTAUTH_URL=https://yourdomain.com/chat      # Must be HTTPS
   NODE_ENV=production                            # Enables security 
   features
+  FIELD_ENCRYPTION_KEY=<64 character hex string> # For field-level 
+  encryption
 
   Without these:
   - No NEXTAUTH_SECRET = Sessions won't work (500 errors)

@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   basePath: '/chat',
+  // Disable ESLint during production builds to avoid version conflicts
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     return [
       {

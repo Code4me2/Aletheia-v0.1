@@ -1,45 +1,76 @@
-FROM node:18-alpine AS deps
+FROM node:18-slim AS deps
+
+# Set build-time environment variables
+# Don't set NODE_ENV to avoid Next.js warnings
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+
 # Install dependencies for native modules
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apt-get update && apt-get install -y \
+    curl python3 make g++ openssl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci
+# Install ALL dependencies (including devDependencies) for build stage
+RUN npm ci --include=dev --ignore-scripts
+
+# Manually install Prisma CLI dependencies to ensure it works
+RUN cd node_modules/prisma && npm install --production || true
 
 # Builder stage
-FROM node:18-alpine AS builder
-RUN apk add --no-cache libc6-compat
+FROM node:18-slim AS builder
+
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y \
+    openssl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set build-time environment variables
+# Don't set NODE_ENV to avoid Next.js warnings
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+
 WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
+# Generate Prisma client during build
+# Use the installed prisma to generate, avoiding binary download issues
+RUN npx prisma generate --schema=./prisma/schema.prisma || \
+    (echo "Prisma generation failed, trying alternative approach..." && \
+     node node_modules/prisma/build/index.js generate --schema=./prisma/schema.prisma)
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
 # Runner stage
-FROM node:18-alpine AS runner
+FROM node:18-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    openssl \
+    wget \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 --ingroup nodejs nextjs
 
 # Copy necessary files
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
 
 # Copy standalone build
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -49,9 +80,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Copy entrypoint script
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./scripts/
+RUN chmod +x ./scripts/docker-entrypoint.sh
 
 USER nextjs
 

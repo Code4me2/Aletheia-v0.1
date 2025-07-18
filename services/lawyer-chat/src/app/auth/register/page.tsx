@@ -22,6 +22,7 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [emailSent, setEmailSent] = useState(true);
   const { isDarkMode } = useSidebarStore();
 
   // Password validation rules
@@ -49,6 +50,11 @@ export default function Register() {
         return;
       }
 
+      // Check if email was sent successfully
+      if (data.emailSent === false) {
+        setEmailSent(false);
+      }
+      
       setSuccess(true);
     } catch (error) {
       logger.error('Registration error', error);
@@ -73,25 +79,51 @@ export default function Register() {
               </div>
               
               <h2 className={`text-2xl font-semibold mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-                Check Your Email
+                {emailSent ? 'Check Your Email' : 'Registration Successful'}
               </h2>
               
-              <p className={`mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                We&apos;ve sent a verification link to <strong>{formData.email}</strong>
-              </p>
-              
-              <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Please check your email and click the verification link to activate your account. 
-                The link will expire in 24 hours.
-              </p>
-              
-              <div className={`p-4 rounded-lg ${
-                isDarkMode ? 'bg-[#1a1b1e] border border-gray-700' : 'bg-gray-50 border border-gray-200'
-              }`}>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Didn&apos;t receive the email? Check your spam folder or contact IT support.
-                </p>
-              </div>
+              {emailSent ? (
+                <>
+                  <p className={`mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    We&apos;ve sent a verification link to <strong>{formData.email}</strong>
+                  </p>
+                  
+                  <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Please check your email and click the verification link to activate your account. 
+                    The link will expire in 24 hours.
+                  </p>
+                  
+                  <div className={`p-4 rounded-lg ${
+                    isDarkMode ? 'bg-[#1a1b1e] border border-gray-700' : 'bg-gray-50 border border-gray-200'
+                  }`}>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Didn&apos;t receive the email? Check your spam folder or contact IT support.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className={`mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Your account has been created successfully for <strong>{formData.email}</strong>
+                  </p>
+                  
+                  <div className={`p-4 mb-6 rounded-lg ${
+                    isDarkMode ? 'bg-yellow-900/20 border border-yellow-800' : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
+                    <p className={`text-sm ${isDarkMode ? 'text-yellow-300' : 'text-yellow-800'} font-medium mb-2`}>
+                      Email Verification Pending
+                    </p>
+                    <p className={`text-sm ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                      We had trouble sending the verification email. You can request a new verification email from the sign in page.
+                    </p>
+                  </div>
+                  
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    You&apos;ll need to verify your email address before you can sign in. 
+                    Visit the sign in page to request a new verification email.
+                  </p>
+                </>
+              )}
               
               <Link
                 href="/auth/signin"

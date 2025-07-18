@@ -6,12 +6,13 @@ import crypto from 'crypto';
 import { sendVerificationEmail } from '@/utils/email';
 import { createLogger } from '@/utils/logger';
 import { config, isAllowedEmailDomain, getAllowedDomainsForDisplay } from '@/lib/config';
+import { retryWithBackoff } from '@/lib/retryUtils';
 
 const logger = createLogger('register-api');
 
 // Password requirements
 const PASSWORD_MIN_LENGTH = config.security.passwordMinLength;
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 export async function POST(request: NextRequest) {
   let email: string | undefined;
@@ -20,6 +21,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     email = body.email;
     const { password, confirmPassword, name } = body;
+
+    // Normalize email early
+    const userEmail = email?.toLowerCase() || '';
 
     // Validate email domain
     if (!email || !isAllowedEmailDomain(email)) {
@@ -59,13 +63,29 @@ export async function POST(request: NextRequest) {
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: userEmail }
     });
 
     if (existingUser) {
+      // Log the attempt but return success to prevent enumeration
+      await prisma.auditLog.create({
+        data: {
+          action: 'REGISTRATION_DUPLICATE',
+          email: userEmail,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || 'unknown',
+          success: false,
+          errorMessage: 'Attempted to register existing email'
+        }
+      });
+      
+      // Return success message to prevent user enumeration
       return new Response(
-        JSON.stringify({ error: 'An account with this email already exists' }), 
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          message: 'Registration successful! Please check your email to verify your account.',
+          email: userEmail
+        }), 
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -79,8 +99,8 @@ export async function POST(request: NextRequest) {
     // Create user with unverified status
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase(),
-        name: name || email.split('@')[0],
+        email: userEmail,
+        name: name || userEmail.split('@')[0],
         password: hashedPassword,
         emailVerified: null, // Not verified yet
         registrationToken: verificationToken,
@@ -90,19 +110,45 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Send verification email
+    // Send verification email with retry mechanism
+    let emailSent = false;
     try {
-      await sendVerificationEmail(email, verificationToken);
-    } catch {
-      // If email fails, delete the user and return error
-      await prisma.user.delete({ where: { id: user.id } });
-      
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to send verification email. Please try again.' 
-        }), 
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      await retryWithBackoff(
+        async () => sendVerificationEmail(userEmail, verificationToken),
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          onRetry: (attempt, error) => {
+            logger.warn(`Email send attempt ${attempt} failed for ${userEmail}`, { 
+              attempt, 
+              error: error.message,
+              userId: user.id 
+            });
+          }
+        }
       );
+      emailSent = true;
+    } catch (emailError) {
+      // Log email failure but don't delete user - they can request resend later
+      logger.error('All email send attempts failed', emailError, { 
+        email: userEmail, 
+        userId: user.id,
+        action: 'REGISTRATION_EMAIL_FAILED'
+      });
+      
+      // Create audit log for failed email
+      await prisma.auditLog.create({
+        data: {
+          action: 'REGISTRATION_EMAIL_FAILED',
+          userId: user.id,
+          email: userEmail,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || 'unknown',
+          success: false,
+          errorMessage: emailError instanceof Error ? emailError.message : 'Email send failed',
+          metadata: { requiresManualIntervention: true }
+        }
+      });
     }
 
     // Log registration attempt for admin monitoring
@@ -110,20 +156,35 @@ export async function POST(request: NextRequest) {
       data: {
         action: 'USER_REGISTRATION',
         userId: user.id,
-        email: email,
+        email: userEmail,
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
-        success: true
+        success: true,
+        metadata: { emailSent: emailSent }
       }
     });
 
-    return new Response(
-      JSON.stringify({ 
-        message: 'Registration successful! Please check your email to verify your account.',
-        email: email
-      }), 
-      { status: 201, headers: { 'Content-Type': 'application/json' } }
-    );
+    // Return appropriate response based on email status
+    if (emailSent) {
+      return new Response(
+        JSON.stringify({ 
+          message: 'Registration successful! Please check your email to verify your account.',
+          email: userEmail
+        }), 
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // Registration succeeded but email failed - still return success
+      // User can request verification email resend later
+      return new Response(
+        JSON.stringify({ 
+          message: 'Registration successful! However, we had trouble sending the verification email. You can request a new verification email from the login page.',
+          email: userEmail,
+          emailSent: false
+        }), 
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error) {
     logger.error('Registration error', error, { email });
