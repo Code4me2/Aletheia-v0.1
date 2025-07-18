@@ -1,0 +1,35 @@
+# Dashboard Integration API Requirements
+
+# Core web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# CORS support
+python-multipart==0.0.6
+
+# Database connections
+asyncpg==0.29.0
+aioredis==2.0.1
+
+# Elasticsearch
+elasticsearch[async]==8.11.0
+
+# Monitoring and system info
+psutil==5.9.6
+
+# Date/time handling
+python-dateutil==2.8.2
+
+# Logging
+structlog==23.2.0
+
+# Environment configuration
+python-dotenv==1.0.0
+
+# Machine learning (for embeddings)
+sentence-transformers==2.2.2
+torch==2.1.1+cpu --index-url https://download.pytorch.org/whl/cpu
+
+# Data processing
+numpy==1.25.2
+pandas==2.1.3

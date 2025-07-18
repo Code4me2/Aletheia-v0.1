@@ -1,0 +1,707 @@
+/**
+ * Haystack Performance Dashboard CSS
+ * 
+ * Styles for the integrated Haystack performance monitoring in Data Compose dashboard
+ */
+
+/* Performance Card Specific Styles */
+#haystack-performance-card {
+    min-height: 400px;
+}
+
+#haystack-performance-card .card-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+/* Performance Overview Grid */
+.performance-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+    .performance-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.performance-metric {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    transition: var(--transition);
+}
+
+.performance-metric:hover {
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.metric-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.metric-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--primary);
+}
+
+.metric-details {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* Status Indicators */
+.text-success {
+    color: var(--success, #28a745) !important;
+}
+
+.text-warning {
+    color: var(--warning, #ffc107) !important;
+}
+
+.text-error {
+    color: var(--error, #dc3545) !important;
+}
+
+.error-rate.success {
+    color: var(--success, #28a745);
+}
+
+.error-rate.warning {
+    color: var(--warning, #ffc107);
+}
+
+.error-rate.error {
+    color: var(--error, #dc3545);
+}
+
+/* Alerts Section */
+.performance-alerts {
+    grid-column: span 2;
+    background: linear-gradient(135deg, #fff3cd 0%, #f8f9fa 100%);
+    border-left: 4px solid var(--warning, #ffc107);
+}
+
+@media (max-width: 767px) {
+    .performance-alerts {
+        grid-column: span 1;
+    }
+}
+
+.alert-count {
+    background: var(--warning, #ffc107);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.alert-item {
+    background: rgba(255, 193, 7, 0.1);
+    padding: 5px 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    border-left: 3px solid var(--warning, #ffc107);
+}
+
+/* Performance Summary */
+.performance-summary {
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 15px;
+}
+
+.performance-summary small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.performance-summary i {
+    margin-right: 5px;
+}
+
+/* Action Buttons */
+.performance-actions {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.performance-actions .btn {
+    flex: 1;
+    min-width: 120px;
+}
+
+/* Jobs Section */
+.performance-jobs-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.jobs-container {
+    margin-top: 15px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.jobs-container.collapsed {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+}
+
+.jobs-container:not(.collapsed) {
+    max-height: 500px;
+    opacity: 1;
+}
+
+/* Jobs Summary */
+.jobs-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.job-stat {
+    text-align: center;
+}
+
+.job-stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.job-stat-value {
+    display: block;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.job-stat-value.success {
+    color: var(--success, #28a745);
+}
+
+.job-stat-value.error {
+    color: var(--error, #dc3545);
+}
+
+/* Active Jobs */
+.active-jobs,
+.recent-jobs {
+    margin-bottom: 15px;
+}
+
+.active-jobs h4,
+.recent-jobs h4 {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+.job-item {
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 10px;
+    margin-bottom: 8px;
+    transition: var(--transition);
+}
+
+.job-item:hover {
+    border-color: var(--primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.job-item.completed {
+    border-left: 4px solid var(--success, #28a745);
+}
+
+.job-item.failed {
+    border-left: 4px solid var(--error, #dc3545);
+}
+
+.job-item.running {
+    border-left: 4px solid var(--primary);
+}
+
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.job-id {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.job-type,
+.job-status {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.job-status.completed {
+    background: var(--success, #28a745);
+    color: white;
+}
+
+.job-status.failed {
+    background: var(--error, #dc3545);
+    color: white;
+}
+
+.job-status.running {
+    background: var(--primary);
+    color: white;
+}
+
+/* Progress Bar */
+.job-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark, #0056b3) 100%);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    min-width: 35px;
+    text-align: right;
+}
+
+.job-stats {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 5px;
+}
+
+/* Job Actions */
+.job-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.job-actions .btn {
+    flex: 1;
+    min-width: 140px;
+}
+
+/* Modal Styles for Detailed Metrics */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background-color: var(--white);
+    margin: 5% auto;
+    padding: 0;
+    border-radius: var(--border-radius);
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.modal-close:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Metrics Tabs */
+.metrics-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+    gap: 5px;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.tab-button:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+}
+
+.tab-button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.metrics-tab {
+    display: none;
+}
+
+.metrics-tab.active {
+    display: block;
+}
+
+/* Metrics Content */
+.metrics-section {
+    margin-bottom: 30px;
+}
+
+.metrics-section h4 {
+    margin-bottom: 15px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.metric-chart {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 15px;
+}
+
+.metric-chart h5 {
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+}
+
+.chart-placeholder {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--white);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* Timing Stats */
+.timing-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.timing-stat {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 15px;
+}
+
+.timing-stat h5 {
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.stat-grid div {
+    padding: 5px;
+    background: var(--white);
+    border-radius: 3px;
+    border: 1px solid var(--border-color);
+}
+
+/* Connection Stats */
+.connection-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.connection-stat {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 15px;
+}
+
+.connection-stat h5 {
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+}
+
+.stat-details {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.stat-details div {
+    margin-bottom: 5px;
+}
+
+/* Recommendations */
+.recommendations {
+    space-y: 10px;
+}
+
+.recommendation-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.recommendation-item i {
+    color: var(--primary);
+    margin-top: 2px;
+}
+
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    animation: slideInFromRight 0.3s ease-out;
+}
+
+.notification.success {
+    background: var(--success, #28a745);
+    color: white;
+}
+
+.notification.error {
+    background: var(--error, #dc3545);
+    color: white;
+}
+
+.notification.info {
+    background: var(--primary);
+    color: white;
+}
+
+@keyframes slideInFromRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading States */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--text-secondary);
+}
+
+.loading i {
+    margin-right: 10px;
+}
+
+.error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--error, #dc3545);
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    border-radius: var(--border-radius);
+}
+
+.error i {
+    margin-right: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .performance-actions {
+        flex-direction: column;
+    }
+    
+    .performance-actions .btn {
+        min-width: auto;
+    }
+    
+    .job-actions {
+        flex-direction: column;
+    }
+    
+    .job-actions .btn {
+        min-width: auto;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10px auto;
+        max-height: 90vh;
+    }
+    
+    .metrics-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .tab-button {
+        flex: 1;
+        min-width: 100px;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .performance-metric {
+        border-width: 2px;
+    }
+    
+    .alert-item {
+        border-left-width: 4px;
+    }
+    
+    .job-item.completed,
+    .job-item.failed,
+    .job-item.running {
+        border-left-width: 6px;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .performance-metric,
+    .job-item,
+    .modal-content,
+    .notification {
+        transition: none;
+    }
+    
+    .jobs-container {
+        transition: none;
+    }
+    
+    @keyframes slideInFromRight {
+        from, to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+}

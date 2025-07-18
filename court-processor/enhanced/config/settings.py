@@ -13,7 +13,7 @@ from pathlib import Path
 @dataclass
 class DatabaseConfig:
     """Database configuration"""
-    host: str = "localhost"
+    host: str = "db"
     port: int = 5432
     database: str = "aletheia"
     user: str = "aletheia"
@@ -95,8 +95,8 @@ class Settings:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     
     # Paths
-    data_directory: str = "/data"
-    log_directory: str = "/logs"
+    data_directory: str = "./data"
+    log_directory: str = "./logs"
     temp_directory: str = "/tmp"
     
     @classmethod
@@ -122,7 +122,7 @@ class Settings:
                 settings.database.password = parsed.password or "aletheia123"
         else:
             # Individual database environment variables
-            settings.database.host = os.getenv("DB_HOST", "localhost")
+            settings.database.host = os.getenv("DB_HOST", "db")
             settings.database.port = int(os.getenv("DB_PORT", "5432"))
             settings.database.database = os.getenv("DB_NAME", "aletheia")
             settings.database.user = os.getenv("DB_USER", "aletheia")
@@ -145,8 +145,8 @@ class Settings:
         settings.logging.file_path = os.getenv("LOG_FILE")
         
         # Paths
-        settings.data_directory = os.getenv("DATA_DIRECTORY", "/data")
-        settings.log_directory = os.getenv("LOG_DIRECTORY", "/logs")
+        settings.data_directory = os.getenv("DATA_DIRECTORY", "./data")
+        settings.log_directory = os.getenv("LOG_DIRECTORY", "./logs")
         settings.temp_directory = os.getenv("TEMP_DIRECTORY", "/tmp")
         
         return settings

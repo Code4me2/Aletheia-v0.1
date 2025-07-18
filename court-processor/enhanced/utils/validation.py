@@ -58,39 +58,44 @@ class DocumentValidator:
     }
     
     def validate_courtlistener_document(self, document: Dict[str, Any]) -> ValidationResult:
-        """Validate CourtListener document structure"""
+        """
+        Validate CourtListener document structure (mapped format)
+        
+        Handles both raw API responses and FLP-enriched documents
+        """
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
-        # Required fields
-        required_fields = ['id', 'court_id', 'case_name']
-        for field in required_fields:
-            if field not in document:
-                result.add_error(f"Missing required field: {field}")
-            elif not document[field]:
-                result.add_error(f"Empty required field: {field}")
+        # Check for mapping errors first
+        if 'mapping_error' in document:
+            result.add_error(f"Document mapping failed: {document['mapping_error']}")
+            return result
         
-        # Validate document ID
-        if 'id' in document:
-            if not isinstance(document['id'], int) or document['id'] <= 0:
-                result.add_error("Document ID must be a positive integer")
+        # Required fields - only ID is truly required initially
+        if 'id' not in document:
+            result.add_error("Missing required field: id")
+        elif not isinstance(document['id'], int) or document['id'] <= 0:
+            result.add_error("Document ID must be a positive integer")
         
-        # Validate court ID
+        # Optional but important fields (may be None initially, enriched later)
         if 'court_id' in document:
             court_id = document['court_id']
-            if not isinstance(court_id, str):
+            if court_id is None:
+                result.add_warning("court_id is None - will be enriched by FLP processing")
+            elif not isinstance(court_id, str):
                 result.add_error("Court ID must be a string")
             elif not self.COURT_ID_PATTERN.match(court_id):
-                result.add_error(f"Invalid court ID format: {court_id}")
+                result.add_warning(f"Invalid court ID format: {court_id}")
             elif court_id not in self.KNOWN_COURTS:
                 result.add_warning(f"Unknown court ID: {court_id}")
         
-        # Validate case name
         if 'case_name' in document:
             case_name = document['case_name']
-            if not isinstance(case_name, str):
+            if case_name is None:
+                result.add_warning("case_name is None - will be enriched by FLP processing")
+            elif not isinstance(case_name, str):
                 result.add_error("Case name must be a string")
             elif len(case_name.strip()) < 3:
-                result.add_error("Case name too short")
+                result.add_warning("Case name too short")
             elif len(case_name) > 500:
                 result.add_warning("Case name unusually long")
         
@@ -102,18 +107,18 @@ class DocumentValidator:
             elif not any(pattern.match(docket) for pattern in self.DOCKET_PATTERNS):
                 result.add_warning(f"Unusual docket number format: {docket}")
         
-        # Validate date fields
+        # Validate date fields with flexible formatting
         date_fields = ['date_filed', 'date_created', 'date_modified']
         for field in date_fields:
             if field in document and document[field]:
-                if not self._validate_date_string(document[field]):
-                    result.add_error(f"Invalid date format in {field}: {document[field]}")
+                if not self._validate_date_string_flexible(document[field]):
+                    result.add_warning(f"Unusual date format in {field}: {document[field]}")
         
         # Validate content fields
         content_fields = ['plain_text', 'html', 'html_lawbox', 'html_columbia']
         has_content = any(document.get(field) for field in content_fields)
-        if not has_content and not document.get('pdf_url'):
-            result.add_warning("Document has no text content or PDF URL")
+        if not has_content and not document.get('download_url'):
+            result.add_warning("Document has no text content or download URL")
         
         # Validate text content
         if 'plain_text' in document and document['plain_text']:
@@ -122,6 +127,12 @@ class DocumentValidator:
                 result.add_warning("Document text unusually short")
             elif len(text) > 1000000:  # 1MB
                 result.add_warning("Document text unusually long")
+        elif document.get('plain_text') == '':
+            result.add_warning("Document has empty text content")
+        
+        # Validate CourtListener-specific fields
+        if 'cluster_id' not in document:
+            result.add_warning("Missing cluster_id - may affect enrichment capabilities")
         
         return result
     
@@ -267,6 +278,41 @@ class DocumentValidator:
                 return True
             except ValueError:
                 continue
+        
+        return False
+    
+    def _validate_date_string_flexible(self, date_str: str) -> bool:
+        """Validate date string with more flexible format support"""
+        if not isinstance(date_str, str):
+            return False
+        
+        # Try common date formats including CourtListener API formats
+        formats = [
+            '%Y-%m-%d',                          # 2024-01-15
+            '%Y-%m-%dT%H:%M:%S',                 # 2024-01-15T10:30:00
+            '%Y-%m-%dT%H:%M:%SZ',                # 2024-01-15T10:30:00Z
+            '%Y-%m-%dT%H:%M:%S.%f',              # 2024-01-15T10:30:00.123456
+            '%Y-%m-%dT%H:%M:%S.%fZ',             # 2024-01-15T10:30:00.123456Z
+            '%Y-%m-%dT%H:%M:%S.%f%z',            # 2024-01-15T10:30:00.123456-07:00
+            '%Y-%m-%dT%H:%M:%S%z',               # 2024-01-15T10:30:00-07:00
+            '%Y-%m-%d %H:%M:%S',                 # 2024-01-15 10:30:00
+        ]
+        
+        for fmt in formats:
+            try:
+                datetime.strptime(date_str, fmt)
+                return True
+            except ValueError:
+                continue
+        
+        # If none match, check if it's at least a valid date part
+        if 'T' in date_str:
+            date_part = date_str.split('T')[0]
+            try:
+                datetime.strptime(date_part, '%Y-%m-%d')
+                return True
+            except ValueError:
+                pass
         
         return False
 

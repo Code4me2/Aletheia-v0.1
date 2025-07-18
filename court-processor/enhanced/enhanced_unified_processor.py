@@ -19,6 +19,9 @@ from .utils.logging import get_logger, ProcessingLogger, log_processing_time
 from .utils.monitoring import get_monitor, monitor_operation
 from .utils.validation import DocumentValidator, APIRequestValidator, ValidationResult
 
+# Import enhanced services
+from .services.courtlistener_service import CourtListenerService
+
 # Import existing services
 try:
     from services.unified_document_processor import (
@@ -26,7 +29,6 @@ try:
         DeduplicationManager,
         UnstructuredProcessor
     )
-    from services.courtlistener_service import CourtListenerService
     from services.flp_integration import FLPIntegration
 except ImportError as e:
     # Graceful fallback for development
@@ -34,7 +36,6 @@ except ImportError as e:
     UnifiedDocumentProcessor = object
     DeduplicationManager = object
     UnstructuredProcessor = object
-    CourtListenerService = object
     FLPIntegration = object
 
 
@@ -123,16 +124,35 @@ class EnhancedUnifiedDocumentProcessor:
             # Enhanced deduplication manager
             self.dedup_manager = EnhancedDeduplicationManager()
             
+            # Enhanced CourtListener service (always use our implementation)
+            self.cl_service = CourtListenerService()
+            
+            # Enhanced FLP processor
+            try:
+                from .services.flp_processor import EnhancedFLPProcessor
+                self.flp_processor = EnhancedFLPProcessor()
+                self.logger.info("Enhanced FLP processor initialized")
+            except Exception as e:
+                self.flp_processor = None
+                self.logger.warning(f"FLP processor initialization failed: {str(e)}")
+            
+            # Enhanced Haystack integration
+            try:
+                from .services.haystack_integration import HaystackIntegrationManager
+                self.haystack_manager = HaystackIntegrationManager()
+                self.logger.info("Enhanced Haystack integration initialized")
+            except Exception as e:
+                self.haystack_manager = None
+                self.logger.warning(f"Haystack integration initialization failed: {str(e)}")
+            
             # Service components (with fallbacks for missing imports)
             if UnifiedDocumentProcessor != object:
                 # Use existing components if available
                 base_processor = UnifiedDocumentProcessor()
-                self.cl_service = base_processor.cl_service
                 self.flp_integration = base_processor.flp_integration
                 self.unstructured = base_processor.unstructured
             else:
                 # Create mock components for development
-                self.cl_service = None
                 self.flp_integration = None
                 self.unstructured = None
                 self.logger.warning("Using mock components - some services not available")
@@ -146,15 +166,19 @@ class EnhancedUnifiedDocumentProcessor:
     async def process_courtlistener_batch(self, 
                                         court_id: Optional[str] = None,
                                         date_filed_after: Optional[str] = None,
-                                        max_documents: int = 100) -> Dict[str, Any]:
+                                        max_documents: int = 100,
+                                        judge_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a batch of documents from CourtListener with enhanced monitoring
+        
+        UPDATED: Supports both general court searches and judge-specific searches
         """
         # Validate request
         request_data = {
             'court_id': court_id,
             'date_filed_after': date_filed_after,
-            'max_documents': max_documents
+            'max_documents': max_documents,
+            'judge_name': judge_name
         }
         
         validation_result = self.api_validator.validate_batch_request(request_data)
@@ -182,7 +206,7 @@ class EnhancedUnifiedDocumentProcessor:
                 # Fetch documents from CourtListener
                 if self.cl_service:
                     cl_documents = await self._fetch_documents_with_monitoring(
-                        court_id, date_filed_after, max_documents
+                        court_id, date_filed_after, max_documents, judge_name
                     )
                 else:
                     # Use mock data for development
@@ -314,29 +338,205 @@ class EnhancedUnifiedDocumentProcessor:
     
     async def _fetch_documents_with_monitoring(self, court_id: Optional[str], 
                                              date_filed_after: Optional[str], 
-                                             max_documents: int) -> List[Dict[str, Any]]:
-        """Fetch documents with service monitoring"""
+                                             max_documents: int,
+                                             judge_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch documents with service monitoring - UPDATED with judge support"""
+        start_time = time.time()
         try:
-            if self.cl_service:
-                return await self.cl_service.fetch_opinions(
-                    court_id=court_id,
-                    date_filed_after=date_filed_after,
-                    max_results=max_documents
-                )
+            # Use enhanced CourtListener service
+            if self.cl_service and self.settings.services.courtlistener_api_key:
+                if judge_name:
+                    self.logger.info(f"Fetching documents for judge '{judge_name}' from CourtListener API (court: {court_id}, max: {max_documents})")
+                    
+                    # Use corrected docket-first approach for judge searches
+                    if judge_name.lower() == "gilstrap":
+                        documents = await self.cl_service.fetch_gilstrap_documents(
+                            max_documents=max_documents,
+                            date_filed_after=date_filed_after,
+                            include_text=True
+                        )
+                    else:
+                        # Generic judge search using docket-first approach
+                        documents = await self.cl_service.fetch_judge_documents(
+                            judge_name=judge_name,
+                            court_id=court_id,
+                            max_documents=max_documents,
+                            date_filed_after=date_filed_after,
+                            include_text=True
+                        )
+                else:
+                    self.logger.info(f"Fetching documents from CourtListener API (court: {court_id}, max: {max_documents})")
+                    
+                    # General court search
+                    documents = await self.cl_service.fetch_opinions(
+                        court_id=court_id,
+                        max_documents=max_documents,
+                        date_filed__gte=date_filed_after
+                    )
+                
+                processing_time = time.time() - start_time
+                self.monitor.record_service_call("courtlistener", True, processing_time)
+                
+                self.logger.info("Successfully fetched documents from CourtListener",
+                               count=len(documents), processing_time=processing_time)
+                
+                return documents
             else:
                 # Return mock data for development
+                self.logger.warning("No API key configured - using mock data")
                 return self._get_mock_documents(max_documents)
+                
         except Exception as e:
-            self.monitor.record_service_call("courtlistener", False, 0.0)
+            processing_time = time.time() - start_time
+            self.monitor.record_service_call("courtlistener", False, processing_time)
+            self.logger.error(f"Failed to fetch documents from CourtListener: {str(e)}")
             raise
+    
+    async def process_gilstrap_documents_batch(self, 
+                                             max_documents: int = 50,
+                                             date_filed_after: Optional[str] = None,
+                                             include_text: bool = True) -> Dict[str, Any]:
+        """
+        Specialized method for processing Judge Gilstrap documents
+        
+        Uses the corrected docket-first approach optimized for Gilstrap retrieval
+        """
+        self.logger.info("Starting specialized Judge Gilstrap document processing batch")
+        
+        return await self.process_courtlistener_batch(
+            court_id="txed",  # Eastern District of Texas
+            judge_name="Gilstrap",
+            max_documents=max_documents,
+            date_filed_after=date_filed_after
+        )
+    
+    async def process_and_ingest_to_haystack(self, 
+                                           court_id: Optional[str] = None,
+                                           judge_name: Optional[str] = None,
+                                           max_documents: int = 100,
+                                           date_filed_after: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Process documents from CourtListener and automatically ingest to Haystack
+        
+        Returns combined processing and ingestion statistics
+        """
+        self.logger.info("Starting combined processing and Haystack ingestion")
+        
+        # Step 1: Process documents through enhanced pipeline
+        batch_result = await self.process_courtlistener_batch(
+            court_id=court_id,
+            judge_name=judge_name,
+            max_documents=max_documents,
+            date_filed_after=date_filed_after
+        )
+        
+        # Step 2: Ingest processed documents to Haystack
+        if self.haystack_manager and batch_result.get('new_documents', 0) > 0:
+            self.logger.info(f"Ingesting {batch_result['new_documents']} new documents to Haystack")
+            
+            try:
+                # Initialize Haystack manager if not done
+                await self.haystack_manager.initialize()
+                
+                # Ingest newly processed documents
+                if judge_name:
+                    job_id = await self.haystack_manager.ingest_judge_documents(
+                        judge_name=judge_name,
+                        court_id=court_id,
+                        max_documents=batch_result['new_documents']
+                    )
+                else:
+                    job_id = await self.haystack_manager.ingest_new_documents_only()
+                
+                # Wait for ingestion to complete (with timeout)
+                ingestion_stats = await self._wait_for_haystack_job(job_id, timeout=300)
+                
+                batch_result['haystack_ingestion'] = {
+                    'job_id': job_id,
+                    'stats': ingestion_stats,
+                    'success': ingestion_stats is not None
+                }
+                
+                self.logger.info(f"Haystack ingestion completed: job {job_id}")
+                
+            except Exception as e:
+                self.logger.error(f"Haystack ingestion failed: {str(e)}")
+                batch_result['haystack_ingestion'] = {
+                    'success': False,
+                    'error': str(e)
+                }
+        else:
+            batch_result['haystack_ingestion'] = {
+                'success': False,
+                'reason': 'No Haystack manager or no new documents'
+            }
+        
+        return batch_result
+    
+    async def ingest_gilstrap_to_haystack(self, 
+                                        max_documents: int = 100,
+                                        date_filed_after: Optional[str] = None) -> str:
+        """
+        Specialized method for ingesting Judge Gilstrap documents to Haystack
+        
+        Returns job_id for monitoring progress
+        """
+        self.logger.info("Starting Judge Gilstrap Haystack ingestion")
+        
+        if not self.haystack_manager:
+            raise RuntimeError("Haystack integration not available")
+        
+        await self.haystack_manager.initialize()
+        
+        job_id = await self.haystack_manager.ingest_judge_documents(
+            judge_name="Gilstrap",
+            court_id="txed",
+            max_documents=max_documents
+        )
+        
+        self.logger.info(f"Judge Gilstrap Haystack ingestion started: {job_id}")
+        return job_id
+    
+    async def _wait_for_haystack_job(self, job_id: str, timeout: int = 300) -> Optional[Dict[str, Any]]:
+        """Wait for Haystack job completion with timeout"""
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            try:
+                status = self.haystack_manager.get_job_status(job_id)
+                
+                if not status:
+                    self.logger.error(f"Haystack job {job_id} not found")
+                    return None
+                
+                current_status = status['status']
+                
+                if current_status == "completed":
+                    return status.get('stats')
+                elif current_status in ["failed", "cancelled"]:
+                    self.logger.error(f"Haystack job {job_id} {current_status}: {status.get('error', 'Unknown error')}")
+                    return None
+                
+                # Wait before checking again
+                await asyncio.sleep(5)
+                
+            except Exception as e:
+                self.logger.error(f"Error waiting for Haystack job {job_id}: {str(e)}")
+                return None
+        
+        self.logger.warning(f"Haystack job {job_id} timed out after {timeout} seconds")
+        return None
     
     async def _flp_enhance_with_monitoring(self, cl_document: Dict[str, Any]) -> Dict[str, Any]:
         """FLP enhancement with monitoring"""
         start_time = time.time()
         
         try:
-            if self.flp_integration:
-                # Use existing FLP integration
+            if self.flp_processor:
+                # Use enhanced FLP processor
+                enhanced = self.flp_processor.enhance_document(cl_document)
+            elif self.flp_integration:
+                # Use existing FLP integration as fallback
                 enhanced = cl_document.copy()
                 # TODO: Call actual FLP integration methods
                 enhanced['citations'] = []
