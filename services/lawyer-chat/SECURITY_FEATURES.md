@@ -187,7 +187,7 @@ This document provides a comprehensive overview of all security features impleme
 - **No Test Logs**: Silent during testing
 - **Importance**: Prevents sensitive data exposure in logs
 
-## Partially Implemented Features
+## Partially Implemented Features (2 Remaining)
 
 ### 1. API Versioning ⚠️
 **Status**: Partially Implemented  
@@ -212,14 +212,20 @@ This document provides a comprehensive overview of all security features impleme
 - **Impact**: Reduces XSS protection effectiveness
 - **Importance**: Strengthens defense against XSS attacks
 
-### 3. Node.js Version ⚠️
-**Status**: Using Node.js 18 (LTS but not latest)  
+### 3. Node.js Version ✅
+**Status**: Fully Implemented  
 **Location**: `Dockerfile`
 
-- **Current**: Node.js 18-slim
-- **Recommended**: Node.js 20 LTS
-- **Impact**: Missing latest security patches
-- **Importance**: Ensures latest security updates
+- **Implementation**: All stages use Node.js 20 Alpine
+  - deps stage: `FROM node:20-alpine`
+  - builder stage: `FROM node:20-alpine`
+  - runner stage: `FROM node:20-alpine`
+- **Benefits**:
+  - Latest LTS version with security support until April 2026
+  - Alpine Linux base for smaller, more secure images
+  - Reduced attack surface with minimal OS footprint
+- **Package Manager**: Updated from apt-get to apk for Alpine compatibility
+- **Importance**: Provides latest security patches and smaller container size
 
 ## Security Architecture Summary
 

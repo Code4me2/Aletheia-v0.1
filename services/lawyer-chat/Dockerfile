@@ -1,4 +1,4 @@
-FROM node:18-slim AS deps
+FROM node:20-alpine AS deps
 
 # Set build-time environment variables
 # Don't set NODE_ENV to avoid Next.js warnings
@@ -6,9 +6,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 
 # Install dependencies for native modules
-RUN apt-get update && apt-get install -y \
-    curl python3 make g++ openssl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    curl python3 make g++ openssl
 WORKDIR /app
 
 # Copy package files
@@ -22,12 +21,11 @@ RUN npm ci --include=dev --ignore-scripts
 RUN cd node_modules/prisma && npm install --production || true
 
 # Builder stage
-FROM node:18-slim AS builder
+FROM node:20-alpine AS builder
 
 # Install OpenSSL for Prisma
-RUN apt-get update && apt-get install -y \
-    openssl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    openssl
 
 # Set build-time environment variables
 # Don't set NODE_ENV to avoid Next.js warnings
@@ -51,17 +49,16 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
 # Runner stage
-FROM node:18-slim AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     openssl \
-    wget \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    wget
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs \

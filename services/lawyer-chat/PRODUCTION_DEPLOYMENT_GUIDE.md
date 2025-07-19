@@ -16,6 +16,7 @@ This guide provides comprehensive step-by-step instructions for deploying the co
 
 The lawyer-chat application includes comprehensive security features that are automatically enabled in production:
 
+- **Node.js 20 Alpine Docker images** for enhanced security and minimal attack surface
 - **Field-level encryption** for sensitive data (AES-256-GCM)
 - **User enumeration protection** to prevent account discovery
 - **Account lockout mechanism** after failed login attempts
@@ -326,6 +327,8 @@ NODE_ENV=production npm run db:seed
 ```
 
 ### 3.4 Docker Deployment (Recommended)
+
+**Note**: The application uses Node.js 20 Alpine images for enhanced security and smaller container size.
 
 Create `docker-compose.production.yml`:
 
