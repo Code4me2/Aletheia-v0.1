@@ -1,0 +1,151 @@
+{
+  "db_documents": 19,
+  "search_results": {
+    "Judge Gilstrap": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 12,
+      "top_scores": [
+        0.98400164,
+        0.9791728,
+        0.9560993,
+        0.9545448,
+        0.947068
+      ]
+    },
+    "Rodney Gilstrap": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 7,
+      "top_scores": [
+        0.98680556,
+        0.9814059,
+        0.9814059,
+        0.9814059,
+        0.9814059
+      ]
+    },
+    "Judge Rodney Gilstrap": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 7,
+      "top_scores": [
+        1.0789915,
+        1.0712746,
+        1.0696435,
+        1.0696435,
+        1.0696435
+      ]
+    },
+    "Gilstrap patent": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 14,
+      "top_scores": [
+        1.4632995,
+        1.4631631,
+        1.4565994,
+        1.4544753,
+        1.4430704
+      ]
+    },
+    "Eastern District of Texas Gilstrap": {
+      "total_results": 20,
+      "gilstrap_matches": 18,
+      "opinion_docs": 20,
+      "docket_docs": 5,
+      "top_scores": [
+        2.0728376,
+        2.070068,
+        2.0481687,
+        1.87432,
+        1.87432
+      ]
+    },
+    "SurvMatic LLC": {
+      "total_results": 20,
+      "gilstrap_matches": 19,
+      "opinion_docs": 20,
+      "docket_docs": 11,
+      "top_scores": [
+        1.0349194,
+        1.032912,
+        1.0326786,
+        1.0314283,
+        1.0314283
+      ]
+    },
+    "Televo LLC": {
+      "total_results": 20,
+      "gilstrap_matches": 19,
+      "opinion_docs": 20,
+      "docket_docs": 15,
+      "top_scores": [
+        1.0088418,
+        1.0073498,
+        1.006101,
+        1.0002439,
+        0.99751484
+      ]
+    },
+    "Casmir v. Allstate": {
+      "total_results": 20,
+      "gilstrap_matches": 18,
+      "opinion_docs": 19,
+      "docket_docs": 9,
+      "top_scores": [
+        3.1498175,
+        3.1275291,
+        0.8708155,
+        0.8708155,
+        0.8705499
+      ]
+    },
+    "Polaris Powerled": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 9,
+      "top_scores": [
+        6.603243,
+        6.601659,
+        5.8127365,
+        5.8127365,
+        0.7974263
+      ]
+    },
+    "Core Wireless": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 12,
+      "top_scores": [
+        4.482442,
+        4.4732423,
+        4.056837,
+        4.056837,
+        3.0267425
+      ]
+    },
+    "Intellectual Ventures": {
+      "total_results": 20,
+      "gilstrap_matches": 20,
+      "opinion_docs": 20,
+      "docket_docs": 14,
+      "top_scores": [
+        4.125894,
+        4.124071,
+        4.04559,
+        4.04559,
+        3.9995747
+      ]
+    }
+  },
+  "verified_cases": 4,
+  "total_cases": 6,
+  "pipeline_success": true
+}
