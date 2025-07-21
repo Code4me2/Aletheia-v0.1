@@ -2,6 +2,8 @@
  * Text filtering utilities for cleaning AI responses
  */
 
+import { preprocessAIResponse } from './markdownFormatter';
+
 /**
  * Removes standalone "CITATIONS" text that might be accidentally included in AI responses
  * This is a temporary fix - the root cause should be addressed in the n8n workflow
@@ -19,7 +21,12 @@ export function cleanAIResponse(text: string): string {
   // Clean up any resulting extra newlines
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
   
-  return cleaned.trim();
+  cleaned = cleaned.trim();
+  
+  // Apply markdown formatting to ensure consistent structure
+  cleaned = preprocessAIResponse(cleaned);
+  
+  return cleaned;
 }
 
 /**
