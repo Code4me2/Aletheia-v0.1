@@ -48,29 +48,6 @@
                 },
                 "conditions": [
                   {
-                    "id": "c194dfd6-1dee-4362-bd01-1ce4f62715ff",
-                    "leftValue": "={{ $json.body.action }}",
-                    "rightValue": "hs_local",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
                     "leftValue": "={{ $json.body.action }}",
                     "rightValue": "hs_public",
                     "operator": {
@@ -119,29 +96,6 @@
                     "id": "707edf3e-8136-4179-915e-0dc37223789b",
                     "leftValue": "={{ $json.body.action }}",
                     "rightValue": "delete_summarization",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "7c0cae1d-190f-407e-870b-ad9b3384994d",
-                    "leftValue": "={{ $json.body.action }}",
-                    "rightValue": "local_chat",
                     "operator": {
                       "type": "string",
                       "operation": "equals",
@@ -265,7 +219,9 @@
           "value": "claude-sonnet-4-20250514",
           "cachedResultName": "Claude 4 Sonnet"
         },
-        "options": {}
+        "options": {
+          "maxTokensToSample": 20000
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
@@ -322,7 +278,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH batch_data AS (\n    SELECT\n        id,\n        content,\n        summary,\n        hierarchy_level,\n        parent_id,\n        child_ids,\n        metadata,\n        COALESCE(metadata->>'source', metadata->>'sources', 'document_' || id) as source_name\n    FROM hierarchical_documents\n    WHERE batch_id = $1\n    ORDER BY hierarchy_level, id\n),\nlevel_counts AS (\n    SELECT\n        hierarchy_level,\n        COUNT(*) as doc_count,\n        CASE\n            WHEN hierarchy_level = 0 THEN 'Source Documents'\n            WHEN hierarchy_level = 1 THEN 'Initial Summaries'\n            WHEN hierarchy_level = 2 THEN 'Combined Summaries'\n            ELSE 'Level ' || hierarchy_level\n        END as label\n    FROM batch_data\n    GROUP BY hierarchy_level\n)\nSELECT json_build_object(\n    'batchId', $1,\n    'levels', (\n        SELECT json_agg(\n            json_build_object(\n                'level', hierarchy_level,\n                'count', doc_count,\n                'label', label\n            ) ORDER BY hierarchy_level\n        )\n        FROM level_counts\n    ),\n    'documents', (\n        SELECT json_object_agg(\n            hierarchy_level::text,\n            level_docs\n        )\n        FROM (\n            SELECT\n                hierarchy_level,\n                json_agg(\n                    json_build_object(\n                        'id', id,\n                        'content', content,\n                        'summary', summary,\n                        'source', source_name,\n                        'parent_id', parent_id,\n                        'child_ids', child_ids\n                    ) ORDER BY id\n                ) as level_docs\n            FROM batch_data\n            GROUP BY hierarchy_level\n        ) as grouped_docs\n    )\n) as hierarchy;",
+        "query": "WITH batch_data AS (\n      SELECT\n          id,\n          content,\n          summary,\n          hierarchy_level,\n          parent_id,\n          child_ids,\n          metadata,\n          document_type,\n          source_document_ids,\n          COALESCE(metadata->>'source',\n  metadata->>'sources', 'document_' || id) as source_name\n      FROM hierarchical_documents\n      WHERE batch_id = $1\n      ORDER BY hierarchy_level, id\n  ),\n  level_counts AS (\n      SELECT\n          hierarchy_level,\n          COUNT(*) as doc_count,\n          CASE\n              WHEN hierarchy_level = 0 THEN 'Source \n  Documents'\n              WHEN hierarchy_level = 1 THEN 'Initial \n  Summaries'\n              WHEN hierarchy_level = 2 THEN 'Combined \n  Summaries'\n              ELSE 'Level ' || hierarchy_level\n          END as label\n      FROM batch_data\n      GROUP BY hierarchy_level\n  )\n  SELECT json_build_object(\n      'batchId', $1,\n      'levels', (\n          SELECT json_agg(\n              json_build_object(\n                  'level', hierarchy_level,\n                  'count', doc_count,\n                  'label', label\n              ) ORDER BY hierarchy_level\n          )\n          FROM level_counts\n      ),\n      'documents', (\n          SELECT json_object_agg(\n              hierarchy_level::text,\n              level_docs\n          )\n          FROM (\n              SELECT\n                  hierarchy_level,\n                  json_agg(\n                      json_build_object(\n                          'id', id,\n                          'content', content,\n                          'summary', summary,\n                          'source', source_name,\n                          'parent_id', parent_id,\n                          'parent_ids', CASE\n                              WHEN document_type = 'batch'\n  OR document_type = 'chunk'\n                              THEN source_document_ids\n                              WHEN parent_id IS NOT NULL\n                              THEN ARRAY[parent_id]\n                              ELSE ARRAY[]::integer[]\n                          END,\n                          'child_ids', child_ids\n                      ) ORDER BY id\n                  ) as level_docs\n              FROM batch_data\n              GROUP BY hierarchy_level\n          ) as grouped_docs\n      )\n  ) as hierarchy;\n",
         "options": {
           "queryReplacement": "={{ $json.body.batchId }}"
         }
@@ -418,7 +374,9 @@
       "parameters": {
         "promptType": "define",
         "text": "={{ $json.body.message }}",
-        "options": {}
+        "options": {
+          "systemMessage": "You are a helpful paralegal, focused on concrete legal references and presidents. Citation formatting is critical.\n\n## Citation Formats\n\n  ### 1. Direct Quotes\n  When quoting directly from a source, use the inline citation format:\n  quoted text from the source\n  Example: <cite id=\"smith-v-jones-2020\">The court held that \"procedural requirements must be strictly followed\"</cite>\n\n  ### 2. Reference Citations\n  For general references or paraphrased content, use bracketed superscript numbers:\n  - Single reference: [1]\n  - Multiple references: [1, 2, 3]\n  - Sub-references for specific points: [2a], [2b], [2c]\n\n  ### 3. Citation Section Structure\n  Always include a \"## Citations\" section at the end of your response with this exact format:\n\n  ```markdown\n  ## Citations\n\n  [1] **Case Name, Citation (Court Year)**\n  - **Holding**: Brief summary of the court's decision\n  - **Relevance**: How this case applies to the current issue\n  - **Connection**: Primary/Supporting/Distinguishing/Background\n\n  [2] **Second Case Name, Citation (Court Year)**\n  - **Holding**: Brief summary of the court's decision\n  - **Relevance**: How this case applies to the current issue\n  - **Connection**: Primary/Supporting/Distinguishing/Background\n  [2a] **Specific Issue**: Details about procedural aspects\n  [2b] **Another Issue**: Details about substantive law\n\n  Connection Types\n\n  - Primary: Directly on point with the legal issue\n  - Supporting: Provides additional support or context\n  - Distinguishing: Shows contrasting precedent or limitations\n  - Background: Provides foundational legal principles\n\n  Formatting Rules\n\n  1. Case names should be properly formatted (e.g., \"Smith v. Jones\")\n  2. Use standard legal citations (e.g., \"123 F.3d 456 (2d Cir. 2020)\")\n  3. For inline citations, use shortened case names as IDs (e.g., id=\"smith-2020\")\n  4. Keep citation IDs consistent throughout the response\n  5. Always provide metadata (Holding, Relevance, Connection) for each citation\n\n  Example Response Structure\n\n  When analyzing a legal issue, I'll examine relevant precedents and statutory authority.\n\n  The foundational principle comes from the judiciary's duty to \"say what the law is\"[1]. This principle has been applied in\n  various contexts[2], particularly in administrative law cases[2a] and constitutional challenges[2b].\n\n  Recent developments have refined this approach[3], establishing that courts must consider both procedural[3a] and substantive\n   aspects[3b] when reviewing agency actions.\n\n  Citations\n\n  [1] Marbury v. Madison, 5 U.S. 137 (1803)\n  - Holding: Established judicial review and the Supreme Court's authority to interpret the Constitution\n  - Relevance: Foundational principle for all judicial review analysis\n  - Connection: Primary\n\n  [2] Chevron U.S.A., Inc. v. NRDC, 467 U.S. 837 (1984)\n  - Holding: Courts must defer to reasonable agency interpretations of ambiguous statutes\n  - Relevance: Defines the framework for reviewing agency actions\n  - Connection: Primary\n  [2a] Procedural Deference: Agencies receive deference on their procedural choices\n  [2b] Substantive Interpretation: Two-step analysis for statutory interpretation\n\n  [3] Loper Bright Enterprises v. Raimondo, 144 S. Ct. 2244 (2024)\n  - Holding: Overruled Chevron deference, returning to traditional statutory interpretation\n  - Relevance: Fundamentally changes how courts review agency interpretations\n  - Connection: Primary\n  [3a] Procedural Changes: Courts no longer defer to agency procedural interpretations\n  [3b] Substantive Review: Courts exercise independent judgment on legal questions\n\n  Important Notes\n\n  - Maintain consistency between inline citations and the Citations section\n  - Use descriptive, memorable citation IDs (not just numbers)\n  - Provide substantive analysis, not just string citations\n  - Ensure all bracketed references [X] have corresponding entries in Citations section"
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2,
@@ -444,7 +402,6 @@
     },
     "Switch": {
       "main": [
-        [],
         [
           {
             "node": "Hierarchical Summarization",
@@ -459,7 +416,6 @@
             "index": 0
           }
         ],
-        [],
         [],
         [
           {

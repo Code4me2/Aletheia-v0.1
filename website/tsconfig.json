@@ -50,7 +50,8 @@
       "@services/*": ["src/services/*"],
       "@types/*": ["src/types/*"],
       "@utils/*": ["src/utils/*"]
-    }
+    },
+    "types": ["vite/client"]
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "public"]

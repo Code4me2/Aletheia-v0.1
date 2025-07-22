@@ -3,7 +3,7 @@
  * Manages module lifecycle, navigation, and global state
  */
 
-import type { AppModule, ModuleManifest, Route } from '@types/module.types';
+import type { AppModule, ModuleManifest, Route } from '@/types/module.types';
 import { Router } from './Router';
 import { EventBus } from './EventBus';
 import { ServiceRegistry } from './ServiceRegistry';

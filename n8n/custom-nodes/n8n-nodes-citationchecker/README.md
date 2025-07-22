@@ -7,8 +7,11 @@ This is an n8n community node that provides citation parsing, verification, and 
 - **Parse Citations**: Extract inline citations (`<cite>` tags) and reference citations (`[1]`, `[2a]`)
 - **Verify Citations**: Check citations against a database (PostgreSQL or mock)
 - **Validate Citations**: Use AI to verify citation appropriateness and accuracy
+- **Scripted Validation**: Format and structure validation without AI
 - **Batch Processing**: Handle multiple documents efficiently
 - **Flexible Operations**: Use individual operations or full validation pipeline
+- **AI Resilience**: Retry logic, timeout protection, and automatic fallback
+- **Universal AI Support**: Works with any n8n AI node (OpenAI, Anthropic, etc.)
 
 ## Installation
 
@@ -51,7 +54,17 @@ Complete pipeline that:
 
 1. Parses all citations
 2. Verifies existence in database
-3. Uses AI to validate appropriateness
+3. Validates format and structure
+4. Uses AI to validate appropriateness (with fallback)
+
+### 4. Scripted Validation
+
+Validates citation format without AI:
+
+- Citation ID format checking
+- Required fields validation
+- Connection type verification
+- Metadata completeness
 
 ## Configuration
 
@@ -63,8 +76,17 @@ Complete pipeline that:
 ### AI Model Connection
 
 - Connect any n8n AI Language Model node
+- Automatic format detection (custom or default n8n)
 - Used for citation appropriateness validation
 - Optional - node works without AI connection
+- Resilience features for reliability
+
+### AI Resilience Configuration
+
+- **Enable Retry Logic**: Retry failed requests (default: true)
+- **Max Retries**: Number of retry attempts (default: 3)
+- **Request Timeout**: Timeout per request in ms (default: 30000)
+- **Enable Fallback**: Use scripted validation if AI fails (default: true)
 
 ## Input/Output
 
@@ -95,6 +117,15 @@ Complete pipeline that:
         "matchedRecord": { ... }
       }
     ],
+    "scriptedValidation": [
+      {
+        "citationId": "smith-2020",
+        "formatValid": true,
+        "formatIssues": [],
+        "structureValid": true,
+        "metadataComplete": true
+      }
+    ],
     "validationResults": [
       {
         "citationId": "smith-2020",
@@ -112,6 +143,8 @@ Complete pipeline that:
       "unverified": 1,
       "appropriate": 4,
       "inappropriate": 0,
+      "formatValid": 5,
+      "formatInvalid": 0,
       "issues": []
     }
   }
@@ -156,6 +189,27 @@ npm run dev
 # Run tests
 npm test
 ```
+
+## Troubleshooting
+
+### AI Connection Issues
+- Ensure AI node is properly connected
+- Check if AI service is running
+- Enable fallback validation in resilience config
+
+### Database Connection
+- Verify PostgreSQL connection string
+- Check network accessibility
+- Use mock mode for testing
+
+### Citation Not Found
+- Check citation format matches expected patterns
+- Verify citations exist in database
+- Review regex patterns in DEVELOPMENT.md
+
+## Advanced Usage
+
+For detailed development documentation, see [DEVELOPMENT.md](./DEVELOPMENT.md)
 
 ## License
 

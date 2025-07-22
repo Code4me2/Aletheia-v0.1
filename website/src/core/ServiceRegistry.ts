@@ -2,7 +2,7 @@
  * Service registry for dependency injection
  */
 
-import type { ServiceConstructor, ServiceDefinition } from '@types/module.types';
+import type { ServiceConstructor, ServiceDefinition } from '@/types/module.types';
 
 interface ServiceEntry {
   definition: ServiceDefinition;
@@ -20,7 +20,7 @@ export class ServiceRegistry {
     this.services.set(name, {
       definition: {
         name,
-        service: instance.constructor as ServiceConstructor<T>,
+        service: (instance as any).constructor as ServiceConstructor<T>,
         singleton: true,
       },
       instance,

@@ -19,7 +19,7 @@ export interface Conversation {
   title: string;
   createdAt: string;
   updatedAt: string;
-  messages: import('@types/api.types').ChatMessage[];
+  messages: import('@/types/api.types').ChatMessage[];
 }
 
 export interface ChatUIState {

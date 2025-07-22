@@ -2,7 +2,7 @@
  * LocalStorage service with type safety and versioning
  */
 
-import type { StorageAdapter } from '@types/module.types';
+import type { StorageAdapter } from '@/types/module.types';
 import { configService } from '@services/config.service';
 
 export class LocalStorageService implements StorageAdapter {
@@ -199,7 +199,7 @@ export class LocalStorageService implements StorageAdapter {
     // Remove oldest 25% of items
     const removeCount = Math.floor(items.length * 0.25);
     for (let i = 0; i < removeCount; i++) {
-      localStorage.removeItem(items[i].key);
+      localStorage.removeItem(items[i]!.key);
     }
   }
 }

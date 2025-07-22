@@ -2,7 +2,7 @@
  * Chat service for handling webhook communication
  */
 
-import type { ChatRequest, ChatResponse } from '@types/api.types';
+import type { ChatRequest, ChatResponse } from '@/types/api.types';
 
 export class ChatService {
   constructor(private webhookUrl: string) {}

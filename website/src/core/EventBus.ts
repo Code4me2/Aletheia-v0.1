@@ -2,7 +2,7 @@
  * Event bus for application-wide event handling
  */
 
-import type { AppEvent, EventHandler, EventSubscription } from '@types/module.types';
+import type { AppEvent, EventHandler, EventSubscription } from '@/types/module.types';
 
 interface EventHandlerEntry {
   handler: EventHandler;
@@ -18,14 +18,14 @@ export class EventBus {
    * Subscribe to an event
    */
   public on<T = unknown>(eventType: string, handler: EventHandler<T>): EventSubscription {
-    return this.addHandler(eventType, handler, false);
+    return this.addHandler(eventType, handler as EventHandler, false);
   }
 
   /**
    * Subscribe to an event once
    */
   public once<T = unknown>(eventType: string, handler: EventHandler<T>): EventSubscription {
-    return this.addHandler(eventType, handler, true);
+    return this.addHandler(eventType, handler as EventHandler, true);
   }
 
   /**
