@@ -13,8 +13,23 @@ from datetime import datetime
 from courts_db import find_court, find_court_by_id, courts
 from eyecite import get_citations, resolve_citations, clean_text
 from reporters_db import EDITIONS, REPORTERS
-from xray import detect_bad_redactions
-from judge_pics import search_judges, get_judge_photo
+
+# Optional judge-pics import
+try:
+    from judge_pics import search_judges, get_judge_photo
+    JUDGE_PICS_AVAILABLE = True
+except ImportError:
+    JUDGE_PICS_AVAILABLE = False
+    search_judges = None
+    get_judge_photo = None
+
+# Optional x-ray import
+try:
+    from xray import detect_bad_redactions
+    XRAY_AVAILABLE = True
+except ImportError:
+    XRAY_AVAILABLE = False
+    detect_bad_redactions = None
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +136,16 @@ class FLPIntegration:
     
     # X-Ray Functions (Bad Redaction Detection)
     def check_bad_redactions(self, pdf_path: Path) -> Dict[str, Any]:
-        """Check for bad redactions using X-Ray"""
+        """Check for bad redactions using X-Ray (if available)"""
+        if not XRAY_AVAILABLE:
+            logger.warning("X-Ray not available, skipping bad redaction detection")
+            return {
+                'has_bad_redactions': None,
+                'results': None,
+                'success': False,
+                'error': 'X-Ray package not installed'
+            }
+        
         try:
             # X-Ray can be used directly or through Doctor
             results = detect_bad_redactions(str(pdf_path))
@@ -207,7 +231,16 @@ class FLPIntegration:
     
     # Judge-pics Functions
     async def get_judge_photo(self, judge_name: str, court: Optional[str] = None) -> Dict[str, Any]:
-        """Get judge photo URL using Judge-pics"""
+        """Get judge photo URL using Judge-pics (if available)"""
+        if not JUDGE_PICS_AVAILABLE:
+            logger.warning("Judge-pics not available, skipping photo lookup")
+            return {
+                'found': False,
+                'judge_name': judge_name,
+                'photo_url': None,
+                'error': 'Judge-pics functions not available'
+            }
+        
         try:
             # Search for judge
             results = search_judges(judge_name)

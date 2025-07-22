@@ -18,7 +18,7 @@ juriscraper>=2.5.0
 courts-db>=0.10.0
 eyecite>=2.5.0
 reporters-db>=3.2.0
-x-ray>=0.3.0  # For bad redaction detection
+# x-ray>=0.3.0  # For bad redaction detection (optional)
 judge-pics>=2.0.0  # For judge portraits
 
 # API framework

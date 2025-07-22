@@ -77,7 +77,7 @@ async def health_check():
                 "courts_db": "available",
                 "reporters_db": "available",
                 "eyecite": "available",
-                "xray": "available",
+                "xray": "optional",
                 "judge_pics": "available"
             },
             "timestamp": datetime.now().isoformat()
