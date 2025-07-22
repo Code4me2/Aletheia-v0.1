@@ -39,6 +39,8 @@ function LawyerChatContent() {
     setShowCitationPanel,
     selectedCitation,
     setSelectedCitation,
+    isCitationOnRight,
+    setIsCitationOnRight,
     hasMessages
   } = useChatState();
   
@@ -192,8 +194,12 @@ function LawyerChatContent() {
   }, [session, fetchChatHistory]);
 
   const handleSend = async () => {
-    await sendMessage(inputText, selectedTools, messages, isCreatingChat);
-    setInputText('');
+    if (!inputText.trim()) return;
+    
+    const messageToSend = inputText;
+    setInputText(''); // Clear immediately before sending
+    
+    await sendMessage(messageToSend, selectedTools, messages, isCreatingChat);
   };
 
   const handleCitationClick = () => {
@@ -250,6 +256,36 @@ function LawyerChatContent() {
 
       {/* Main Content Container - Adjust margin for taskbar only */}
       <div className={`flex-1 flex transition-all duration-300 ${isTaskBarExpanded ? 'ml-[280px]' : 'ml-[56px]'}`}>
+        {/* Citation Panel (when on left) */}
+        {showCitationPanel && selectedCitation && !isCitationOnRight && (
+          <div className="flex-1 h-full">
+            <ErrorBoundary
+              level="component"
+              isolate
+              fallback={
+                <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                  <div className="text-center">
+                    <p className="text-gray-500 dark:text-gray-400">Unable to display citation</p>
+                    <button
+                      onClick={closeCitationPanel}
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                    >
+                      Close panel
+                    </button>
+                  </div>
+                </div>
+              }
+            >
+              <CitationPanel
+                citation={selectedCitation}
+                onClose={closeCitationPanel}
+                onSwap={() => setIsCitationOnRight(!isCitationOnRight)}
+                isCitationOnRight={isCitationOnRight}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
+        
         {/* Chat Section */}
         <div className={`flex-1 flex flex-col transition-all duration-300 ${showCitationPanel ? 'w-1/2' : 'w-full'}`}>
         {/* Header */}
@@ -363,8 +399,8 @@ function LawyerChatContent() {
         </div>
         </div>
         
-        {/* Citation Panel */}
-        {showCitationPanel && selectedCitation && (
+        {/* Citation Panel (when on right) */}
+        {showCitationPanel && selectedCitation && isCitationOnRight && (
           <div className="flex-1 h-full">
             <ErrorBoundary
               level="component"
@@ -386,6 +422,8 @@ function LawyerChatContent() {
               <CitationPanel
                 citation={selectedCitation}
                 onClose={closeCitationPanel}
+                onSwap={() => setIsCitationOnRight(!isCitationOnRight)}
+                isCitationOnRight={isCitationOnRight}
               />
             </ErrorBoundary>
           </div>

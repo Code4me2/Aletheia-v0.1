@@ -23,6 +23,8 @@ interface UseChatStateReturn {
   setShowCitationPanel: React.Dispatch<React.SetStateAction<boolean>>;
   selectedCitation: Citation | null;
   setSelectedCitation: React.Dispatch<React.SetStateAction<Citation | null>>;
+  isCitationOnRight: boolean;
+  setIsCitationOnRight: React.Dispatch<React.SetStateAction<boolean>>;
   hasMessages: boolean;
 }
 
@@ -36,6 +38,7 @@ export function useChatState(): UseChatStateReturn {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
+  const [isCitationOnRight, setIsCitationOnRight] = useState(true);
 
   const hasMessages = messages.length > 0;
 
@@ -93,6 +96,8 @@ export function useChatState(): UseChatStateReturn {
     setShowCitationPanel,
     selectedCitation,
     setSelectedCitation,
+    isCitationOnRight,
+    setIsCitationOnRight,
     hasMessages
   };
 }
