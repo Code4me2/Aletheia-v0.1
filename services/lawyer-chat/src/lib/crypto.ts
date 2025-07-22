@@ -42,7 +42,8 @@ export function encrypt(text: string | null | undefined): string | null {
     const salt = crypto.randomBytes(SALT_LENGTH);
     
     // Derive a unique key for this encryption using the salt
-    const derivedKey = crypto.pbkdf2Sync(key, salt, 1000, KEY_LENGTH, 'sha256');
+    // Using 100,000 iterations for OWASP 2023 compliance
+    const derivedKey = crypto.pbkdf2Sync(key, salt, 100000, KEY_LENGTH, 'sha256');
     
     const cipher = crypto.createCipheriv(ALGORITHM, derivedKey, iv);
     
@@ -87,7 +88,8 @@ export function decrypt(encryptedText: string | null | undefined): string | null
     const encrypted = combined.slice(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
     
     // Derive the key using the salt
-    const derivedKey = crypto.pbkdf2Sync(key, salt, 1000, KEY_LENGTH, 'sha256');
+    // Using 100,000 iterations to match encryption for OWASP 2023 compliance
+    const derivedKey = crypto.pbkdf2Sync(key, salt, 100000, KEY_LENGTH, 'sha256');
     
     const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv);
     decipher.setAuthTag(authTag);

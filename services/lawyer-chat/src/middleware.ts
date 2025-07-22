@@ -4,8 +4,9 @@ import { checkCsrf } from '@/utils/csrf';
 import { API_VERSION } from '@/lib/api-config';
 import { SECURITY } from '@/config/constants';
 
-// Simple in-memory rate limiter for Edge Runtime
+// Simple in-memory rate limiter for Edge Runtime with size limit
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const MAX_RATE_LIMIT_ENTRIES = 10000; // Prevent unbounded growth
 
 // Rate limit configuration
 const RATE_LIMIT_WINDOW = SECURITY.RATE_LIMIT.EDGE_WINDOW_MS;
@@ -91,6 +92,14 @@ export async function middleware(request: NextRequest) {
 
   if (!rateLimitInfo || now > rateLimitInfo.resetTime) {
     // New window
+    // Check size limit before adding new entry
+    if (rateLimitMap.size >= MAX_RATE_LIMIT_ENTRIES) {
+      // Simple LRU: remove the oldest entry (first in map)
+      const firstKey = rateLimitMap.keys().next().value;
+      if (firstKey) {
+        rateLimitMap.delete(firstKey);
+      }
+    }
     rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
   } else if (rateLimitInfo.count >= limit) {
     // Rate limit exceeded
