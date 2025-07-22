@@ -2,20 +2,21 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { checkCsrf } from '@/utils/csrf';
 import { API_VERSION } from '@/lib/api-config';
+import { SECURITY } from '@/config/constants';
 
 // Simple in-memory rate limiter for Edge Runtime
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 // Rate limit configuration
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMITS = {
+const RATE_LIMIT_WINDOW = SECURITY.RATE_LIMIT.EDGE_WINDOW_MS;
+const RATE_LIMITS: Record<string, number> = {
   '/api/auth': 5,
   '/api/chat': 20,
   '/api/chats': 10,
   [`/api/${API_VERSION}/chat`]: 20,
   [`/api/${API_VERSION}/chats`]: 10,
   '/messages': 30,
-  default: 100
+  default: SECURITY.RATE_LIMIT.MAX_REQUESTS
 };
 
 export async function middleware(request: NextRequest) {

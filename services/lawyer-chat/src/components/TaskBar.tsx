@@ -9,6 +9,7 @@ import { api } from '@/utils/api';
 import { getApiEndpoint } from '@/lib/api-config';
 import { createLogger } from '@/utils/logger';
 import { generateChatTitle } from '@/utils/chatUtils';
+import { getErrorMessage } from '@/utils/errors';
 import type { Chat } from '@/types';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -69,7 +70,7 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
         }
       }
     } catch (error) {
-      logger.error('Error fetching chat history', error);
+      logger.error('Error fetching chat history', getErrorMessage(error));
     } finally {
       setIsSearching(false);
     }
@@ -123,7 +124,7 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
         alert('Failed to delete chat. Please try again.');
       }
     } catch (error) {
-      logger.error('Error deleting chat', error);
+      logger.error('Error deleting chat', getErrorMessage(error));
       // Refresh chat history on error, maintaining search
       fetchChatHistory(chatSearchQuery);
     }
