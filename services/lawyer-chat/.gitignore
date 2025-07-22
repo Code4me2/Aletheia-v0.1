@@ -56,7 +56,7 @@ next-env.d.ts
 !SECURITY_FEATURES.md
 !DEMO_CREDENTIALS_SETUP.md
 # Include all markdown files in documentation folder
-!documentation/**/*.md
+!Documentation/**/*.md
 
 # Database
 *.db
