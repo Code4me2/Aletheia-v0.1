@@ -1,1 +1,0 @@
-    def _enhance_court_info_validated(self, document: Dict[str, Any]) -> Dict[str, Any]:
