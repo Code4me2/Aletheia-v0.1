@@ -473,6 +473,10 @@ class RobustElevenStagePipeline:
         # Check metadata fields
         court_hint = metadata.get('court') or metadata.get('court_id')
         
+        # Debug logging
+        if court_hint:
+            logger.info(f"Found court hint in metadata: {court_hint}")
+        
         # Try to extract from case number
         if not court_hint:
             case_number = document.get('case_number', '')
