@@ -117,3 +117,6 @@ services/lawyer-chat/auth.md
 # Package lock files (uncomment if you don't want to track these)
 # package-lock.json
 # **/package-lock.json
+
+# Backup files from port implementation
+*.backup-*
