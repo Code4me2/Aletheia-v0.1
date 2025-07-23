@@ -81,6 +81,50 @@ class RobustElevenStagePipeline:
         }
         
         self.error_collector = None
+        
+        # Document type statistics
+        self.document_type_stats = {
+            'opinion': 0,
+            'docket': 0,
+            'order': 0,
+            'unknown': 0
+        }
+    
+    def _detect_document_type(self, document: Dict[str, Any]) -> str:
+        """Detect document type based on metadata and case number patterns"""
+        metadata = document.get('metadata', {})
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except:
+                metadata = {}
+        
+        # Check case number pattern for opinions
+        case_number = document.get('case_number', '')
+        if case_number.startswith('OPINION-'):
+            return 'opinion'
+        
+        # Check metadata type field
+        metadata_type = metadata.get('type', '')
+        if metadata_type:
+            # Common CourtListener opinion types
+            if any(op_type in str(metadata_type) for op_type in ['010combined', '020lead', '030concurrence', '040dissent']):
+                return 'opinion'
+        
+        # Check for opinion-specific fields
+        if any(key in metadata for key in ['cluster', 'author', 'author_str', 'opinions_cited', 'per_curiam']):
+            return 'opinion'
+        
+        # Check for docket-specific fields
+        if any(key in metadata for key in ['docket_id', 'cause', 'nature_of_suit']):
+            return 'docket'
+        
+        # Check for order patterns in content
+        content = document.get('content', '')[:500]
+        if 'IT IS HEREBY ORDERED' in content.upper():
+            return 'order'
+        
+        return 'unknown'
     
     async def process_batch(self, 
                           limit: int = 10,
@@ -159,12 +203,26 @@ class RobustElevenStagePipeline:
                         document_id=doc.get('id')
                     )
             
+            # Detect document types
+            logger.info("\nDetecting document types...")
+            for doc in valid_documents:
+                doc_type = self._detect_document_type(doc)
+                doc['detected_type'] = doc_type
+                self.document_type_stats[doc_type] += 1
+            
+            # Log document type distribution
+            logger.info("Document type distribution:")
+            for doc_type, count in self.document_type_stats.items():
+                if count > 0:
+                    logger.info(f"  {doc_type}: {count} documents")
+            
             # Process each document through remaining stages
             enhanced_documents = []
             
             for idx, doc in enumerate(valid_documents):
                 doc_id = doc.get('id', f'unknown_{idx}')
-                logger.info(f"\nProcessing document {idx + 1}/{len(valid_documents)}: {doc_id}")
+                doc_type = doc.get('detected_type', 'unknown')
+                logger.info(f"\nProcessing {doc_type} document {idx + 1}/{len(valid_documents)}: {doc_id}")
                 
                 try:
                     # Process through each enhancement stage
@@ -242,6 +300,7 @@ class RobustElevenStagePipeline:
                 'run_id': run_id,
                 'stages_completed': stages_completed,
                 'statistics': self.stats,
+                'document_type_statistics': self._get_type_statistics(),
                 'processing_time_seconds': processing_time,
                 'verification': verification,
                 'storage_results': storage_results,
@@ -469,9 +528,35 @@ class RobustElevenStagePipeline:
         # Try to find court information
         court_hint = None
         extracted_from_content = False
+        extraction_method = 'metadata'
         
-        # Check metadata fields
-        court_hint = metadata.get('court') or metadata.get('court_id')
+        # Get document type for type-specific extraction
+        doc_type = document.get('detected_type', 'unknown')
+        
+        # Type-specific court extraction
+        if doc_type == 'opinion':
+            # For opinions, try multiple strategies
+            # 1. Check download URL for patterns
+            download_url = metadata.get('download_url', '')
+            if 'supremecourt.ohio.gov' in download_url:
+                court_hint = 'ohioctapp'  # Ohio Court of Appeals
+                extraction_method = 'opinion_url'
+            
+            # 2. Check content for court identification
+            if not court_hint:
+                content = document.get('content', '')[:1000]
+                content_upper = content.upper()
+                if 'COURT OF APPEALS OF OHIO' in content_upper and 'TENTH APPELLATE DISTRICT' in content_upper:
+                    court_hint = 'ohioctapp'
+                    extraction_method = 'opinion_content'
+                    extracted_from_content = True
+            
+            # 3. Note: In production, would check cluster API here
+            # cluster_url = metadata.get('cluster', '')
+            
+        else:
+            # For dockets and other types, use standard metadata fields
+            court_hint = metadata.get('court') or metadata.get('court_id')
         
         # Debug logging
         if court_hint:
@@ -513,6 +598,8 @@ class RobustElevenStagePipeline:
                 'court_type': court_data.get('type', ''),
                 'court_level': court_data.get('level', ''),
                 'extracted_from_content': extracted_from_content,
+                'extraction_method': extraction_method,
+                'document_type': doc_type,
                 'validation': court_validation.to_dict()
             }
         else:
@@ -743,10 +830,25 @@ class RobustElevenStagePipeline:
         elif not isinstance(metadata, dict):
             metadata = {}
         
-        # Try metadata first
-        judge_name = metadata.get('judge_name', '') or metadata.get('judge', '') or metadata.get('assigned_to', '')
+        # Get document type for type-specific extraction
+        doc_type = document.get('detected_type', 'unknown')
+        
+        # Type-specific judge extraction
+        judge_name = ''
         judge_initials = metadata.get('federal_dn_judge_initials_assigned', '')
         extracted_from_content = False
+        extraction_source = 'metadata'
+        
+        if doc_type == 'opinion':
+            # For opinions, check author fields first
+            judge_name = metadata.get('author_str', '') or metadata.get('author', '')
+            if judge_name:
+                extraction_source = 'opinion_author'
+                logger.info(f"Found judge in opinion author field: {judge_name}")
+        
+        if not judge_name:
+            # Standard metadata fields for dockets and fallback
+            judge_name = metadata.get('judge_name', '') or metadata.get('judge', '') or metadata.get('assigned_to', '')
         
         # If no judge name but we have initials
         if not judge_name and judge_initials:
@@ -844,17 +946,28 @@ class RobustElevenStagePipeline:
             return {'enhanced': False, 'error': str(e)}
     
     def _extract_judge_from_content_optimized(self, content: str) -> Optional[str]:
-        """Extract judge name from document content"""
+        """Extract judge name from document content with type-aware patterns"""
         if not content:
             return None
         
-        # Extended judge patterns
+        # Extended judge patterns - improved to avoid greedy captures
         patterns = [
+            # Standard format: "Judge John Smith"
             r'(?:Honorable\s+)?(?:Judge\s+)?([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+(?:Chief\s+)?(?:District\s+)?Judge)',
+            # Before format
             r'Before:?\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+(?:Chief\s+)?(?:District\s+)?Judge)',
+            # JUDGE: format
             r'JUDGE:\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
+            # Signed by format
             r'Signed\s+by\s+(?:Judge\s+)?([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
-            r'([A-Z][A-Z\s]+),?\s+UNITED STATES DISTRICT JUDGE'
+            # All caps format - Fixed to be less greedy
+            r'([A-Z][A-Z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z]+)+)(?:,\s+JR\.|,\s+SR\.|,\s+III|,\s+II)?\s*,\s+UNITED STATES DISTRICT JUDGE',
+            # Alternative all caps with proper name capture
+            r'(?:JUDGE\s+)?([A-Z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z]+)+)\s*\n+\s*UNITED STATES DISTRICT JUDGE',
+            # Opinion author format
+            r'Opinion\s+by:?\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
+            # Magistrate judge format
+            r'([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+UNITED STATES MAGISTRATE JUDGE)'
         ]
         
         # Search in first 2000 characters and last 1000
@@ -863,20 +976,22 @@ class RobustElevenStagePipeline:
         
         for pattern in patterns:
             # Check start
-            match = re.search(pattern, content_start)
+            match = re.search(pattern, content_start, re.MULTILINE)
             if match:
-                judge_name = match.group(1) if len(match.groups()) > 0 else match.group(0)
-                judge_name = judge_name.strip().strip(',')
-                logger.info(f"  Extracted judge from content start: {judge_name}")
-                return judge_name
+                judge_name = match.group(1).strip().strip(',')
+                # Validate the extracted name doesn't contain title words
+                if not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']):
+                    logger.info(f"  Extracted judge from content start: {judge_name}")
+                    return judge_name
             
             # Check end
-            match = re.search(pattern, content_end)
+            match = re.search(pattern, content_end, re.MULTILINE)
             if match:
-                judge_name = match.group(1) if len(match.groups()) > 0 else match.group(0)
-                judge_name = judge_name.strip().strip(',')
-                logger.info(f"  Extracted judge from content end: {judge_name}")
-                return judge_name
+                judge_name = match.group(1).strip().strip(',')
+                # Validate the extracted name doesn't contain title words
+                if not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']):
+                    logger.info(f"  Extracted judge from content end: {judge_name}")
+                    return judge_name
         
         return None
     
@@ -1326,7 +1441,7 @@ class RobustElevenStagePipeline:
             )
     
     def _verify_pipeline_results_validated(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Stage 11: Comprehensive pipeline verification"""
+        """Stage 11: Comprehensive pipeline verification with type-specific metrics"""
         verification = {
             'documents_with_court_resolution': 0,
             'documents_with_valid_court': 0,
@@ -1344,13 +1459,33 @@ class RobustElevenStagePipeline:
             'extraction_improvements': {
                 'courts_from_content': 0,
                 'judges_from_content': 0
-            }
+            },
+            'by_document_type': {}
         }
         
         total_enhancements = 0
         total_quality_points = 0
         
+        # Initialize type tracking
+        type_stats = {}
+        
         for doc in documents:
+            # Get document type
+            doc_type = doc.get('detected_type', 'unknown')
+            
+            # Initialize type stats if needed
+            if doc_type not in type_stats:
+                type_stats[doc_type] = {
+                    'total': 0,
+                    'courts_resolved': 0,
+                    'judges_found': 0,
+                    'citations_found': 0,
+                    'fully_valid': 0,
+                    'total_enhancements': 0,
+                    'total_quality_points': 0
+                }
+            
+            type_stats[doc_type]['total'] += 1
             doc_enhancements = 0
             doc_quality_points = 0
             
@@ -1358,6 +1493,7 @@ class RobustElevenStagePipeline:
             court_data = doc.get('court_enhancement', {})
             if court_data.get('resolved'):
                 verification['documents_with_court_resolution'] += 1
+                type_stats[doc_type]['courts_resolved'] += 1
                 doc_enhancements += 1
                 
                 # Check if court is valid
@@ -1374,6 +1510,7 @@ class RobustElevenStagePipeline:
             citations_data = doc.get('citations_extracted', {})
             if citations_data.get('count', 0) > 0:
                 verification['documents_with_citations'] += 1
+                type_stats[doc_type]['citations_found'] += 1
                 doc_enhancements += 1
                 
                 # Check citation validity
@@ -1394,6 +1531,7 @@ class RobustElevenStagePipeline:
             judge_data = doc.get('judge_enhancement', {})
             if judge_data.get('enhanced') or judge_data.get('judge_name_found'):
                 verification['documents_with_judge_info'] += 1
+                type_stats[doc_type]['judges_found'] += 1
                 doc_enhancements += 1
                 
                 # Check if judge name is valid
@@ -1422,6 +1560,11 @@ class RobustElevenStagePipeline:
             validation_summary = doc.get('comprehensive_metadata', {}).get('validation_summary', {})
             if validation_summary.get('is_valid', False):
                 verification['documents_fully_valid'] += 1
+                type_stats[doc_type]['fully_valid'] += 1
+            
+            # Track type-specific totals
+            type_stats[doc_type]['total_enhancements'] += doc_enhancements
+            type_stats[doc_type]['total_quality_points'] += doc_quality_points
             
             total_enhancements += doc_enhancements
             total_quality_points += doc_quality_points
@@ -1446,11 +1589,50 @@ class RobustElevenStagePipeline:
             # Quality: how good are the enhancements
             max_quality_points = 10  # Maximum quality points per document
             verification['quality_score'] = (total_quality_points / (num_docs * max_quality_points)) * 100
+            
+            # Calculate type-specific metrics
+            for doc_type, stats in type_stats.items():
+                if stats['total'] > 0:
+                    type_metrics = {
+                        'total': stats['total'],
+                        'court_resolution_rate': (stats['courts_resolved'] / stats['total']) * 100,
+                        'judge_identification_rate': (stats['judges_found'] / stats['total']) * 100,
+                        'citation_extraction_rate': (stats['citations_found'] / stats['total']) * 100,
+                        'validity_rate': (stats['fully_valid'] / stats['total']) * 100,
+                        'average_enhancements': stats['total_enhancements'] / stats['total'],
+                        'completeness_score': (
+                            (stats['courts_resolved'] + stats['judges_found'] + stats['citations_found']) /
+                            (stats['total'] * 3)  # 3 key metrics
+                        ) * 100,
+                        'quality_score': (stats['total_quality_points'] / (stats['total'] * max_quality_points)) * 100
+                    }
+                    verification['by_document_type'][doc_type] = type_metrics
+        
+        # Generate insights based on type analysis
+        insights = []
+        if verification['by_document_type']:
+            for doc_type, metrics in verification['by_document_type'].items():
+                if metrics['court_resolution_rate'] < 50:
+                    insights.append(f"{doc_type} documents have low court resolution ({metrics['court_resolution_rate']:.1f}%)")
+                if metrics['judge_identification_rate'] < 30:
+                    insights.append(f"{doc_type} documents need better judge extraction ({metrics['judge_identification_rate']:.1f}%)")
+                if metrics['quality_score'] > 80:
+                    insights.append(f"{doc_type} documents show high quality processing ({metrics['quality_score']:.1f}%)")
+        
+        verification['insights'] = insights
         
         logger.info(f"✅ Pipeline verification complete:")
         logger.info(f"   Completeness: {verification['completeness_score']:.1f}%")
         logger.info(f"   Quality: {verification['quality_score']:.1f}%")
         logger.info(f"   Valid documents: {verification['documents_fully_valid']}/{num_docs}")
+        
+        # Log type-specific results
+        if verification['by_document_type']:
+            logger.info("\n   Performance by document type:")
+            for doc_type, metrics in verification['by_document_type'].items():
+                logger.info(f"   {doc_type}: {metrics['total']} docs, "
+                          f"courts {metrics['court_resolution_rate']:.0f}%, "
+                          f"judges {metrics['judge_identification_rate']:.0f}%")
         
         return verification
     
@@ -1482,3 +1664,17 @@ class RobustElevenStagePipeline:
         """Calculate pipeline complexity score"""
         # This is a simple metric - could be enhanced
         return 11.0  # 11 stages
+    
+    def _get_type_statistics(self) -> Dict[str, Any]:
+        """Get document type statistics for the run"""
+        type_stats = {}
+        total_docs = sum(self.document_type_stats.values())
+        
+        for doc_type, count in self.document_type_stats.items():
+            if count > 0:
+                type_stats[doc_type] = {
+                    'count': count,
+                    'percentage': (count / total_docs * 100) if total_docs > 0 else 0
+                }
+        
+        return type_stats
