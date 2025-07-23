@@ -1,8 +1,10 @@
 const http = require('http');
 
 // Proxy server that translates Ollama API calls to llama.cpp format
-const LLAMA_SERVER = 'http://localhost:11434';
-const PROXY_PORT = 11435;
+const LLAMA_SERVER = process.env.LLAMA_SERVER || 'http://localhost:11434';
+const PROXY_PORT = parseInt(process.env.OLLAMA_PROXY_PORT || '11435');
+
+console.log(`Starting Ollama proxy: ${PROXY_PORT} -> ${LLAMA_SERVER}`);
 
 const proxy = http.createServer(async (req, res) => {
   let body = '';

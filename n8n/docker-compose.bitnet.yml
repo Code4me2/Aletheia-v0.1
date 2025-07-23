@@ -5,7 +5,7 @@ services:
     image: ghcr.io/microsoft/bitnet:latest
     container_name: bitnet-server
     ports:
-      - "8081:8080"  # Map to 8081 to avoid conflict with main web service
+      - "${BITNET_PORT:-8081}:8080"  # Map to 8081 to avoid conflict with main web service
     volumes:
       # Mount local directory for models
       - ./bitnet-models:/models
@@ -37,7 +37,7 @@ services:
   #     dockerfile: Dockerfile
   #   container_name: bitnet-server
   #   ports:
-  #     - "8081:8080"
+  #     - "${BITNET_PORT:-8081}:8080"
   #   volumes:
   #     - ./bitnet-models:/models
   #   environment:

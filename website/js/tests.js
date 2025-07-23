@@ -11,7 +11,7 @@
         constructor(app) {
             this.app = app;
             this.initialized = false;
-            this.testApiUrl = 'http://localhost:8000'; // Direct to Haystack service
+            this.testApiUrl = CONFIG.services?.haystackDirect || '/api/rag'; // Use configured URL
             this.currentStream = null;
             this.elements = {};
             this.testResults = new Map();
