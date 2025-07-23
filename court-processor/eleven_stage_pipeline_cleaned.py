@@ -12,6 +12,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 import aiohttp
+import psycopg2
 from psycopg2.extras import RealDictCursor
 
 # Import our services
@@ -39,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class OptimizedElevenStagePipeline:
+class CleanedElevenStagePipeline:
     """
     Optimized 11-stage document processing pipeline with maximum completeness
     """
@@ -160,16 +161,16 @@ class OptimizedElevenStagePipeline:
                 self.stats['total_enhancements'] += len(structure.get('elements', []))
                 
                 # ==========================================
-                # STAGE 7: Legal Document Enhancement
+                # STAGE 7: Legal Keyword Extraction
                 # ==========================================
                 if idx == 0:
                     logger.info("\n" + "=" * 60)
-                    logger.info("STAGE 7: Legal Document Enhancement")
+                    logger.info("STAGE 7: Legal Keyword Extraction")
                     logger.info("=" * 60)
                 
-                legal_enhancements = self._enhance_legal_aspects(doc)
-                doc['legal_enhancements'] = legal_enhancements
-                self.stats['total_enhancements'] += len(legal_enhancements.get('concepts', []))
+                keyword_extraction = self._extract_legal_keywords(doc)
+                doc['keyword_extraction'] = keyword_extraction
+                self.stats['keywords_extracted'] = self.stats.get('keywords_extracted', 0) + len(keyword_extraction.get('keywords', []))
                 
                 # ==========================================
                 # STAGE 8: Comprehensive Metadata Assembly
@@ -191,7 +192,7 @@ class OptimizedElevenStagePipeline:
                 "Reporter Normalization", 
                 "Judge Enhancement",
                 "Structure Analysis",
-                "Legal Enhancement",
+                "Keyword Extraction",
                 "Metadata Assembly"
             ])
             
@@ -343,7 +344,14 @@ class OptimizedElevenStagePipeline:
                 extracted_from_content = True
         
         if not court_hint:
-            court_hint = 'txed'  # Default fallback to court ID
+            # No court found - return unresolved status
+            logger.warning(f"Could not determine court for document")
+            return {
+                'resolved': False,
+                'reason': 'No court information found in metadata or content',
+                'attempted_extraction': True,
+                'search_locations': ['metadata.court', 'metadata.court_id', 'case_number pattern']
+            }
         
         try:
             # Check if court_hint is already a valid court_id
@@ -821,49 +829,67 @@ class OptimizedElevenStagePipeline:
             'structure_score': len(elements) / max(1, len(lines)) * 100
         }
     
-    def _enhance_legal_aspects(self, document: Dict[str, Any]) -> Dict[str, Any]:
-        """Stage 7: Legal document enhancement"""
+    def _extract_legal_keywords(self, document: Dict[str, Any]) -> Dict[str, Any]:
+        """Stage 7: Extract legal keywords (simple keyword matching)"""
         content = document.get('content', '')
         doc_type = document.get('document_type', 'unknown')
         
-        enhancements = {
+        # Be honest about what this does - it's just keyword matching
+        extraction_result = {
+            'method': 'simple_keyword_matching',
             'document_type': doc_type,
-            'concepts': [],
-            'legal_standards': [],
-            'procedural_elements': []
+            'keywords': [],
+            'legal_terms': [],
+            'procedural_terms': [],
+            'disclaimer': 'This is basic keyword extraction, not legal analysis'
         }
         
         if not content:
-            return enhancements
+            logger.debug("No content for keyword extraction")
+            return extraction_result
         
         content_lower = content.lower()
         
-        # Legal concepts
-        legal_concepts = [
+        # Legal keywords to search for
+        legal_keywords = [
             'summary judgment', 'motion to dismiss', 'claim construction',
             'patent infringement', 'preliminary injunction', 'class action',
             'jurisdiction', 'standing', 'damages', 'liability'
         ]
         
-        for concept in legal_concepts:
-            if concept in content_lower:
-                enhancements['concepts'].append(concept)
+        # Check for each keyword
+        for keyword in legal_keywords:
+            if keyword in content_lower:
+                extraction_result['keywords'].append(keyword)
+                logger.debug(f"Found keyword: {keyword}")
         
-        # Legal standards
-        if 'de novo' in content_lower:
-            enhancements['legal_standards'].append('de novo review')
-        if 'abuse of discretion' in content_lower:
-            enhancements['legal_standards'].append('abuse of discretion')
-        if 'clear error' in content_lower:
-            enhancements['legal_standards'].append('clear error')
+        # Legal standards keywords
+        legal_standards = {
+            'de novo': 'de novo review',
+            'abuse of discretion': 'abuse of discretion',
+            'clear error': 'clear error',
+            'arbitrary and capricious': 'arbitrary and capricious'
+        }
         
-        # Procedural elements
+        for search_term, standard_name in legal_standards.items():
+            if search_term in content_lower:
+                extraction_result['legal_terms'].append(standard_name)
+        
+        # Procedural keywords
         if 'granted' in content_lower:
-            enhancements['procedural_elements'].append('motion granted')
+            extraction_result['procedural_terms'].append('motion granted')
         if 'denied' in content_lower:
-            enhancements['procedural_elements'].append('motion denied')
+            extraction_result['procedural_terms'].append('motion denied')
+        if 'reversed' in content_lower:
+            extraction_result['procedural_terms'].append('reversed')
+        if 'affirmed' in content_lower:
+            extraction_result['procedural_terms'].append('affirmed')
         
-        return enhancements
+        # Log summary
+        total_keywords = len(extraction_result['keywords']) + len(extraction_result['legal_terms']) + len(extraction_result['procedural_terms'])
+        logger.info(f"Extracted {total_keywords} keywords from document")
+        
+        return extraction_result
     
     def _assemble_metadata(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Stage 8: Assemble comprehensive metadata"""
@@ -914,66 +940,167 @@ class OptimizedElevenStagePipeline:
         return count
     
     def _store_enhanced_documents_fixed(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Stage 9: Store enhanced documents with JSON serialization fix"""
+        """Stage 9: Enhanced storage with proper conflict handling and validation"""
         stored_count = 0
+        updated_count = 0
+        skipped_count = 0
+        errors = []
         
         try:
             with self.db_conn.cursor() as cursor:
                 for doc in documents:
-                    # Generate hash for deduplication
-                    doc_hash = hashlib.sha256(
-                        f"{doc.get('id')}_{doc.get('case_number', '')}_{datetime.now().isoformat()}".encode()
-                    ).hexdigest()
-                    
-                    # Ensure all data is JSON serializable
-                    def make_serializable(obj):
-                        if isinstance(obj, dict):
-                            return {k: make_serializable(v) for k, v in obj.items()}
-                        elif isinstance(obj, list):
-                            return [make_serializable(item) for item in obj]
-                        elif hasattr(obj, '__dict__'):
-                            return str(obj)
-                        elif callable(obj):
-                            return None
+                    try:
+                        # Validate document has required fields
+                        if not doc.get('id'):
+                            errors.append(f"Document missing required 'id' field")
+                            continue
+                            
+                        # Generate hash based on content for change detection
+                        content_sample = str(doc.get('content', ''))[:1000]  # First 1000 chars
+                        doc_hash = hashlib.sha256(
+                            f"{doc.get('id')}_{doc.get('case_number', '')}_{content_sample}".encode()
+                        ).hexdigest()
+                        
+                        # Ensure all data is JSON serializable
+                        def make_serializable(obj):
+                            if isinstance(obj, dict):
+                                return {k: make_serializable(v) for k, v in obj.items()}
+                            elif isinstance(obj, list):
+                                return [make_serializable(item) for item in obj]
+                            elif hasattr(obj, '__dict__'):
+                                return str(obj)
+                            elif callable(obj):
+                                return None
+                            else:
+                                return obj
+                        
+                        # Extract metadata safely
+                        metadata = doc.get('metadata', {})
+                        if not isinstance(metadata, dict):
+                            logger.warning(f"Document {doc.get('id')} has non-dict metadata: {type(metadata)}")
+                            metadata = {}
+                        
+                        # Prepare values with validation
+                        cl_id = doc.get('id')
+                        court_enhancement = doc.get('court_enhancement', {})
+                        court_id = court_enhancement.get('court_id') if court_enhancement.get('resolved') else None
+                        case_name = metadata.get('case_name', doc.get('case_number', f'Document-{cl_id}'))
+                        
+                        # First check if this cl_id already exists
+                        cursor.execute("""
+                            SELECT id, document_hash FROM court_data.opinions_unified 
+                            WHERE cl_id = %s
+                        """, (cl_id,))
+                        existing = cursor.fetchone()
+                        
+                        if existing:
+                            # Document exists - check if we should update
+                            existing_id, existing_hash = existing
+                            
+                            if existing_hash != doc_hash:
+                                # Content has changed, update the record
+                                cursor.execute("""
+                                    UPDATE court_data.opinions_unified SET
+                                        court_id = %s,
+                                        case_name = %s,
+                                        plain_text = %s,
+                                        citations = %s,
+                                        judge_info = %s,
+                                        court_info = %s,
+                                        structured_elements = %s,
+                                        document_hash = %s,
+                                        flp_processing_timestamp = %s,
+                                        updated_at = %s
+                                    WHERE cl_id = %s
+                                """, (
+                                    court_id,
+                                    case_name,
+                                    doc.get('content'),
+                                    json.dumps(make_serializable(doc.get('citations_extracted', {}))),
+                                    json.dumps(make_serializable(doc.get('judge_enhancement', {}))),
+                                    json.dumps(make_serializable(doc.get('court_enhancement', {}))),
+                                    json.dumps(make_serializable(doc.get('comprehensive_metadata', {}))),
+                                    doc_hash,
+                                    datetime.now(),
+                                    datetime.now(),
+                                    cl_id
+                                ))
+                                updated_count += 1
+                                logger.info(f"Updated existing record for cl_id: {cl_id}")
+                            else:
+                                # Same content, skip
+                                skipped_count += 1
+                                logger.debug(f"Skipped unchanged document cl_id: {cl_id}")
                         else:
-                            return obj
-                    
-                    # Insert into opinions_unified table
-                    cursor.execute("""
-                        INSERT INTO court_data.opinions_unified (
-                            cl_id, court_id, case_name, plain_text,
-                            citations, judge_info, court_info,
-                            structured_elements, document_hash,
-                            flp_processing_timestamp, created_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                        ) ON CONFLICT (document_hash) DO NOTHING
-                        RETURNING id
-                    """, (
-                        doc.get('id'),  # Using original doc id as cl_id
-                        doc.get('court_enhancement', {}).get('court_id'),
-                        doc.get('metadata', {}).get('case_name', doc.get('case_number')) if isinstance(doc.get('metadata'), dict) else doc.get('case_number'),
-                        doc.get('content'),
-                        json.dumps(make_serializable(doc.get('citations_extracted', {}))),
-                        json.dumps(make_serializable(doc.get('judge_enhancement', {}))),
-                        json.dumps(make_serializable(doc.get('court_enhancement', {}))),
-                        json.dumps(make_serializable(doc.get('comprehensive_metadata', {}))),
-                        doc_hash,
-                        datetime.now(),
-                        datetime.now()
-                    ))
-                    
-                    if cursor.fetchone():
-                        stored_count += 1
+                            # New document, insert
+                            cursor.execute("""
+                                INSERT INTO court_data.opinions_unified (
+                                    cl_id, court_id, case_name, plain_text,
+                                    citations, judge_info, court_info,
+                                    structured_elements, document_hash,
+                                    flp_processing_timestamp, created_at
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                            """, (
+                                cl_id,
+                                court_id,
+                                case_name,
+                                doc.get('content'),
+                                json.dumps(make_serializable(doc.get('citations_extracted', {}))),
+                                json.dumps(make_serializable(doc.get('judge_enhancement', {}))),
+                                json.dumps(make_serializable(doc.get('court_enhancement', {}))),
+                                json.dumps(make_serializable(doc.get('comprehensive_metadata', {}))),
+                                doc_hash,
+                                datetime.now(),
+                                datetime.now()
+                            ))
+                            stored_count += 1
+                            logger.info(f"Stored new document cl_id: {cl_id}")
+                            
+                    except psycopg2.IntegrityError as e:
+                        if 'duplicate key value violates unique constraint' in str(e):
+                            logger.warning(f"Document {doc.get('id')} already exists (constraint violation)")
+                            skipped_count += 1
+                        else:
+                            error_msg = f"Integrity error for document {doc.get('id')}: {str(e)}"
+                            logger.error(error_msg)
+                            errors.append(error_msg)
+                    except Exception as e:
+                        error_msg = f"Error storing document {doc.get('id')}: {str(e)}"
+                        logger.error(error_msg)
+                        errors.append(error_msg)
+                        # Continue with other documents
+                        continue
                 
                 self.db_conn.commit()
-                logger.info(f"✅ Stored {stored_count} enhanced documents")
                 
+                total_processed = stored_count + updated_count + skipped_count
+                logger.info(f"✅ Storage complete: {stored_count} new, {updated_count} updated, {skipped_count} unchanged")
+                
+                if errors:
+                    logger.warning(f"⚠️  {len(errors)} documents failed to store")
+                    
         except Exception as e:
             self.db_conn.rollback()
-            logger.error(f"Storage error: {e}")
+            logger.error(f"Storage transaction failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'stored_count': 0,
+                'updated_count': 0,
+                'skipped_count': 0,
+                'errors': errors
+            }
         
-        return {'stored_count': stored_count}
+        return {
+            'success': True,
+            'stored_count': stored_count,
+            'updated_count': updated_count,
+            'skipped_count': skipped_count,
+            'total_processed': stored_count + updated_count + skipped_count,
+            'errors': errors
+        }
     
     async def _index_to_haystack(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Stage 10: Index documents to Haystack"""
@@ -1082,8 +1209,8 @@ class OptimizedElevenStagePipeline:
             if len(doc.get('structure_analysis', {}).get('elements', [])) > 0:
                 verification['documents_with_structure'] += 1
             
-            # Legal concepts
-            if len(doc.get('legal_enhancements', {}).get('concepts', [])) > 0:
+            # Legal keywords
+            if len(doc.get('keyword_extraction', {}).get('keywords', [])) > 0:
                 verification['documents_with_legal_concepts'] += 1
             
             total_enhancements += self._count_enhancements(doc)
