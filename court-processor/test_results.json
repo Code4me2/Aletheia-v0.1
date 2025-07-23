@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-07-23T03:08:06.410316",
+  "tests_run": 5,
+  "tests_passed": 5,
+  "tests_failed": 0,
+  "details": {
+    "courtlistener_connection": {
+      "status": "PASSED",
+      "message": "Retrieved 1 documents",
+      "api_key_present": false
+    },
+    "courtlistener_to_database": {
+      "status": "PASSED",
+      "fetched": 5,
+      "stored": 5
+    },
+    "pipeline_processing": {
+      "status": "PASSED",
+      "documents_processed": 5,
+      "completeness": 6.666666666666667,
+      "quality": 6.0
+    },
+    "haystack_storage": {
+      "status": "PASSED",
+      "indexed": 2
+    },
+    "end_to_end": {
+      "status": "PASSED",
+      "courtlistener_docs": 2,
+      "stored_docs": 2,
+      "processed_docs": 10,
+      "pipeline_completeness": 36.666666666666664
+    }
+  }
+}

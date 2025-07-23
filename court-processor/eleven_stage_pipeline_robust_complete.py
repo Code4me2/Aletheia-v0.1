@@ -129,7 +129,8 @@ class RobustElevenStagePipeline:
     async def process_batch(self, 
                           limit: int = 10,
                           source_table: str = 'public.court_documents',
-                          validate_strict: bool = True) -> Dict[str, Any]:
+                          validate_strict: bool = True,
+                          extract_pdfs: bool = False) -> Dict[str, Any]:
         """
         Process a batch of documents through all 11 stages with full error handling
         
@@ -137,6 +138,7 @@ class RobustElevenStagePipeline:
             limit: Number of documents to process
             source_table: Table to fetch documents from
             validate_strict: If True, skip documents with validation errors
+            extract_pdfs: If True, attempt to extract content from PDFs when missing
         
         Returns:
             Comprehensive results including errors and validation reports
@@ -156,6 +158,11 @@ class RobustElevenStagePipeline:
             
             try:
                 documents = self._fetch_documents(limit, source_table)
+                
+                # Optional PDF extraction for documents missing content
+                if extract_pdfs:
+                    documents = await self._enrich_documents_with_pdfs(documents)
+                
                 stages_completed.append("Document Retrieval")
                 self.stats['documents_processed'] = len(documents)
                 logger.info(f"✅ Retrieved {len(documents)} documents from {source_table}")
@@ -1678,3 +1685,27 @@ class RobustElevenStagePipeline:
                 }
         
         return type_stats
+    
+    async def _enrich_documents_with_pdfs(self, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Enrich documents with PDF content extraction when content is missing
+        
+        This method checks each document for content and attempts to extract
+        text from PDFs when content is missing or insufficient.
+        """
+        # Import here to avoid circular dependency
+        from integrate_pdf_to_pipeline import PDFContentExtractor
+        
+        logger.info("\nChecking documents for PDF extraction needs...")
+        
+        # Use the PDF content extractor
+        async with PDFContentExtractor() as extractor:
+            enriched_docs = await extractor.enrich_documents_with_pdf_content(documents)
+            
+            # Log statistics
+            stats = extractor.get_statistics()
+            if stats['pdfs_found'] > 0:
+                logger.info(f"PDF Extraction: Found {stats['pdfs_found']} PDFs, extracted {stats['pdfs_extracted']}")
+                logger.info(f"Total characters extracted from PDFs: {stats['total_chars_extracted']:,}")
+        
+        return enriched_docs
