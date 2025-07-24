@@ -36,6 +36,7 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
+    entrypoint: ["/bin/sh", "/data/init-workflows.sh"]
     ports:
       - "${N8N_PORT:-5678}:5678"
     environment:
@@ -54,6 +55,8 @@ services:
       - n8n_data:/home/node/.n8n
       - ./n8n/custom-nodes:/home/node/.n8n/custom
       - ./n8n/local-files:/files
+      - ./workflow_json:/workflows:ro
+      - ./n8n/init-workflows.sh:/data/init-workflows.sh:ro
     networks:
       - backend
       - frontend
