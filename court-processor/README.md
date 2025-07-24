@@ -1,170 +1,121 @@
-# Court Processor with Free Law Project Integration
+# Court Processor Pipeline
 
-A comprehensive court opinion processor that leverages Free Law Project tools to provide advanced legal document processing, supporting 200+ US courts with citation analysis and judge information.
+An 11-stage document processing pipeline for US court documents, optimized for intellectual property cases. Part of the Aletheia legal data platform.
 
-## Features
-
-### Core Capabilities
-- **200+ Court Support**: Automated scraping via Juriscraper (expanded from 4 courts)
-- **Advanced PDF Processing**: OCR, text extraction, and thumbnail generation via Doctor
-- **Court Standardization**: 700+ court name variations resolved via Courts-DB
-- **Citation Analysis**: Extract and analyze legal citations with Eyecite
-- **Reporter Normalization**: Standardize legal reporter abbreviations with Reporters-DB
-- **Judge Photos**: Retrieve judge portraits via Judge-pics
-- **REST API**: Comprehensive API for all functionality
-- **PostgreSQL Integration**: Enhanced schema for legal metadata
-- **Scheduled Updates**: Automated court-specific scheduling
-
-## Quick Start
-
-### 1. Setup
+## 🚀 Quick Start
 
 ```bash
-# Copy this court-processor directory to your data-compose folder
-cp -r court-processor /path/to/data-compose/
+# Run inside Docker container
+docker exec aletheia-court-processor-1 python run_delaware_opinions.py
 
-# Navigate to data-compose directory
-cd /path/to/data-compose
-
-# Copy the Docker override file
-cp court-processor/docker-compose.override.yml .
-
-# Create data directories
-mkdir -p court-data/pdfs court-data/logs
+# Check results
+docker exec aletheia-db-1 psql -U aletheia -d aletheia -c \
+  "SELECT COUNT(*) FROM court_documents WHERE document_type='opinion'"
 ```
 
-### 2. Database Initialization
+## 📊 Current Status
 
+**Production Ready** for opinion processing with 78% completeness and 68% quality scores.
+
+### Performance Summary
+- **Court Opinions**: ✅ Excellent (78% completeness)
+- **RECAP Dockets**: ⚠️ Limited (19% completeness - metadata only)  
+- **Storage**: ✅ 100% reliability
+- **API Integration**: ✅ CourtListener working, ❌ PACER credentials issue
+
+See [PIPELINE_CAPABILITIES.md](./PIPELINE_CAPABILITIES.md) for detailed metrics.
+
+## 🎯 Key Features
+
+- **11-Stage Enhancement Pipeline**: Court resolution, citation extraction, judge identification, and more
+- **IP Court Focus**: Optimized for patent, trademark, and copyright cases
+- **Multiple Data Sources**: CourtListener API, RECAP Archive, local PDFs
+- **Async Processing**: Efficient batch processing with comprehensive error handling
+- **Quality Metrics**: Honest reporting of processing completeness and quality
+
+## 📁 Project Structure
+
+```
+court-processor/
+├── court_processor_orchestrator.py      # Main workflow controller
+├── eleven_stage_pipeline_robust_complete.py  # 11-stage pipeline
+├── services/                            # Service modules
+│   ├── courtlistener_service.py        # API client
+│   ├── document_ingestion_service.py   # Document fetching
+│   └── recap/                          # RECAP integration
+├── scripts/                            # Utility scripts
+├── docs/                               # Documentation
+└── archive/                            # Historical implementations
+```
+
+## 🔧 Configuration
+
+Environment variables (in parent `.env`):
+```env
+COURTLISTENER_API_TOKEN=your-token-here
+PACER_USERNAME=your-username  # Optional
+PACER_PASSWORD=your-password  # Optional
+```
+
+## 💻 Usage Examples
+
+### Ingest Delaware Patent Cases
+```python
+# See run_delaware_opinions.py
+config = {
+    'court_ids': ['ded'],
+    'document_types': ['opinions'],
+    'nature_of_suit': ['830'],  # Patent cases
+    'lookback_days': 30
+}
+```
+
+### Process Existing Documents
 ```bash
-# Initialize the court data schema
-docker-compose exec db psql -U postgres -d postgres -f /court-processor/scripts/init_db.sql
-
-# Or run through the processor
-docker-compose exec court_processor python processor.py --init-db
+docker exec aletheia-court-processor-1 python eleven_stage_pipeline_robust_complete.py
 ```
 
-### 3. Start Processing
+## 📈 Pipeline Stages
 
-```bash
-# Add court processor to your docker-compose
-docker-compose up -d court_processor
+1. **Document Retrieval** - Fetch from database
+2. **Court Resolution** - Identify and validate courts
+3. **Citation Extraction** - Find legal citations
+4. **Citation Validation** - Verify citation format
+5. **Reporter Normalization** - Standardize citations
+6. **Judge Enhancement** - Extract judge information
+7. **Document Structure** - Analyze organization
+8. **Keyword Extraction** - Find legal terms
+9. **Metadata Assembly** - Combine enhancements
+10. **Storage** - Save to PostgreSQL
+11. **Verification** - Quality metrics
 
-# Check logs
-docker-compose logs -f court_processor
+## 🚧 Known Limitations
 
-# Manual scrape of a specific court
-docker-compose exec court_processor python processor.py --court tax
+- **PACER Access**: Direct purchase not working (credential issue)
+- **Judge Extraction**: Only 10% success rate  
+- **RECAP Dockets**: No text content, only metadata
+- **Connection Timeouts**: Long runs may timeout
 
-# Process all configured courts
-docker-compose exec court_processor python processor.py --all
-```
+## 🔄 Recent Updates
 
-## Configuration
+- Fixed database connection issues (run in Docker)
+- Added court_id field mapping for opinions
+- Improved RECAP field handling
+- Added comprehensive performance metrics
 
-### Courts
+## 📖 Documentation
 
-Edit `config/courts.yaml` to enable/disable courts:
+- [WORKING_CONFIGURATION.md](./WORKING_CONFIGURATION.md) - Setup and fixes
+- [PIPELINE_CAPABILITIES.md](./PIPELINE_CAPABILITIES.md) - Detailed capabilities
+- [PACER_INTEGRATION_STATUS.md](./PACER_INTEGRATION_STATUS.md) - API status
 
-```yaml
-courts:
-  tax:
-    name: "United States Tax Court"
-    active: true
-    module: "tax"
-```
+## 🤝 Contributing
 
-### Scheduling
+This is part of the larger Aletheia project. Focus areas for contribution:
+- Improve judge name extraction patterns
+- Integrate PDF extraction for RECAP documents
+- Add more IP-specific extractions (patent numbers, etc.)
 
-The cron schedule is defined in `scripts/court-schedule`:
-- Tax Court: Daily at 2 AM (✅ Fully implemented)
-- First Circuit: Daily at 3 AM (⚠️ Configuration only - implementation pending)
-- DC Circuit: Daily at 4 AM (⚠️ Configuration only - implementation pending)
-- Full run: Sundays at 5 AM
+## 📝 License
 
-**Note**: Currently, only the Tax Court module is fully implemented. Other courts are configured but require the corresponding scraper modules to be developed.
-
-## Database Schema
-
-The processor creates a `court_data` schema with two main tables:
-
-- **judges**: Stores unique judge names
-- **opinions**: Stores opinion text and metadata, optimized for judge-based queries
-
-## Integration with Data-Compose
-
-### Using Opinions in n8n Workflows
-
-1. Query opinions by judge:
-```sql
-SELECT * FROM court_data.opinions o
-JOIN court_data.judges j ON o.judge_id = j.id
-WHERE j.name = 'Judge Smith'
-ORDER BY o.case_date DESC;
-```
-
-2. Get unindexed opinions for RAG:
-```sql
-SELECT * FROM court_data.opinions
-WHERE vector_indexed = false
-LIMIT 100;
-```
-
-3. Search opinions by text:
-```sql
-SELECT * FROM court_data.opinions
-WHERE to_tsvector('english', text_content) @@ plainto_tsquery('constitutional');
-```
-
-### Creating n8n Workflow
-
-Create a workflow that:
-1. Queries new opinions from court_data
-2. Sends them through Hierarchical Summarization
-3. Indexes in Haystack
-4. Updates vector_indexed flag
-
-## Monitoring
-
-Check processing status:
-```bash
-# View logs
-tail -f court-data/logs/court-processor.log
-tail -f court-data/logs/cron.log
-
-# Check database
-docker-compose exec db psql -U postgres -d postgres -c "SELECT * FROM court_data.processing_log ORDER BY started_at DESC LIMIT 10;"
-
-# Judge statistics
-docker-compose exec db psql -U postgres -d postgres -c "SELECT * FROM court_data.judge_stats ORDER BY opinion_count DESC LIMIT 20;"
-```
-
-## Troubleshooting
-
-### No PDFs downloading
-- Check court website accessibility
-- Verify DATABASE_URL in environment
-- Check logs for specific errors
-
-### OCR not working
-- Ensure Tesseract is installed in container
-- Check available memory for OCR processing
-- OCR can be disabled by setting OCR_ENABLED=false
-
-### Database connection issues
-- Verify DATABASE_URL matches data-compose settings
-- Ensure court_processor is on the same Docker network
-- Check PostgreSQL logs
-
-## Security Notes
-
-- PDFs are downloaded to isolated directory
-- All judge names are normalized and sanitized
-- Database connections use environment variables
-- No external API exposure
-
-## Future Enhancements
-
-- Integration with Hierarchical Summarization node
-- Automatic vector indexing
-- Judge-specific alert rules
-- More sophisticated scheduling options
+Part of Aletheia-v0.1 - see parent repository for license details.
