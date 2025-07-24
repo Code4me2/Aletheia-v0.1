@@ -69,7 +69,9 @@ class DocumentIngestionService:
                                       court_ids: List[str],
                                       date_after: str,
                                       document_types: List[str] = ['opinions'],
-                                      max_per_court: int = 100) -> Dict[str, Any]:
+                                      max_per_court: int = 100,
+                                      nature_of_suit: Optional[List[str]] = None,
+                                      search_type: Optional[str] = None) -> Dict[str, Any]:
         """
         Ingest documents from CourtListener with automatic PDF extraction
         
@@ -91,8 +93,16 @@ class DocumentIngestionService:
         try:
             all_documents = []
             
-            # Fetch opinions if requested
-            if 'opinions' in document_types:
+            # Use enhanced search if nature_of_suit provided for IP cases
+            if nature_of_suit and search_type:
+                logger.info(f"Using enhanced search for IP cases with nature_of_suit: {nature_of_suit}")
+                ip_documents = await self._fetch_ip_focused_documents(
+                    court_ids, date_after, nature_of_suit, search_type, max_per_court
+                )
+                all_documents.extend(ip_documents)
+                self.stats['sources']['courtlistener_opinions'] += len(ip_documents)
+            # Otherwise use standard opinions endpoint
+            elif 'opinions' in document_types:
                 logger.info("Fetching opinions from CourtListener...")
                 opinions = await self._fetch_and_process_opinions(
                     court_ids, date_after, max_per_court
@@ -150,6 +160,105 @@ class DocumentIngestionService:
                     processed_documents.append(doc)
         
         return processed_documents
+    
+    async def _fetch_ip_focused_documents(self,
+                                        court_ids: List[str],
+                                        date_after: str,
+                                        nature_of_suit: List[str],
+                                        search_type: str,
+                                        max_per_court: int) -> List[Dict[str, Any]]:
+        """Fetch IP-focused documents using enhanced search"""
+        processed_documents = []
+        
+        # Use enhanced search to find IP cases
+        results = await self.cl_service.search_with_filters(
+            search_type=search_type,
+            court_ids=court_ids,
+            nature_of_suit=nature_of_suit,
+            date_range=(date_after, datetime.now().strftime('%Y-%m-%d')),
+            max_results=max_per_court * len(court_ids)
+        )
+        
+        logger.info(f"Found {len(results)} IP-focused documents")
+        
+        # Process each result
+        for result in results:
+            self.stats['processing']['total_documents'] += 1
+            
+            # Extract court ID from result
+            court_id = result.get('court_id', '')
+            if not court_id and 'court' in result:
+                court_id = result['court']
+            
+            # Store current court for RECAP availability check
+            self._current_court_id = court_id
+            
+            # Process based on result type
+            if search_type == 'o' or result.get('type') == 'opinion':
+                doc = await self._process_opinion(result, court_id)
+            else:
+                # For RECAP results, adapt to opinion format
+                doc = await self._process_recap_result(result, court_id)
+            
+            if doc:
+                processed_documents.append(doc)
+                
+        return processed_documents
+    
+    async def _process_recap_result(self, result: Dict[str, Any], court_id: str) -> Optional[Dict[str, Any]]:
+        """Process a RECAP search result"""
+        
+        result_id = result.get('docket_id', result.get('id', ''))
+        logger.debug(f"Processing RECAP result {result_id}")
+        
+        # Build document structure with correct field names
+        document = {
+            'case_number': result.get('docketNumber', f"RECAP-{court_id}-{result_id}"),
+            'case_name': result.get('caseName', ''),
+            'document_type': 'recap_docket',
+            'content': '',  # RECAP search results don't have text content
+            'metadata': {
+                'source': 'courtlistener_recap',
+                'docket_id': result.get('docket_id'),
+                'court_id': result.get('court_id', court_id),
+                'court_name': result.get('court', ''),
+                'nature_of_suit': result.get('suitNature', ''),
+                'date_filed': result.get('dateFiled', ''),
+                'date_terminated': result.get('dateTerminated'),
+                'cause': result.get('cause', ''),
+                'jury_demand': result.get('juryDemand', ''),
+                'jurisdiction_type': result.get('jurisdictionType', ''),
+                'assigned_to': result.get('assignedTo', ''),
+                'assigned_to_id': result.get('assigned_to_id'),
+                'referred_to': result.get('referredTo'),
+                'party': result.get('party', []),
+                'attorney': result.get('attorney', []),
+                'firm': result.get('firm', []),
+                'docket_absolute_url': result.get('docket_absolute_url', ''),
+                'pacer_case_id': result.get('pacer_case_id'),
+                'processed_at': datetime.now().isoformat()
+            }
+        }
+        
+        # Extract recap documents info
+        recap_docs = result.get('recap_documents', [])
+        if recap_docs:
+            document['metadata']['recap_document_count'] = len(recap_docs)
+            document['metadata']['recap_documents'] = [
+                {
+                    'document_number': doc.get('document_number'),
+                    'description': doc.get('description', ''),
+                    'short_description': doc.get('short_description', ''),
+                    'is_available': doc.get('is_available', False),
+                    'page_count': doc.get('page_count'),
+                    'pacer_doc_id': doc.get('pacer_doc_id')
+                }
+                for doc in recap_docs[:5]  # Store first 5 for reference
+            ]
+        
+        # Even without text content, the metadata is valuable
+        # Store the document for metadata tracking and future PDF retrieval
+        return document
     
     async def _process_opinion(self, opinion: Dict[str, Any], court_id: str) -> Optional[Dict[str, Any]]:
         """Process a single opinion, extracting text if needed"""
@@ -210,14 +319,23 @@ class DocumentIngestionService:
         Returns:
             Tuple of (text_content, extraction_method)
         """
-        # First check for existing plain_text
-        if document.get('plain_text'):
-            return document['plain_text'], 'plain_text_field'
+        # Use the enhanced text extraction method from CourtListener service
+        text_content = self.cl_service.extract_all_text_fields(document)
+        if text_content:
+            # Determine which field was used
+            if document.get('plain_text'):
+                return text_content, 'plain_text_field'
+            elif document.get('html'):
+                return text_content, 'html_field'
+            elif document.get('xml_harvard'):
+                return text_content, 'xml_harvard_field'
+            else:
+                return text_content, 'other_text_field'
         
-        # Try to extract from PDF
+        # If no text fields available, try to extract from PDF
         pdf_url = document.get('download_url')
         if pdf_url:
-            logger.info(f"  Downloading PDF from: {pdf_url}")
+            logger.info(f"  No text fields found, downloading PDF from: {pdf_url}")
             text_content = await self._download_and_extract_pdf(pdf_url)
             
             if text_content:
@@ -226,18 +344,26 @@ class DocumentIngestionService:
             else:
                 self.stats['processing']['extraction_failed'] += 1
         
-        # Check for HTML content as last resort
-        if document.get('html'):
-            # Simple HTML stripping
-            import re
-            text = re.sub(r'<[^>]+>', '', document['html'])
-            return text.strip(), 'html_stripped'
-        
         return '', 'none'
     
-    async def _download_and_extract_pdf(self, pdf_url: str) -> Optional[str]:
-        """Download PDF and extract text"""
+    async def _download_and_extract_pdf(self, pdf_url: str, check_recap: bool = True) -> Optional[str]:
+        """Download PDF and extract text with optional RECAP availability check"""
         try:
+            # For RECAP documents, check availability first
+            if check_recap and 'recap' in pdf_url and hasattr(self, '_current_court_id'):
+                # Extract PACER doc ID from URL if available
+                # URL pattern: /download/recap/12345.pdf
+                import re
+                match = re.search(r'/recap/(\d+)\.pdf', pdf_url)
+                if match:
+                    pacer_doc_id = match.group(1)
+                    available_docs = await self.cl_service.check_recap_availability(
+                        self._current_court_id, [pacer_doc_id]
+                    )
+                    if not available_docs:
+                        logger.warning(f"RECAP document {pacer_doc_id} not available")
+                        return None
+            
             async with self.session.get(pdf_url) as response:
                 if response.status != 200:
                     logger.error(f"Failed to download PDF: HTTP {response.status}")
