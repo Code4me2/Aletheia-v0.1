@@ -2,7 +2,21 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import type { Prisma } from '@/generated/prisma';
+import type { Prisma } from '@prisma/client';
+import { z } from 'zod';
+import { getErrorMessage, isPrismaError } from '@/utils/errors';
+
+// Query parameter validation schema
+const QuerySchema = z.object({
+  limit: z.coerce.number().min(1).max(100).default(50),
+  offset: z.coerce.number().min(0).default(0),
+  search: z.string().optional()
+});
+
+// POST body validation schema
+const CreateChatSchema = z.object({
+  title: z.string().min(1).max(200).default('New Chat')
+});
 
 // Type helper for the chat query result
 type ChatWithMessages = Prisma.ChatGetPayload<{
@@ -33,14 +47,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get pagination parameters from query string
+    // Get pagination parameters from query string with validation
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '50')), 100); // Limit between 1-100
-    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0'));
-    const search = searchParams.get('search') || '';
+    
+    // Validate and parse query parameters
+    const queryResult = QuerySchema.safeParse({
+      limit: searchParams.get('limit'),
+      offset: searchParams.get('offset'),
+      search: searchParams.get('search')
+    });
+    
+    if (!queryResult.success) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid query parameters', 
+        details: queryResult.error.flatten() 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const { limit, offset, search } = queryResult.data;
 
     // Build where clause with optional search using email directly
-    const whereClause: any = { 
+    const whereClause: Prisma.ChatWhereInput = { 
       user: { email: session.user.email } 
     };
     if (search) {
@@ -101,8 +131,20 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // Use proper error logging in production
     if (process.env.NODE_ENV === 'development') {
-      console.error('Error fetching chats:', error);
+      console.error('Error fetching chats:', getErrorMessage(error));
     }
+    
+    // Provide more specific error messages for known error types
+    if (isPrismaError(error)) {
+      return new Response(JSON.stringify({ 
+        error: 'Database error occurred',
+        code: error.code 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -114,11 +156,25 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const body = await request.json();
     
     if (!session?.user?.email) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const body = await request.json();
+    
+    // Validate request body
+    const bodyResult = CreateChatSchema.safeParse(body);
+    
+    if (!bodyResult.success) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid request body', 
+        details: bodyResult.error.flatten() 
+      }), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -129,7 +185,7 @@ export async function POST(request: NextRequest) {
         user: {
           connect: { email: session.user.email }
         },
-        title: body.title || 'New Chat',
+        title: bodyResult.data.title,
         preview: body.preview || ''
       }
     });
@@ -141,8 +197,20 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Use proper error logging in production
     if (process.env.NODE_ENV === 'development') {
-      console.error('Error creating chat:', error);
+      console.error('Error creating chat:', getErrorMessage(error));
     }
+    
+    // Provide more specific error messages for known error types
+    if (isPrismaError(error)) {
+      return new Response(JSON.stringify({ 
+        error: 'Database error occurred',
+        code: error.code 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

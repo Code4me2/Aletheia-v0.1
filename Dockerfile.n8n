@@ -1,0 +1,47 @@
+FROM n8nio/n8n:1.101.1
+
+USER root
+
+# Install build tools needed for some npm packages
+RUN apk add --no-cache --virtual .build-deps \
+    python3 \
+    make \
+    g++
+
+# Create directories
+RUN mkdir -p /data
+
+# Copy custom nodes directly to node_modules with proper names
+COPY ./n8n/custom-nodes/n8n-nodes-hierarchicalSummarization /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization
+COPY ./n8n/custom-nodes/n8n-nodes-haystack /usr/local/lib/node_modules/n8n-nodes-haystack
+COPY ./n8n/custom-nodes/n8n-nodes-citationchecker /usr/local/lib/node_modules/n8n-nodes-citationchecker
+COPY ./n8n/custom-nodes/n8n-nodes-deepseek /usr/local/lib/node_modules/n8n-nodes-deepseek
+COPY ./n8n/custom-nodes/n8n-nodes-yake /usr/local/lib/node_modules/n8n-nodes-yake
+COPY ./n8n/custom-nodes/n8n-nodes-bitnet /usr/local/lib/node_modules/n8n-nodes-bitnet
+
+# Remove preinstall script from deepseek that requires pnpm
+RUN sed -i '/"preinstall":/d' /usr/local/lib/node_modules/n8n-nodes-deepseek/package.json
+
+# Install dependencies for each custom node
+RUN cd /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-haystack && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-citationchecker && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-deepseek && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-yake && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-bitnet && npm install --production --no-save
+
+# Clean up build dependencies
+RUN apk del .build-deps
+
+# Set proper ownership
+RUN chown -R node:node /data
+
+# Copy init script
+COPY ./n8n/init-workflows.sh /init-workflows.sh
+RUN chmod +x /init-workflows.sh
+
+USER node
+
+ENV N8N_USER_FOLDER=/data
+
+ENTRYPOINT ["/bin/sh", "/init-workflows.sh"]

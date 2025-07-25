@@ -6,7 +6,7 @@ A comprehensive AI-powered legal assistant interface integrated into the Alethei
 
 ### Prerequisites
 - Docker & Docker Compose
-- Node.js 18+ (for local development)
+- Node.js 20+ (for local development)
 - PostgreSQL database (provided by data-compose)
 - n8n instance running (provided by data-compose)
 - (Optional) SMTP server for email notifications
@@ -60,7 +60,7 @@ EOF
 
 ## Overview
 
-Lawyer-Chat is a Next.js-based web application designed for legal professionals at Reichman Jorgensen Lehman & Feldberg LLP (RJLF). It provides:
+Lawyer-Chat is a Next.js-based web application designed for legal professionals at Reichman Jorgensen Lehman & Feldberg LLP (RJLF). Built with Node.js 20 Alpine Docker images for enhanced security and performance. It provides:
 
 - **Enterprise-grade authentication** with email domain validation and secure registration flows
 - **AI-powered legal assistant** with real-time streaming responses via n8n/DeepSeek integration
@@ -105,9 +105,17 @@ Lawyer-Chat is a Next.js-based web application designed for legal professionals 
 - CSRF token protection
 - Rate limiting (Edge + Redis)
 - Session encryption
+- Field-level encryption (AES-256-GCM)
 - Secure cookie handling
-- Input validation
+- Input validation & sanitization
 - XSS prevention
+- Account lockout mechanism
+- Comprehensive audit logging
+- User enumeration protection
+- Email failure resilience
+- Security headers (CSP, HSTS, etc.)
+
+📖 **See [SECURITY_FEATURES.md](./SECURITY_FEATURES.md) for complete security documentation**
 
 ## Architecture
 

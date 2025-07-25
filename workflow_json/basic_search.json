@@ -21,7 +21,7 @@
         "topK": "={{ $json.topK || 5 }}",
         "filters": "={{ $json.filters || '{}' }}"
       },
-      "type": "CUSTOM.haystackSearch",
+      "type": "n8n-nodes-haystack.HaystackSearch",
       "typeVersion": 1,
       "position": [
         220,
@@ -47,5 +47,7 @@
   "pinData": {},
   "meta": {
     "instanceId": "4831bbd38dd63d2d9401abefbc42583492031872a4afa363243d72ca8bf05984"
-  }
+  },
+  "name": "Basic Search Workflow",
+  "active": false
 }

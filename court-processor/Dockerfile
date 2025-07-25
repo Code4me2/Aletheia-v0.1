@@ -19,6 +19,8 @@ WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
+# Upgrade pip to avoid version resolution issues
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create non-root user

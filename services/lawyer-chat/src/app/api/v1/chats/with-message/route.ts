@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { retryWithBackoff } from '@/lib/retryUtils';
-import type { Prisma } from '@/generated/prisma';
+import type { Prisma } from '@prisma/client';
 
 // POST /api/chats/with-message - Create chat with first message atomically
 export async function POST(request: NextRequest) {
