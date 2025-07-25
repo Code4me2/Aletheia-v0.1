@@ -18,7 +18,7 @@
         }
       },
       "name": "Hierarchical Summarization",
-      "type": "hierarchicalSummarization",
+      "type": "n8n-nodes-hierarchicalSummarization.HierarchicalSummarization",
       "position": [
         250,
         300
