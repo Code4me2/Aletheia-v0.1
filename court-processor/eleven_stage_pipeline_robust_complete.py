@@ -34,7 +34,6 @@ from services.service_config import SERVICES, IS_DOCKER
 from courts_db import find_court, courts
 from eyecite import get_citations
 from reporters_db import REPORTERS
-import judge_pics
 
 # Import our custom components
 from pipeline_exceptions import *
@@ -130,7 +129,9 @@ class RobustElevenStagePipeline:
                           limit: int = 10,
                           source_table: str = 'public.court_documents',
                           validate_strict: bool = True,
-                          extract_pdfs: bool = False) -> Dict[str, Any]:
+                          extract_pdfs: bool = False,
+                          force_reprocess: bool = False,
+                          only_unprocessed: bool = False) -> Dict[str, Any]:
         """
         Process a batch of documents through all 11 stages with full error handling
         
@@ -157,7 +158,7 @@ class RobustElevenStagePipeline:
             logger.info("=" * 60)
             
             try:
-                documents = self._fetch_documents(limit, source_table)
+                documents = self._fetch_documents(limit, source_table, only_unprocessed)
                 
                 # Optional PDF extraction for documents missing content
                 if extract_pdfs:
@@ -270,7 +271,7 @@ class RobustElevenStagePipeline:
             logger.info("STAGE 9: Enhanced Storage to PostgreSQL")
             logger.info("=" * 60)
             
-            storage_results = await self._store_enhanced_documents_validated(enhanced_documents)
+            storage_results = await self._store_enhanced_documents_validated(enhanced_documents, force_reprocess)
             stages_completed.append("Enhanced Storage")
             self.stats['documents_stored'] = storage_results.get('total_processed', 0)
             
@@ -477,7 +478,7 @@ class RobustElevenStagePipeline:
         
         return doc
 
-    def _fetch_documents(self, limit: int, source_table: str) -> List[Dict[str, Any]]:
+    def _fetch_documents(self, limit: int, source_table: str, only_unprocessed: bool = False) -> List[Dict[str, Any]]:
         """Stage 1: Fetch documents from database with validation"""
         try:
             with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -486,13 +487,26 @@ class RobustElevenStagePipeline:
                     raise ValidationError(f"Invalid table name: {source_table}")
                 
                 if source_table == 'public.court_documents':
-                    cursor.execute("""
-                        SELECT id, case_number, document_type, content, metadata, created_at
-                        FROM public.court_documents
-                        WHERE content IS NOT NULL AND LENGTH(content) > 100
-                        ORDER BY created_at DESC
-                        LIMIT %s
-                    """, (limit,))
+                    if only_unprocessed:
+                        # For unprocessed, check if document exists in opinions_unified
+                        cursor.execute("""
+                            SELECT cd.id, cd.case_number, cd.document_type, cd.content, cd.metadata, cd.created_at
+                            FROM public.court_documents cd
+                            LEFT JOIN court_data.opinions_unified ou ON cd.id = ou.cl_id
+                            WHERE cd.content IS NOT NULL 
+                              AND LENGTH(cd.content) > 100
+                              AND ou.cl_id IS NULL
+                            ORDER BY cd.created_at DESC
+                            LIMIT %s
+                        """, (limit,))
+                    else:
+                        cursor.execute("""
+                            SELECT id, case_number, document_type, content, metadata, created_at
+                            FROM public.court_documents
+                            WHERE content IS NOT NULL AND LENGTH(content) > 100
+                            ORDER BY created_at DESC
+                            LIMIT %s
+                        """, (limit,))
                 else:
                     # For other tables, use parameterized query
                     schema, table = source_table.split('.')
@@ -544,8 +558,8 @@ class RobustElevenStagePipeline:
         if doc_type == 'opinion':
             # For opinions, try multiple strategies
             # 1. Check download URL for patterns
-            download_url = metadata.get('download_url', '')
-            if 'supremecourt.ohio.gov' in download_url:
+            download_url = metadata.get('download_url') or ''
+            if download_url and 'supremecourt.ohio.gov' in download_url:
                 court_hint = 'ohioctapp'  # Ohio Court of Appeals
                 extraction_method = 'opinion_url'
             
@@ -558,12 +572,26 @@ class RobustElevenStagePipeline:
                     extraction_method = 'opinion_content'
                     extracted_from_content = True
             
-            # 3. Note: In production, would check cluster API here
+            # 3. Check for generic court_id field (works for CourtListener data)
+            if not court_hint:
+                court_hint = metadata.get('court_id') or metadata.get('court')
+                if court_hint:
+                    extraction_method = 'opinion_metadata'
+            
+            # 4. Note: In production, would check cluster API here
             # cluster_url = metadata.get('cluster', '')
             
         else:
-            # For dockets and other types, use standard metadata fields
-            court_hint = metadata.get('court') or metadata.get('court_id')
+            # For dockets and other types, prefer court_id over court (which might be URL)
+            court_hint = metadata.get('court_id') or metadata.get('court')
+            
+            # For RECAP documents, also check court_standardized
+            if not court_hint and 'court_standardized' in metadata:
+                court_std = metadata.get('court_standardized', {})
+                if isinstance(court_std, dict):
+                    court_hint = court_std.get('id')
+                    if court_hint:
+                        extraction_method = 'recap_standardized'
         
         # Debug logging
         if court_hint:
@@ -896,61 +924,14 @@ class RobustElevenStagePipeline:
         # Use validated/cleaned name
         judge_name = name_validation.cleaned_data
         
-        try:
-            # Load judge data
-            judge_data_path = os.path.join(judge_pics.judge_root, 'people.json')
-            
-            if os.path.exists(judge_data_path):
-                with open(judge_data_path, 'r') as f:
-                    judges_data = json.load(f)
-                
-                # Search for judge
-                judge_lower = judge_name.lower()
-                for judge_data_item in judges_data:
-                    if not isinstance(judge_data_item, dict):
-                        continue
-                    
-                    # Handle person field which might be an ID (int) or dict
-                    person_field = judge_data_item.get('person')
-                    if isinstance(person_field, dict):
-                        person_info = person_field
-                        person_name = person_info.get('name_full', '')
-                    else:
-                        # Person is likely an ID, skip
-                        continue
-                    
-                    if judge_lower in person_name.lower() or person_name.lower() in judge_lower:
-                        return {
-                            'enhanced': True,
-                            'judge_id': person_info.get('id'),
-                            'full_name': person_name,
-                            'slug': person_info.get('slug'),
-                            'photo_path': judge_data_item.get('path'),
-                            'photo_available': True,
-                            'source': 'judge-pics',
-                            'extracted_from_content': extracted_from_content,
-                            'validation': name_validation.to_dict()
-                        }
-                
-                # Not found in database but name is valid
-                return {
-                    'enhanced': False,
-                    'reason': 'Judge not found in database',
-                    'attempted_name': judge_name,
-                    'extracted_from_content': extracted_from_content,
-                    'judge_name_found': judge_name,
-                    'validation': name_validation.to_dict()
-                }
-            else:
-                return {'enhanced': False, 'reason': 'Judge database not available'}
-                
-        except Exception as e:
-            self.error_collector.add_error(
-                e,
-                stage="Judge Enhancement",
-                document_id=document.get('id')
-            )
-            return {'enhanced': False, 'error': str(e)}
+        # Successfully extracted and validated judge name
+        return {
+            'enhanced': True,
+            'full_name': judge_name,
+            'extracted_from_content': extracted_from_content,
+            'source': 'content_extraction' if extracted_from_content else extraction_source,
+            'validation': name_validation.to_dict()
+        }
     
     def _extract_judge_from_content_optimized(self, content: str) -> Optional[str]:
         """Extract judge name from document content with type-aware patterns"""
@@ -974,20 +955,30 @@ class RobustElevenStagePipeline:
             # Opinion author format
             r'Opinion\s+by:?\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
             # Magistrate judge format
-            r'([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+UNITED STATES MAGISTRATE JUDGE)'
+            r'([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+UNITED STATES MAGISTRATE JUDGE)',
+            # Common signature format with line break
+            r'([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)\s*\n+\s*UNITED STATES (?:DISTRICT|MAGISTRATE) JUDGE',
+            # Electronic signature format
+            r'/s/\s*([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
+            # BY THE COURT format
+            r'BY THE COURT:\s*\n+[^\n]*\n+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)'
         ]
         
-        # Search in first 2000 characters and last 1000
+        # Search in first 2000 characters and last 2000 (judge signatures are often further from end)
         content_start = content[:2000]
-        content_end = content[-1000:] if len(content) > 1000 else ""
+        content_end = content[-2000:] if len(content) > 2000 else ""
         
         for pattern in patterns:
             # Check start
             match = re.search(pattern, content_start, re.MULTILINE)
             if match:
                 judge_name = match.group(1).strip().strip(',')
-                # Validate the extracted name doesn't contain title words
-                if not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']):
+                # Validate the extracted name
+                if (not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']) and
+                    len(judge_name) > 5 and  # Minimum reasonable name length
+                    ' ' in judge_name and  # Must have at least first and last name
+                    not judge_name.endswith('Jn') and  # Avoid truncated words
+                    len(judge_name.split()) >= 2):  # At least two words
                     logger.info(f"  Extracted judge from content start: {judge_name}")
                     return judge_name
             
@@ -995,8 +986,12 @@ class RobustElevenStagePipeline:
             match = re.search(pattern, content_end, re.MULTILINE)
             if match:
                 judge_name = match.group(1).strip().strip(',')
-                # Validate the extracted name doesn't contain title words
-                if not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']):
+                # Validate the extracted name
+                if (not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']) and
+                    len(judge_name) > 5 and  # Minimum reasonable name length
+                    ' ' in judge_name and  # Must have at least first and last name
+                    not judge_name.endswith('Jn') and  # Avoid truncated words
+                    len(judge_name.split()) >= 2):  # At least two words
                     logger.info(f"  Extracted judge from content end: {judge_name}")
                     return judge_name
         
@@ -1178,7 +1173,7 @@ class RobustElevenStagePipeline:
         
         return comprehensive
     
-    async def _store_enhanced_documents_validated(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _store_enhanced_documents_validated(self, documents: List[Dict[str, Any]], force_reprocess: bool = False) -> Dict[str, Any]:
         """Stage 9: Enhanced storage with validation and comprehensive error handling"""
         stored_count = 0
         updated_count = 0
@@ -1242,7 +1237,7 @@ class RobustElevenStagePipeline:
                         if existing:
                             existing_id, existing_hash = existing
                             
-                            if existing_hash != doc_hash:
+                            if force_reprocess or existing_hash != doc_hash:
                                 # Update existing record
                                 cursor.execute("""
                                     UPDATE court_data.opinions_unified SET
@@ -1653,7 +1648,7 @@ class RobustElevenStagePipeline:
         return {
             'validation_rate': (self.stats['documents_validated'] / total_docs) * 100,
             'court_resolution_rate': (self.stats['courts_resolved'] / total_docs) * 100,
-            'citation_extraction_rate': (self.stats['citations_extracted'] / total_docs) * 100,
+            'total_citations_extracted': self.stats['citations_extracted'],
             'judge_identification_rate': (
                 (self.stats['judges_enhanced'] + self.stats['judges_extracted_from_content']) / 
                 total_docs

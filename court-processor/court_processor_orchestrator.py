@@ -49,12 +49,16 @@ class CourtProcessorOrchestrator:
                 'court_ids': ['txed', 'cafc', 'nysd', 'cand'],  # IP-focused courts
                 'document_types': ['opinions'],
                 'max_per_court': 100,
-                'lookback_days': 7
+                'lookback_days': 7,
+                'nature_of_suit': ['820', '830', '835', '840'],  # IP case types
+                'search_type': 'r'  # RECAP documents for better coverage
             },
             'processing': {
                 'batch_size': 50,
                 'extract_pdfs': True,
-                'validate_strict': True
+                'validate_strict': True,
+                'enable_judge_lookup': True,
+                'enable_citation_validation': True
             },
             'scheduling': {
                 'run_daily_at': '02:00',  # 2 AM
@@ -147,7 +151,9 @@ class CourtProcessorOrchestrator:
                 court_ids=self.config['ingestion']['court_ids'],
                 date_after=date_after,
                 document_types=self.config['ingestion']['document_types'],
-                max_per_court=self.config['ingestion']['max_per_court']
+                max_per_court=self.config['ingestion']['max_per_court'],
+                nature_of_suit=self.config['ingestion'].get('nature_of_suit'),
+                search_type=self.config['ingestion'].get('search_type')
             )
             
             self.stats['total_documents_ingested'] += results.get('documents_ingested', 0)
