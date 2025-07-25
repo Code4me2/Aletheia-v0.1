@@ -1,5 +1,5 @@
 {
-  "name": "n8n-nodes-haystack-rag",
+  "name": "n8n-nodes-haystack",
   "version": "2.0.0",
   "description": "RAG-focused n8n node for Haystack and Elasticsearch integration",
   "keywords": [

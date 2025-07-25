@@ -47,11 +47,16 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# Sensitive files
-CLAUDE.md
-COLOR_PALETTE.md
-CITATION_IMPLEMENTATION.md
-AUTH_IMPLEMENTATION_PLAN.md
+# Markdown files - Ignore all .md files except specific ones
+*.md
+!README.md
+!AUTH_ANALYSIS_REPORT.md
+!AUTH_SETUP.md
+!PRODUCTION_DEPLOYMENT_GUIDE.md
+!SECURITY_FEATURES.md
+!DEMO_CREDENTIALS_SETUP.md
+# Include all markdown files in documentation folder
+!Documentation/**/*.md
 
 # Database
 *.db
@@ -70,10 +75,36 @@ Thumbs.db
 logs/
 *.log
 
-# Test files
-test-*.js
-test-*.ts
-test-*.html
-**/test-*
+# Test output and debug files (but NOT test source files!)
+# Note: We keep all *.test.ts, *.spec.ts, and /e2e/ files in version control
+test-results/
+.nyc_output/
 **/debug-*
-scripts/test-*.ts
+*.test-result.json
+test-output/
+
+# Prisma - ignore local SQLite databases but keep schema
+prisma/*.db
+prisma/*.db-journal
+prisma/migrations/*/migration.sql
+
+# Security - API versioning test file
+test-api-versioning.js
+
+# Temporary and backup files
+*.tmp
+*.bak
+*.swp
+*~
+.#*
+
+# Package manager locks (keep package-lock.json, ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts
+dist/
+.turbo/
+
+# Environment validation
+.env.*.local

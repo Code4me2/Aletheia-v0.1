@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getApiEndpoint } from '@/lib/api-config';
 
 interface CsrfStore {
   csrfToken: string | null;
@@ -13,7 +14,7 @@ export const useCsrfStore = create<CsrfStore>((set) => ({
   
   fetchCsrfToken: async () => {
     try {
-      const response = await fetch('/chat/api/csrf', {
+      const response = await fetch(`/chat${getApiEndpoint('/csrf')}`, {
         method: 'GET',
         credentials: 'include'
       });

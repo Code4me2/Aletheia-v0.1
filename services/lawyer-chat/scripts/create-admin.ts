@@ -6,7 +6,7 @@
  */
 
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '../src/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { parseArgs } from 'util';
 
