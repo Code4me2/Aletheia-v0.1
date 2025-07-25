@@ -1,0 +1,31 @@
+FROM n8nio/n8n:1.101.1
+
+USER root
+
+# Create directories
+RUN mkdir -p /home/node/.n8n/custom /data
+
+# Copy custom nodes to the expected location
+COPY ./n8n/custom-nodes/n8n-nodes-haystack /home/node/.n8n/custom/n8n-nodes-haystack
+COPY ./n8n/custom-nodes/n8n-nodes-hierarchicalSummarization /home/node/.n8n/custom/n8n-nodes-hierarchicalSummarization
+COPY ./n8n/custom-nodes/n8n-nodes-citationchecker /home/node/.n8n/custom/n8n-nodes-citationchecker
+COPY ./n8n/custom-nodes/n8n-nodes-deepseek /home/node/.n8n/custom/n8n-nodes-deepseek
+COPY ./n8n/custom-nodes/n8n-nodes-yake /home/node/.n8n/custom/n8n-nodes-yake
+COPY ./n8n/custom-nodes/n8n-nodes-bitnet /home/node/.n8n/custom/n8n-nodes-bitnet
+
+# Remove preinstall script from deepseek that requires pnpm
+RUN sed -i '/"preinstall":/d' /home/node/.n8n/custom/n8n-nodes-deepseek/package.json
+
+# Set proper ownership
+RUN chown -R node:node /home/node/.n8n /data
+
+# Copy init script
+COPY ./n8n/init-workflows.sh /init-workflows.sh
+RUN chmod +x /init-workflows.sh
+
+# Set environment variable to use /data for database
+ENV N8N_USER_FOLDER=/data
+
+USER node
+
+ENTRYPOINT ["/bin/sh", "/init-workflows.sh"]

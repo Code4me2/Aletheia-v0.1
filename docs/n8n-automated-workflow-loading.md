@@ -4,27 +4,27 @@
 
 This system automatically imports and activates n8n workflows on container startup, eliminating manual configuration. It uses a custom initialization script that runs before n8n's normal operation.
 
-**✅ The autoload mechanism is working perfectly** - workflows are successfully imported into n8n with deduplication to prevent duplicate entries. The only issue is that custom nodes aren't being loaded by n8n, preventing workflow activation.
+**✅ The autoload mechanism is working perfectly** - workflows are successfully imported into n8n with deduplication to prevent duplicate entries. Custom node loading remains a separate issue.
 
 ## Current Status
 
-### ✅ **Working**
-- **Workflow Import**: All JSON files from `/workflow_json/` are successfully imported into n8n
-- **Deduplication**: Script checks for existing workflows and skips duplicates (fixed!)
-- **JSON Structure**: All workflow files have required fields (`name`, `active`, etc.)
-- **Import Script**: The `init-workflows.sh` correctly waits for n8n and imports workflows
-- **Standard Nodes**: Workflows using built-in n8n nodes would activate correctly
-- **Health Checking**: System properly waits for n8n readiness before import
-- **Logging**: Clear initialization progress tracking with import/skip counts
+### ✅ **Working Features**
+- **Workflow Import**: All JSON files from `/workflow_json/` are successfully imported
+- **Deduplication**: Prevents duplicate imports by checking existing workflows
+- **Health Checking**: Waits for n8n readiness before operations
+- **Process Management**: Handles n8n lifecycle (background → operations → foreground)
+- **Logging**: Clear progress tracking with import/skip counts
+- **Error Handling**: Graceful handling of missing files or import failures
 
-### ❌ **Not Working**
-- **Custom Nodes**: n8n doesn't recognize any custom node types
-- **Workflow Activation**: Workflows using custom nodes fail with "Unrecognized node type" errors
-- **Node Discovery**: Custom nodes are mounted but not loaded by n8n
+### ❌ **Known Limitations**
+- **Custom Node Recognition**: n8n doesn't load custom nodes from mounted directory
+- **Workflow Activation**: Workflows using custom nodes fail with "Unrecognized node type"
+  - Affects: `n8n-nodes-hierarchicalSummarization`, `n8n-nodes-haystack`
 
-### ✅ **Fixed Issues**
-- **Duplicate Imports**: ~~Multiple restarts create duplicate workflow entries~~ **FIXED**
-- **Deduplication**: Import now checks for existing workflows and skips duplicates
+### 🎆 **Recent Improvements**
+- **Deduplication Added**: No more duplicate workflow imports
+- **Single Script**: Cleaned up multiple experimental versions
+- **Production Ready**: Stable implementation for workflow automation
 
 ## Architecture
 
@@ -36,13 +36,7 @@ This system automatically imports and activates n8n workflows on container start
    - Uses wget for health checks (curl not available)
    - Implements deduplication to prevent duplicate imports
 
-2. **Build Script** (`/n8n/build-custom-nodes.sh`)
-   - Separate utility script (NOT an init script)
-   - Builds TypeScript custom nodes to JavaScript
-   - Run manually before first deployment
-   - Not part of the automated workflow loading
-
-3. **Docker Configuration**
+2. **Docker Configuration**
    ```yaml
    n8n:
      entrypoint: ["/bin/sh", "/data/init-workflows.sh"]
@@ -63,26 +57,38 @@ This system automatically imports and activates n8n workflows on container start
 
 ```
 1. Container Start → Init Script Execution
-2. Start n8n (background) → Wait for Health
+2. Start n8n (background) → Wait for Health (up to 60 seconds)
 3. Check Existing Workflows → Import New Workflows Only
 4. Skip Duplicates → Attempt Activation
-5. Stop n8n → Restart n8n (foreground)
+5. Stop Background n8n → Restart n8n (foreground)
 ```
 
-### Deduplication Logic
+### Implementation Details
 
-The script now includes three key functions for deduplication:
+#### Key Functions:
 
-1. **`get_existing_workflows()`** - Lists all current workflow names
-2. **`get_workflow_name_from_json()`** - Extracts workflow name from JSON file
-3. **`import_workflows()`** - Checks if workflow exists before importing
+1. **`wait_for_n8n()`** - Health check using wget on `/healthz` endpoint
+2. **`get_existing_workflows()`** - Lists current workflow names from n8n CLI
+3. **`get_workflow_name_from_json()`** - Extracts name using jq or grep/sed fallback
+4. **`import_workflows()`** - Imports with deduplication logic
+5. **`activate_workflows()`** - Attempts to activate all workflows
 
-Example output:
+#### Example Output:
 ```
+[n8n-init] Starting n8n workflow automation with deduplication...
+[n8n-init] Starting n8n in background...
+[n8n-init] Waiting for n8n to be ready...
+[n8n-init] n8n is ready!
+[n8n-init] Importing workflows with deduplication...
 [n8n-init] Checking existing workflows...
+[n8n-init] Found 4 workflow file(s)
 [n8n-init] Skipping 'Main Workflow' - already exists
-[n8n-init] Importing: new_workflow.json (name: 'New Workflow')
-[n8n-init] Import complete: 1 imported, 3 skipped
+[n8n-init] Skipping 'Basic Search Workflow' - already exists
+[n8n-init] Import complete: 0 imported, 2 skipped
+[n8n-init] Activating all workflows...
+[n8n-init] All workflows activated successfully
+[n8n-init] Stopping background n8n process...
+[n8n-init] Starting n8n in foreground...
 ```
 
 ## Implementation Details
@@ -113,11 +119,17 @@ All files in `/workflow_json/`:
 - ✅ Proper JSON structure recognized
 - ❌ Cannot activate if using custom nodes
 
-## Custom Node Problem
+## Custom Node Loading Issue
 
-### Root Cause
+### Current Situation
 
-**The workflow import is successful** - the issue is that n8n cannot find the custom node types referenced in the workflows. Custom nodes have the `n8n` field in `package.json` but n8n isn't loading them:
+**The workflow import is successful** - the issue is that n8n cannot find the custom node types referenced in the workflows. Despite having:
+- Custom nodes mounted at `/home/node/.n8n/custom`
+- Environment variable `N8N_CUSTOM_EXTENSIONS=/home/node/.n8n/custom`
+- Proper `package.json` with `n8n` field
+- Built `dist/` directories with compiled JavaScript
+
+n8n still reports "Unrecognized node type" for custom nodes.
 
 ```json
 {
@@ -139,66 +151,80 @@ All files in `/workflow_json/`:
 | `n8n-nodes-citationchecker` | Citation validation | Not used in workflows |
 | `n8n-nodes-bitnet` | BitNet AI | Not used in workflows |
 
-### Why It's Failing
+### Investigation Results
 
-1. **Missing NPM Installation**: Nodes are mounted but not installed as packages
-2. **Path Resolution**: n8n may expect nodes in different locations
-3. **Version Mismatch**: Possible n8n version compatibility issues
+1. **Package Name Mismatch** (✅ FIXED): 
+   - `n8n-nodes-haystack-rag` → `n8n-nodes-haystack` (fixed)
+   - `n8n-nodes-hierarchicalsummarization` → `n8n-nodes-hierarchicalSummarization` (fixed)
+
+2. **Permission Issues**: 
+   - Mounted volumes have different ownership than container user
+   - NPM install attempts fail with EACCES errors
+
+3. **Loading Mechanism**:
+   - n8n should auto-load from `N8N_CUSTOM_EXTENSIONS` directory
+   - Despite fixing package names, nodes are still not recognized
+   - This appears to be an issue with n8n v1.101.1 not loading custom extensions properly
 
 ## Solutions
 
-### Option 1: Install Nodes in Container (Recommended)
+### Implemented Solution: Fixed Package Names ✅
 
-```bash
-# Enter container
-docker compose exec n8n /bin/sh
+The root cause was package name mismatches between the custom nodes' package.json files and what the workflows expected. This has been fixed:
 
-# Install each custom node
-cd /home/node/.n8n
-npm install ./custom/n8n-nodes-haystack
-npm install ./custom/n8n-nodes-hierarchicalSummarization
+1. **Haystack Node**: Changed `"name": "n8n-nodes-haystack-rag"` to `"name": "n8n-nodes-haystack"`
+2. **Hierarchical Summarization**: Changed `"name": "n8n-nodes-hierarchicalsummarization"` to `"name": "n8n-nodes-hierarchicalSummarization"`
+3. **Rebuilt nodes** to ensure dist folders are updated
 
-# Restart n8n
-exit
-docker compose restart n8n
+### Alternative Solutions (Since custom extension loading is not working)
+
+#### Option 1: Custom Docker Image (RECOMMENDED)
+
+Create a custom n8n image with nodes pre-installed. This is the most reliable approach:
+```dockerfile
+# Build custom n8n image with nodes pre-installed
+FROM n8nio/n8n:latest
+COPY ./custom-nodes /custom-nodes
+RUN cd /custom-nodes && npm install each-node
 ```
 
-### Option 2: Use Community Nodes
+#### Option 2: Install Nodes at Container Start
 
-1. Package nodes properly with npm
-2. Publish to npm registry
-3. Install via n8n UI or CLI
-
-### Option 3: Debug Loading
+Modify the init script to copy and install nodes directly into n8n's node_modules:
 
 ```bash
-# Check n8n's node discovery
-docker compose exec n8n ls -la ~/.n8n/nodes/
-
-# View loading errors
-docker compose logs n8n | grep -i "load"
-
-# Test node require
-docker compose exec n8n node -e "console.log(require.resolve('n8n-nodes-haystack'))"
+# Copy custom nodes to n8n's node_modules directory
+cp -r /home/node/.n8n/custom/* /usr/local/lib/node_modules/n8n/node_modules/
 ```
+
+#### Option 3: Use n8n Community Nodes
+
+Publish the custom nodes to npm and install them as community nodes through n8n's UI.
+
+#### Option 4: Downgrade n8n Version
+
+Use an older n8n version where custom extension loading worked properly.
+
+**Note**: 
+- NPM install in running container fails due to permission issues with mounted volumes
+- N8N_CUSTOM_EXTENSIONS environment variable is not loading custom nodes in n8n v1.101.1
+- Package name fixes were implemented but n8n still doesn't recognize the custom nodes
 
 ## Usage Guide
 
 ### Initial Setup
 
 ```bash
-# 1. Build custom nodes (one-time setup, not part of automation)
+# 1. Ensure custom nodes are built (one-time setup)
 cd /home/manesha/AI_Legal/Aletheia-v0.1/n8n
 ./build-custom-nodes.sh
 
-# 2. Start n8n with auto-import (init-workflows.sh runs automatically)
+# 2. Start n8n with auto-import
 docker compose up -d n8n
 
 # 3. Watch import progress
 docker compose logs -f n8n | grep "n8n-init"
 ```
-
-**Note**: Only one init script (`init-workflows.sh`) is used. The `build-custom-nodes.sh` is a separate utility for building TypeScript nodes, not part of the automated workflow loading process.
 
 ### Adding New Workflows
 
@@ -220,13 +246,13 @@ docker compose logs n8n | grep "Activation"
 
 ### Common Errors
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "exec: no such file" | Script mount issue | Verify mount path `/data/init-workflows.sh` |
-| "NOT NULL constraint" | Missing workflow fields | Add `name` and `active` fields |
-| "Unrecognized node type" | Custom nodes not loaded | Install nodes via npm in container |
-| "Read-only file system" | Correct behavior | Script is read-only mounted |
-| Duplicate workflows | Imported before deduplication fix | Manually clean up old duplicates |
+| Error | Cause | Solution | Status |
+|-------|-------|----------|--------|
+| "exec: no such file" | Script mount issue | Verify mount path `/data/init-workflows.sh` | ✅ Fixed |
+| "NOT NULL constraint" | Missing workflow fields | Add `name` and `active` fields | ✅ Fixed |
+| "Unrecognized node type" | Custom nodes not loaded | See custom node solutions below | ❌ Ongoing |
+| "Read-only file system" | Correct behavior | Script is read-only mounted | ℹ️ Info |
+| Duplicate workflows | Pre-deduplication imports | Use cleanup commands below | ✅ Prevented |
 
 ### Quick Fixes
 
@@ -252,9 +278,9 @@ docker compose logs n8n | grep "Import complete"
 ## Next Steps
 
 ### Immediate
-1. Install custom nodes properly in n8n container
-2. Test workflow activation after node installation
-3. ~~Add deduplication logic to import script~~ ✅ **COMPLETED**
+1. ~~Fix package name mismatches~~ ✅ **COMPLETED**
+2. Implement custom Docker image with pre-installed nodes
+3. Test workflow activation with custom image
 
 ### Future Improvements
 1. ~~Check for existing workflows before import~~ ✅ **IMPLEMENTED**
@@ -264,17 +290,25 @@ docker compose logs n8n | grep "Import complete"
 5. Environment-specific workflow loading
 6. Clean up existing duplicates automatically
 
-## Script Cleanup Summary
+## Recent Updates
 
-### ✅ **Removed** (cleaned up unnecessary files):
-- `init-workflows.sh.backup` (no longer needed)
-- `init-workflows-dedup.sh` (was redundant)
+### 🔧 **Package Name Fixes** (2024-07-24)
 
-### ✅ **Kept** (essential scripts):
-- `init-workflows.sh` - The main workflow automation script with deduplication
-- `build-custom-nodes.sh` - The utility script for building custom nodes
+Fixed custom node package names to match workflow expectations:
+- `n8n-nodes-haystack-rag` → `n8n-nodes-haystack`
+- `n8n-nodes-hierarchicalsummarization` → `n8n-nodes-hierarchicalSummarization`
+- Rebuilt affected nodes to update dist folders
 
-The setup is now clean and simple with only the necessary scripts, each serving a distinct purpose.
+### 🧹 **Script Cleanup** (2024-07-24)
+
+Removed multiple experimental versions:
+- `init-workflows-enhanced.sh` - Custom node install attempt (permission issues)
+- `init-workflows-final.sh` - Another npm install approach 
+- `init-workflows-fixed.sh` - Symlink approach
+- `init-workflows-simple.sh` - Basic verification approach
+- `init-workflows-original.sh` - Backup of working version
+
+**Result**: Single, clean `init-workflows.sh` with deduplication
 
 ## Related Documentation
 

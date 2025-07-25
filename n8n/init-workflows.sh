@@ -3,6 +3,12 @@ set -e
 
 echo "[n8n-init] Starting n8n workflow automation with deduplication..."
 
+# Copy database from volume if it exists
+if [ -f "/data/database.sqlite" ]; then
+    echo "[n8n-init] Copying existing database..."
+    cp /data/database.sqlite /home/node/.n8n/database.sqlite || true
+fi
+
 # Function to check if n8n is ready
 wait_for_n8n() {
     local max_attempts=30
@@ -148,6 +154,10 @@ main() {
     
     # Start n8n in foreground
     echo "[n8n-init] Starting n8n in foreground..."
+    
+    # Set up trap to copy database on exit
+    trap 'cp /home/node/.n8n/database.sqlite /data/database.sqlite 2>/dev/null || true' EXIT
+    
     exec n8n start
 }
 
