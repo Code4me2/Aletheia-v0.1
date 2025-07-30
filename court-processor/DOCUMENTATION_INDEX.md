@@ -5,14 +5,15 @@
 These files contain accurate, up-to-date information:
 
 ### Primary Documentation
-- **[README.md](./README.md)** - Main project documentation (UPDATED)
-- **[CURRENT_STATUS_JULY_2025.md](./CURRENT_STATUS_JULY_2025.md)** - Latest status and improvements (NEW)
+- **[README.md](./README.md)** - Main project documentation (UPDATED July 30)
+- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Unified API reference (UPDATED July 30)
+- **[CURRENT_STATUS_JULY_2025.md](./CURRENT_STATUS_JULY_2025.md)** - Latest status and improvements (UPDATED July 30)
 - **[PIPELINE_CAPABILITIES.md](./PIPELINE_CAPABILITIES.md)** - Detailed capabilities and metrics (UPDATED)
 
 ### Integration Guides
 - **[PACER_INTEGRATION_STATUS.md](./PACER_INTEGRATION_STATUS.md)** - PACER/RECAP API status (CURRENT)
-- **[RECAP_VS_OPINIONS.md](./RECAP_VS_OPINIONS.md)** - Document type differences (CURRENT)
-- **[WORKING_CONFIGURATION.md](./WORKING_CONFIGURATION.md)** - Docker setup and fixes (CURRENT)
+- **[RECAP_VS_OPINIONS.md](./RECAP_VS_OPINIONS.md)** - Document type differences (UPDATED July 30)
+- **[WORKING_CONFIGURATION.md](./WORKING_CONFIGURATION.md)** - Docker setup and fixes (UPDATED July 30)
 
 ### Specialized Documentation
 - **[PACER_TROUBLESHOOTING.md](./PACER_TROUBLESHOOTING.md)** - PACER credential issues
@@ -58,8 +59,9 @@ These files have been moved to the `docs/` directory for historical reference:
 3. Source code in `eleven_stage_pipeline_robust_complete.py`
 
 ### For API Integration
-1. [PACER_INTEGRATION_STATUS.md](./PACER_INTEGRATION_STATUS.md) - API status
-2. [PACER_TROUBLESHOOTING.md](./PACER_TROUBLESHOOTING.md) - Common issues
+1. [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Unified API endpoints
+2. [PACER_INTEGRATION_STATUS.md](./PACER_INTEGRATION_STATUS.md) - PACER/RECAP status
+3. [PACER_TROUBLESHOOTING.md](./PACER_TROUBLESHOOTING.md) - Common issues
 
 ## Maintenance Notes
 
@@ -68,4 +70,11 @@ These files have been moved to the `docs/` directory for historical reference:
 - `DIRECTORY_STRUCTURE.md` and `REORGANIZATION_SUMMARY.md` may be outdated
 - Always check file timestamps when in doubt
 
-Last updated: July 2025
+Last updated: July 30, 2025
+
+## Key Changes (July 30, 2025)
+
+- **Unified API**: All endpoints now consolidated into single service on port 8090
+- **Separated Data Flows**: Clear distinction between opinion search (broad) and RECAP dockets (specific)
+- **Updated Endpoints**: `/search/opinions` and `/recap/docket` replace previous scattered endpoints
+- **Documentation Updates**: All primary documentation updated to reflect unified architecture

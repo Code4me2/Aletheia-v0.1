@@ -113,6 +113,16 @@ RECAP dockets contain `recap_documents` arrays listing all case filings. Each fi
 
 **Next Step**: Integrate PDF extraction to get full text from RECAP document PDFs, combining the metadata richness of dockets with the text analysis capabilities we have for opinions.
 
+## API Implications
+
+The unified API (port 8090) provides separate endpoints for these different use cases:
+- **Opinion Search** (`/search/opinions`): Broad keyword searches across published opinions
+- **RECAP Docket** (`/recap/docket`): Retrieve specific dockets by exact docket number
+
+This separation reflects the fundamental difference:
+- **Opinions** support broad searches (keywords, topics, date ranges)
+- **RECAP** requires specific docket numbers (no broad search capability)
+
 ## Key Takeaway
 
 Both document types are valuable but serve different purposes:

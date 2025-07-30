@@ -66,7 +66,9 @@ class PDFContentExtractor:
             needs_extraction = (
                 not content or 
                 len(str(content).strip()) < 50 or
-                content == 'No content available'
+                content == 'No content available' or
+                'This is metadata from CourtListener free tier API' in str(content) or
+                '[Opinion text would be here if available in free tier]' in str(content)
             )
             
             if needs_extraction:

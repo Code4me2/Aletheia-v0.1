@@ -10,7 +10,7 @@ Implements bulk data retrieval from CourtListener including:
 import aiohttp
 import asyncio
 import logging
-from typing import Dict, List, Optional, AsyncIterator
+from typing import Dict, List, Optional, AsyncIterator, Any
 from datetime import datetime, date, timedelta
 from urllib.parse import urlencode, urlparse, parse_qs
 import os
@@ -30,6 +30,9 @@ class CourtListenerService:
     DOCKETS_ENDPOINT = "/api/rest/v4/dockets/"
     RECAP_DOCS_ENDPOINT = "/api/rest/v4/recap-documents/"
     RECAP_FETCH_ENDPOINT = "/api/rest/v4/recap-fetch/"
+    RECAP_QUERY_ENDPOINT = "/api/rest/v4/recap-query/"
+    PEOPLE_ENDPOINT = "/api/rest/v4/people/"
+    CITATION_LOOKUP_ENDPOINT = "/api/rest/v4/citation-lookup/"
     BULK_DATA_ENDPOINT = "/api/bulk-data/"
     
     # Court IDs for IP-heavy venues
@@ -110,7 +113,8 @@ class CourtListenerService:
         }
         
         if court_id:
-            params['court'] = court_id
+            # Use the correct parameter for filtering opinions by court
+            params['cluster__docket__court'] = court_id
         if date_filed_after:
             params['date_filed__gte'] = date_filed_after
         
@@ -240,6 +244,47 @@ class CourtListenerService:
                         await self._handle_rate_limit(resp)
                         data = await resp.json()
                         results.extend(data.get('results', []))
+        
+        return results
+    
+    async def search_recap_documents(self,
+                                   params: Dict[str, Any],
+                                   max_results: int = 100) -> List[Dict]:
+        """
+        Search RECAP documents with specific parameters
+        
+        Args:
+            params: Search parameters including court, dates, etc.
+            max_results: Maximum results to return
+            
+        Returns:
+            List of RECAP documents
+        """
+        session = await self._get_session()
+        url = f"{self.BASE_URL}{self.SEARCH_ENDPOINT}"
+        
+        # Set default params and page size
+        search_params = {
+            'page_size': min(100, max_results),
+            **params
+        }
+        
+        results = []
+        try:
+            # Log the request for debugging
+            logger.debug(f"RECAP search URL: {url}")
+            logger.debug(f"RECAP search params: {search_params}")
+            
+            async with session.get(url, params=search_params, headers=self.headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    results = data.get('results', [])[:max_results]
+                    logger.info(f"Found {len(results)} RECAP documents")
+                else:
+                    error_text = await response.text()
+                    logger.error(f"RECAP search failed: {response.status} - {error_text}")
+        except Exception as e:
+            logger.error(f"RECAP search error: {e}")
         
         return results
     
@@ -404,6 +449,220 @@ class CourtListenerService:
         
         return docket_data
     
+    async def check_recap_availability(self, 
+                                      court: str,
+                                      pacer_doc_ids: List[str]) -> List[Dict]:
+        """
+        Check if RECAP documents are available before attempting download
+        
+        Args:
+            court: Court ID (e.g., 'txed')
+            pacer_doc_ids: List of PACER document IDs to check
+            
+        Returns:
+            List of available documents with metadata
+        """
+        if not pacer_doc_ids:
+            return []
+            
+        session = await self._get_session()
+        url = f"{self.BASE_URL}{self.RECAP_QUERY_ENDPOINT}"
+        
+        params = {
+            'docket_entry__docket__court': court,
+            'pacer_doc_id__in': ','.join(pacer_doc_ids),
+            'page_size': 100
+        }
+        
+        results = []
+        async with session.get(url, params=params, headers=self.headers) as response:
+            await self._handle_rate_limit(response)
+            
+            if response.status == 200:
+                data = await response.json()
+                results = data.get('results', [])
+                logger.info(f"RECAP availability check: {len(results)}/{len(pacer_doc_ids)} documents available")
+            else:
+                logger.warning(f"RECAP query failed: {response.status}")
+                
+        return results
+    
+    async def fetch_judge_info(self, 
+                             judge_name: Optional[str] = None,
+                             court: Optional[str] = None) -> List[Dict]:
+        """
+        Fetch judge information from the people endpoint
+        
+        Args:
+            judge_name: Judge's last name or full name
+            court: Court ID to filter by
+            
+        Returns:
+            List of matching judge records
+        """
+        session = await self._get_session()
+        url = f"{self.BASE_URL}{self.PEOPLE_ENDPOINT}"
+        
+        params = {'page_size': 50}
+        
+        if judge_name:
+            # Try to extract last name if full name provided
+            name_parts = judge_name.strip().split()
+            if len(name_parts) > 1:
+                params['name_last'] = name_parts[-1]
+                params['name_first'] = name_parts[0]
+            else:
+                params['name_last'] = judge_name
+                
+        if court:
+            params['court'] = court
+            
+        results = []
+        async with session.get(url, params=params, headers=self.headers) as response:
+            await self._handle_rate_limit(response)
+            
+            if response.status == 200:
+                data = await response.json()
+                results = data.get('results', [])
+                
+                # Filter for exact matches if full name provided
+                if judge_name and len(name_parts) > 1:
+                    results = [
+                        r for r in results 
+                        if judge_name.lower() in f"{r.get('name_first', '')} {r.get('name_last', '')}".lower()
+                    ]
+            else:
+                logger.warning(f"Judge search failed: {response.status}")
+                
+        return results
+    
+    async def validate_citations(self, text: str) -> Dict:
+        """
+        Validate and extract citations from text using citation-lookup
+        
+        Args:
+            text: Text containing legal citations
+            
+        Returns:
+            Dictionary with extracted citations and validation results
+        """
+        session = await self._get_session()
+        url = f"{self.BASE_URL}{self.CITATION_LOOKUP_ENDPOINT}"
+        
+        # This is a POST endpoint
+        data = {'text': text[:50000]}  # API has a text length limit
+        
+        async with session.post(url, json=data, headers=self.headers) as response:
+            await self._handle_rate_limit(response)
+            
+            if response.status == 200:
+                result = await response.json()
+                return result
+            else:
+                logger.warning(f"Citation validation failed: {response.status}")
+                return {'citations': [], 'errors': ['API request failed']}
+    
+    async def search_with_filters(self,
+                                query: str = None,
+                                search_type: str = 'o',
+                                court_ids: Optional[List[str]] = None,
+                                nature_of_suit: Optional[List[str]] = None,
+                                date_range: Optional[tuple] = None,
+                                max_results: int = 100) -> List[Dict]:
+        """
+        Enhanced search with multiple filters and search types
+        
+        Args:
+            query: Search query (optional)
+            search_type: 'o' (opinions), 'r' (RECAP), 'rd' (RECAP docs), 'd' (dockets), 'p' (people)
+            court_ids: List of court IDs
+            nature_of_suit: List of nature of suit codes (for IP: 820, 830, 840)
+            date_range: Tuple of (start_date, end_date)
+            max_results: Maximum results
+            
+        Returns:
+            List of search results
+        """
+        session = await self._get_session()
+        url = f"{self.BASE_URL}{self.SEARCH_ENDPOINT}"
+        
+        params = {
+            'type': search_type,
+            'page_size': min(100, max_results)
+        }
+        
+        if query:
+            params['q'] = query
+            
+        if court_ids:
+            params['court'] = ' OR '.join(court_ids)
+            
+        if nature_of_suit and search_type in ['r', 'd']:
+            params['nature_of_suit'] = ' OR '.join(nature_of_suit)
+            
+        if date_range:
+            params['filed_after'] = date_range[0]
+            params['filed_before'] = date_range[1]
+            
+        results = []
+        async with session.get(url, params=params, headers=self.headers) as response:
+            await self._handle_rate_limit(response)
+            
+            if response.status == 200:
+                data = await response.json()
+                results = data.get('results', [])
+                
+                # Handle pagination
+                page = 2
+                while data.get('next') and len(results) < max_results and page <= 100:
+                    params['page'] = page
+                    
+                    async with session.get(url, params=params, headers=self.headers) as resp:
+                        await self._handle_rate_limit(resp)
+                        if resp.status == 200:
+                            data = await resp.json()
+                            results.extend(data.get('results', []))
+                        page += 1
+            else:
+                logger.error(f"Search failed: {response.status}")
+                
+        return results[:max_results]
+    
+    def extract_all_text_fields(self, opinion: Dict) -> str:
+        """
+        Extract text from all available fields in order of preference
+        
+        Args:
+            opinion: Opinion document dictionary
+            
+        Returns:
+            Combined text content
+        """
+        # Try fields in order of preference
+        text_fields = [
+            'plain_text',
+            'html',
+            'xml_harvard',
+            'html_lawbox',
+            'html_columbia',
+            'text'  # Generic fallback
+        ]
+        
+        content_parts = []
+        for field in text_fields:
+            if field in opinion and opinion[field]:
+                content = opinion[field]
+                if isinstance(content, str) and content.strip():
+                    # Clean HTML if needed
+                    if field.startswith('html'):
+                        # Basic HTML stripping (in production, use BeautifulSoup)
+                        import re
+                        content = re.sub('<[^<]+?>', '', content)
+                    content_parts.append(content.strip())
+                    break  # Use first available field
+                    
+        return '\n\n'.join(content_parts)
+
     async def close(self):
         """Close the aiohttp session"""
         if self.session:

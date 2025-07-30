@@ -9,7 +9,12 @@ from typing import Dict, List, Optional, Set
 from datetime import datetime
 import base64
 import aiohttp
-from unstructured.partition.auto import partition
+try:
+    from unstructured.partition.auto import partition
+    UNSTRUCTURED_AVAILABLE = True
+except ImportError:
+    UNSTRUCTURED_AVAILABLE = False
+    partition = None
 import tempfile
 import os
 
@@ -137,6 +142,9 @@ class UnstructuredProcessor:
     async def process_local_file(self, file_path: str, doc_type: str = None) -> Dict:
         """Process a local file directly using unstructured library"""
         try:
+            if not UNSTRUCTURED_AVAILABLE:
+                logger.warning("Unstructured library not available, skipping local processing")
+                return {}
             elements = partition(filename=file_path)
             
             # Apply legal enhancements
@@ -165,9 +173,17 @@ class UnifiedDocumentProcessor:
     
     def __init__(self):
         self.cl_service = CourtListenerService()
-        self.flp_integration = FLPIntegration()
+        # FLPIntegration will need database connection when used
+        self.flp_integration = None
         self.unstructured = UnstructuredProcessor()
         self.dedup_manager = DeduplicationManager()
+    
+    def _get_flp_integration(self):
+        """Get or create FLP integration with database connection"""
+        if not self.flp_integration:
+            conn = get_db_connection()
+            self.flp_integration = FLPIntegration(conn)
+        return self.flp_integration
     
     async def process_courtlistener_batch(self, 
                                         court_id: Optional[str] = None,
@@ -254,19 +270,20 @@ class UnifiedDocumentProcessor:
             
             if text_content:
                 # Extract citations
-                citations = await self.flp_integration.extract_citations(text_content)
+                flp = self._get_flp_integration()
+                citations = await flp.extract_citations(text_content)
                 enhanced['citations'] = citations
                 
                 # Get judge information if available
                 if cl_document.get('author_id'):
-                    judge_info = await self.flp_integration.get_judge_info(
+                    judge_info = await flp.get_judge_info(
                         cl_document['author_id']
                     )
                     enhanced['judge_info'] = judge_info
                 
                 # Enhance court information
                 if cl_document.get('court_id'):
-                    court_info = await self.flp_integration.get_court_info(
+                    court_info = await flp.get_court_info(
                         cl_document['court_id']
                     )
                     enhanced['court_info'] = court_info

@@ -39,6 +39,7 @@ from reporters_db import REPORTERS
 from pipeline_exceptions import *
 from pipeline_validators import *
 from error_reporter import ErrorCollector
+from enhanced_judge_extraction import EnhancedJudgeExtractor
 
 # Create courts dictionary for direct lookup
 COURTS_DICT = {court['id']: court for court in courts if isinstance(court, dict)}
@@ -895,14 +896,25 @@ class RobustElevenStagePipeline:
                 'extracted_from_content': False
             }
         
-        # If no judge in metadata, try to extract from content
+        # If no judge in metadata, try enhanced extraction from content
         if not judge_name:
-            judge_name = self._extract_judge_from_content_optimized(document.get('content', ''))
-            if judge_name:
+            # Use enhanced extraction with OCR tolerance
+            extraction_result = EnhancedJudgeExtractor.extract_judge_from_content(
+                document.get('content', ''),
+                doc_type
+            )
+            
+            if extraction_result.get('found'):
+                judge_name = extraction_result['judge_name']
                 extracted_from_content = True
-        
-        if not judge_name:
-            return {'enhanced': False, 'reason': 'No judge name found'}
+                
+                # Log extraction details
+                logger.info(f"  Enhanced extraction found judge: {judge_name}")
+                if extraction_result.get('fuzzy_matched'):
+                    logger.info(f"    Fuzzy matched from: {extraction_result['extracted_text']}")
+                logger.info(f"    Confidence: {extraction_result['confidence']:.1f}%")
+            else:
+                return {'enhanced': False, 'reason': extraction_result.get('reason', 'No judge name found')}
         
         # Validate judge name
         name_validation = JudgeValidator.validate_judge_name(judge_name)
@@ -933,69 +945,6 @@ class RobustElevenStagePipeline:
             'validation': name_validation.to_dict()
         }
     
-    def _extract_judge_from_content_optimized(self, content: str) -> Optional[str]:
-        """Extract judge name from document content with type-aware patterns"""
-        if not content:
-            return None
-        
-        # Extended judge patterns - improved to avoid greedy captures
-        patterns = [
-            # Standard format: "Judge John Smith"
-            r'(?:Honorable\s+)?(?:Judge\s+)?([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+(?:Chief\s+)?(?:District\s+)?Judge)',
-            # Before format
-            r'Before:?\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+(?:Chief\s+)?(?:District\s+)?Judge)',
-            # JUDGE: format
-            r'JUDGE:\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
-            # Signed by format
-            r'Signed\s+by\s+(?:Judge\s+)?([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
-            # All caps format - Fixed to be less greedy
-            r'([A-Z][A-Z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z]+)+)(?:,\s+JR\.|,\s+SR\.|,\s+III|,\s+II)?\s*,\s+UNITED STATES DISTRICT JUDGE',
-            # Alternative all caps with proper name capture
-            r'(?:JUDGE\s+)?([A-Z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z]+)+)\s*\n+\s*UNITED STATES DISTRICT JUDGE',
-            # Opinion author format
-            r'Opinion\s+by:?\s+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
-            # Magistrate judge format
-            r'([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)(?:,?\s+UNITED STATES MAGISTRATE JUDGE)',
-            # Common signature format with line break
-            r'([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)\s*\n+\s*UNITED STATES (?:DISTRICT|MAGISTRATE) JUDGE',
-            # Electronic signature format
-            r'/s/\s*([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)',
-            # BY THE COURT format
-            r'BY THE COURT:\s*\n+[^\n]*\n+([A-Z][a-z]+(?:\s+[A-Z]\.?\s*)?(?:\s+[A-Z][a-z]+)+)'
-        ]
-        
-        # Search in first 2000 characters and last 2000 (judge signatures are often further from end)
-        content_start = content[:2000]
-        content_end = content[-2000:] if len(content) > 2000 else ""
-        
-        for pattern in patterns:
-            # Check start
-            match = re.search(pattern, content_start, re.MULTILINE)
-            if match:
-                judge_name = match.group(1).strip().strip(',')
-                # Validate the extracted name
-                if (not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']) and
-                    len(judge_name) > 5 and  # Minimum reasonable name length
-                    ' ' in judge_name and  # Must have at least first and last name
-                    not judge_name.endswith('Jn') and  # Avoid truncated words
-                    len(judge_name.split()) >= 2):  # At least two words
-                    logger.info(f"  Extracted judge from content start: {judge_name}")
-                    return judge_name
-            
-            # Check end
-            match = re.search(pattern, content_end, re.MULTILINE)
-            if match:
-                judge_name = match.group(1).strip().strip(',')
-                # Validate the extracted name
-                if (not any(word in judge_name.upper() for word in ['UNITED STATES', 'DISTRICT', 'MAGISTRATE', 'COURT']) and
-                    len(judge_name) > 5 and  # Minimum reasonable name length
-                    ' ' in judge_name and  # Must have at least first and last name
-                    not judge_name.endswith('Jn') and  # Avoid truncated words
-                    len(judge_name.split()) >= 2):  # At least two words
-                    logger.info(f"  Extracted judge from content end: {judge_name}")
-                    return judge_name
-        
-        return None
     
     def _analyze_structure(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Stage 6: Document structure analysis"""

@@ -25,9 +25,9 @@ fi
 touch /data/logs/court-processor.log /data/logs/api.log
 chown appuser:appuser /data/logs/court-processor.log /data/logs/api.log
 
-# Start the FLP Supplemental API server in background as appuser
-echo "Starting FLP Supplemental Enhancement API..."
-su -c "cd /app && python3 -m uvicorn flp_supplemental_api:app --host 0.0.0.0 --port 8090 --log-level info > /data/logs/api.log 2>&1 &" appuser
+# Start the Unified API server in background as appuser
+echo "Starting Unified Court Document Processor API..."
+su -c "cd /app && python3 -m uvicorn api.unified_api:app --host 0.0.0.0 --port 8090 --log-level info > /data/logs/api.log 2>&1 &" appuser
 
 # Monitor logs (as appuser)
 echo "Monitoring court processor logs..."

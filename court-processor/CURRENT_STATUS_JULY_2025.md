@@ -22,6 +22,7 @@ The court processor pipeline is now **production-ready** with significant improv
 - **Judge Identification**: Improved - No longer depends on photos
 
 ### API Integrations
+- **Unified API**: ✅ All endpoints consolidated on port 8090
 - **CourtListener API**: ✅ Full access working
 - **RECAP Archive**: ✅ 14M+ documents available
 - **PDF Downloads**: ✅ Automatic extraction working
@@ -58,6 +59,12 @@ The court processor pipeline is now **production-ready** with significant improv
 - **--unprocessed**: Only process new documents
 - **--extract-pdfs**: Enable PDF content extraction
 - **--no-strict**: Process with warnings
+
+### 6. Unified API Implementation
+- **Consolidated Endpoints**: All APIs now run on single service (port 8090)
+- **Opinion Search**: `/search/opinions` for broad searches
+- **RECAP Dockets**: `/recap/docket` for specific docket retrieval
+- **Clear Separation**: Opinion search (broad) vs RECAP (specific docket numbers)
 
 ## Pipeline Performance Metrics
 

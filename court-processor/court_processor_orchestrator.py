@@ -51,7 +51,15 @@ class CourtProcessorOrchestrator:
                 'max_per_court': 100,
                 'lookback_days': 7,
                 'nature_of_suit': ['820', '830', '835', '840'],  # IP case types
-                'search_type': 'r'  # RECAP documents for better coverage
+                'search_type': 'r',  # RECAP documents for better coverage
+                'pacer': {
+                    'enabled': os.getenv('PACER_USERNAME') is not None,
+                    'username': os.getenv('PACER_USERNAME'),
+                    'password': os.getenv('PACER_PASSWORD'),
+                    'use_recap_fallback': True,  # Use RECAP Fetch API for missing documents
+                    'check_recap_first': True,    # Check if already in RECAP before purchasing
+                    'max_cost_per_run': 50.0      # Maximum dollars to spend per run
+                }
             },
             'processing': {
                 'batch_size': 50,
@@ -146,14 +154,26 @@ class CourtProcessorOrchestrator:
         logger.info(f"Ingesting documents from {date_after} to present")
         logger.info(f"Courts: {', '.join(self.config['ingestion']['court_ids'])}")
         
-        async with DocumentIngestionService() as service:
+        # Initialize with PACER credentials if available
+        pacer_config = self.config['ingestion'].get('pacer', {})
+        if pacer_config.get('enabled'):
+            logger.info("PACER authentication enabled for RECAP fallback")
+            
+        async with DocumentIngestionService(
+            api_key=os.getenv('COURTLISTENER_API_KEY'),
+            pacer_username=pacer_config.get('username'),
+            pacer_password=pacer_config.get('password')
+        ) as service:
             results = await service.ingest_from_courtlistener(
                 court_ids=self.config['ingestion']['court_ids'],
                 date_after=date_after,
                 document_types=self.config['ingestion']['document_types'],
                 max_per_court=self.config['ingestion']['max_per_court'],
                 nature_of_suit=self.config['ingestion'].get('nature_of_suit'),
-                search_type=self.config['ingestion'].get('search_type')
+                search_type=self.config['ingestion'].get('search_type'),
+                use_recap_fallback=pacer_config.get('use_recap_fallback', False),
+                check_recap_first=pacer_config.get('check_recap_first', True),
+                max_pacer_cost=pacer_config.get('max_cost_per_run', 0.0)
             )
             
             self.stats['total_documents_ingested'] += results.get('documents_ingested', 0)

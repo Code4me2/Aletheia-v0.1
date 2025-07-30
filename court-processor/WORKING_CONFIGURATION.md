@@ -1,10 +1,10 @@
 # Court Processor Working Configuration
 
-**Last Updated**: July 24, 2025
+**Last Updated**: July 30, 2025
 
-## Current Status: Production Ready for Opinion Processing
+## Current Status: Production Ready with Unified API
 
-The court processor pipeline is fully operational and achieving excellent results with opinion documents (78% completeness, 68% quality). RECAP docket processing also works but with lower metrics due to metadata-only content.
+The court processor is fully operational with a unified API service running on port 8090. The pipeline achieves excellent results with opinion documents (78% completeness, 68% quality). RECAP docket processing also works but with lower metrics due to metadata-only content.
 
 ## Performance Metrics
 
@@ -48,6 +48,9 @@ The court processor pipeline is fully operational and achieving excellent result
 ## Current Status
 
 ✅ **Working Features:**
+- **Unified API** on port 8090 with all endpoints consolidated
+- **Opinion Search** endpoint (`/search/opinions`) for broad searches
+- **RECAP Docket** endpoint (`/recap/docket`) for specific docket retrieval
 - Document ingestion from CourtListener API (both RECAP and opinions)
 - RECAP availability checking (saves money by avoiding unnecessary purchases)
 - Document storage with comprehensive metadata
@@ -61,6 +64,32 @@ The court processor pipeline is fully operational and achieving excellent result
 - PACER login still fails (credential issue) - but most documents are already in RECAP
 - Low completeness scores (19.2%) for RECAP dockets - this is expected as they contain primarily metadata
 - Database connections can timeout during long processing runs
+
+## Using the Unified API
+
+### Testing API Endpoints
+```bash
+# Test opinion search
+docker exec aletheia-court-processor-1 python -c "
+import requests
+response = requests.post('http://localhost:8090/search/opinions', json={
+    'court_ids': ['ded'],
+    'date_filed_after': '2024-01-01',
+    'max_results': 5
+})
+print(response.json())
+"
+
+# Test RECAP docket retrieval  
+docker exec aletheia-court-processor-1 python -c "
+import requests
+response = requests.post('http://localhost:8090/recap/docket', json={
+    'docket_number': '1:2024cv00123',
+    'court': 'ded'
+})
+print(response.json())
+"
+```
 
 ## Running the Pipeline
 

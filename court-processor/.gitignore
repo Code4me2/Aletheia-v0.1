@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Archives and temp files
+archive/
+downloaded_pdfs/
+opinion_pdfs/
+test_data/
+*.log
+*.json
+\!requirements.json
+
+# Docker
+docker-compose.override.yml
