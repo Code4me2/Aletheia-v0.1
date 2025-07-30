@@ -1,10 +1,10 @@
 # Core dependencies
 aiohttp>=3.8.0
-asyncio
 psycopg2-binary>=2.9.0
 PyMuPDF>=1.23.0
 beautifulsoup4>=4.12.0
 python-dateutil>=2.8.0
+lxml>=4.9.0
 
 # Free Law Project tools
 courts-db>=0.10.0
@@ -12,7 +12,13 @@ eyecite>=2.5.0
 reporters-db>=3.2.0
 judge-pics>=2.0.0
 
-# API and web
+# API Framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# Web and HTTP
 requests>=2.31.0
 httpx>=0.24.0
 
@@ -24,3 +30,13 @@ rich>=13.0.0
 # PDF processing
 pdfplumber>=0.9.0
 pypdf>=3.16.0
+pytesseract>=0.3.10
+pdf2image>=1.16.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Testing (optional, but good to have)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

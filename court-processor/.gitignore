@@ -23,10 +23,25 @@ ENV/
 archive/
 downloaded_pdfs/
 opinion_pdfs/
+recap_pdfs/
 test_data/
 *.log
 *.json
-\!requirements.json
+!requirements.json
+
+# Data exports
+*.csv
+data/test_results/
+data/exports/
+
+# Reports
+reports/
+
+# Temporary cleanup files
+CLEANUP_SAFETY_CHECKLIST.md
+CLEANUP_SUMMARY.md
+CODE_CLEANUP_ASSESSMENT.md
+CURRENT_DIRECTORY_STATE_JULY30.md
 
 # Docker
 docker-compose.override.yml

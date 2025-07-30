@@ -2,8 +2,12 @@ FROM python:3.11-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    # Build tools for Python packages
+    build-essential \
+    g++ \
     # For PDF processing
     poppler-utils \
+    libpoppler-cpp-dev \
     # For OCR
     tesseract-ocr \
     tesseract-ocr-eng \
@@ -12,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     gcc \
     # For cron
     cron \
+    # For API testing
+    curl \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
