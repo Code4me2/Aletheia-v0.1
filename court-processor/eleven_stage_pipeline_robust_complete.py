@@ -28,7 +28,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from services.database import get_db_connection
-from services.service_config import SERVICES, IS_DOCKER
+from services.service_config import SERVICES
 
 # Import FLP components
 from courts_db import find_court, courts

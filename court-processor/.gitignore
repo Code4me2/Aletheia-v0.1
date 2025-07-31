@@ -37,11 +37,10 @@ data/exports/
 # Reports
 reports/
 
-# Temporary cleanup files
-CLEANUP_SAFETY_CHECKLIST.md
-CLEANUP_SUMMARY.md
-CODE_CLEANUP_ASSESSMENT.md
-CURRENT_DIRECTORY_STATE_JULY30.md
+# Temporary files
+*_CLEANUP_*.md
+*_STATUS_*.md
+orchestrator_history.json
 
 # Docker
 docker-compose.override.yml
