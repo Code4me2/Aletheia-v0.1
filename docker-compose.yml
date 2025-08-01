@@ -71,6 +71,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       PYTHONPATH: /app
       COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
+      COURTLISTENER_API_KEY: ${COURTLISTENER_API_TOKEN}
       PACER_USERNAME: ${PACER_USERNAME}
       PACER_PASSWORD: ${PACER_PASSWORD}
       RECAP_WEBHOOK_URL: http://recap-webhook:5000/webhook/recap-fetch
@@ -91,9 +92,11 @@ services:
       dockerfile: Dockerfile
     environment:
       COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
+      COURTLISTENER_API_KEY: ${COURTLISTENER_API_TOKEN}
       RECAP_DOWNLOAD_DIR: /data/recap_downloads
       RECAP_WEBHOOK_SECRET: ${RECAP_WEBHOOK_SECRET}
       FLASK_ENV: production
+      PYTHONPATH: /app/court-processor
     ports:
       - "${RECAP_WEBHOOK_PORT:-5001}:5000"
     volumes:
