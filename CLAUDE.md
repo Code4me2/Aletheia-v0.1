@@ -22,7 +22,7 @@ n8n:                # Workflow automation (port 5678)
 redis:              # Cache and session storage
 
 # Application Services
-lawyer-chat:        # Legal chat application (port 3001)
+lawyer-chat:        # Legal chat application (accessible at /chat via nginx)
 ai-portal:          # AI services portal (internal)
 ai-portal-nginx:    # AI portal proxy (port 8085)
 court-processor:    # Court document processor
@@ -82,7 +82,7 @@ N8N_ENCRYPTION_KEY=your_secure_encryption_key_here
 N8N_PORT=5678
 
 # Services
-LAWYER_CHAT_PORT=3001
+# LAWYER_CHAT_PORT is no longer needed - lawyer-chat is served at /chat via nginx
 AI_PORTAL_PORT=8085
 HAYSTACK_PORT=8000
 ELASTICSEARCH_PORT=9200
@@ -96,7 +96,7 @@ NEXTAUTH_SECRET=your_nextauth_secret
 - **Main Application**: http://localhost:8080
 - **n8n Interface**: http://localhost:8080/n8n/
 - **AI Portal**: http://localhost:8085
-- **Lawyer Chat**: http://localhost:8080/chat
+- **Lawyer Chat**: http://localhost:8080/chat (served via nginx proxy)
 - **Haystack API**: http://localhost:8000/docs
 
 ## Quick Start

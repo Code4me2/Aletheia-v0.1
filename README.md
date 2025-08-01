@@ -373,7 +373,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 | Web (NGINX)     | 80            | 8080          | Main reverse proxy                      | No       |
 | n8n             | 5678          | 5678          | Workflow automation                     | No       |
 | PostgreSQL (db) | 5432          | -             | Database (internal only)                | No       |
-| Lawyer Chat     | 3000          | 3001          | AI chat interface                       | No       |
+| Lawyer Chat     | 3000          | -             | AI chat interface (via nginx at /chat)  | No       |
 | AI Portal       | 3000          | -             | Internal only (via ai-portal-nginx)     | No       |
 | AI Portal NGINX | 80            | 8085          | AI portal proxy                         | No       |
 | Elasticsearch   | 9200, 9300    | 9200, 9300    | Document search & cluster communication | Yes      |
@@ -384,7 +384,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 | Service       | Internal Port | External Port | Purpose            | Docker Compose File           |
 | ------------- | ------------- | ------------- | ------------------ | ----------------------------- |
 | Prometheus    | 9090          | 9090          | Metrics collection | docker-compose.production.yml |
-| Grafana       | 3000          | 3001          | Dashboards         | docker-compose.production.yml |
+| Grafana       | 3000          | 3002          | Dashboards         | docker-compose.production.yml |
 | Loki          | 3100          | 3100          | Log aggregation    | docker-compose.production.yml |
 | Node Exporter | 9100          | 9100          | System metrics     | docker-compose.staging.yml    |
 
@@ -533,7 +533,6 @@ N8N_ENCRYPTION_KEY=your_encryption_key
 # Service Ports (to avoid conflicts)
 WEB_PORT=8080
 N8N_PORT=5678
-LAWYER_CHAT_PORT=3001
 AI_PORTAL_PORT=8085
 ELASTICSEARCH_PORT=9200
 HAYSTACK_PORT=8000

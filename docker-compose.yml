@@ -104,8 +104,6 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       # Redis config
       - REDIS_URL=redis://redis:6379/0
-    ports:
-      - "${LAWYER_CHAT_PORT:-3001}:3000"
     depends_on:
       - db
       - n8n

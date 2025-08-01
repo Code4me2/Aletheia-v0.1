@@ -68,12 +68,12 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     
     -- Create update trigger for updated_at columns
     CREATE OR REPLACE FUNCTION update_updated_at_column()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS \$\$
     BEGIN
         NEW.updated_at = CURRENT_TIMESTAMP;
         RETURN NEW;
     END;
-    $$ language 'plpgsql';
+    \$\$ language 'plpgsql';
     
     CREATE TRIGGER update_hierarchical_summaries_updated_at
         BEFORE UPDATE ON hierarchical_summaries
