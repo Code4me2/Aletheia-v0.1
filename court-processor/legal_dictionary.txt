@@ -1,0 +1,2399 @@
+abandonment
+abatement
+abeyance
+abrogate
+abrogation
+abstract
+abuse
+acceleration
+acceptance
+accessory
+accord
+acknowledgment
+acquittal
+actionable
+addendum
+ademption
+adjudicate
+adjudication
+administrator
+admissible
+admission
+adopt
+adoption
+adverse
+affiant
+affidavit
+affirmation
+aforementioned
+aforesaid
+agent
+agreement
+alias
+alibi
+alienation
+allegation
+allege
+allocution
+allonge
+alteration
+amendment
+amicus
+amortization
+annuity
+annulment
+answer
+antedate
+anticipatory
+appeal
+appearance
+appellant
+appellate
+appellee
+appraisal
+appurtenant
+arbitration
+arbitrator
+arraignment
+arrest
+arson
+articles
+assault
+assessment
+assignee
+assignment
+assignor
+assumption
+attachment
+attest
+attestation
+attorney
+authentication
+authority
+authorization
+award
+bail
+bailee
+bailiff
+bailment
+bailor
+bankruptcy
+battery
+bearer
+bench
+beneficiary
+bequeath
+bequest
+bilateral
+bind
+binding
+bona
+bond
+breach
+brief
+broker
+burden
+burglary
+bylaws
+capacity
+caption
+case
+cause
+caveat
+cease
+certificate
+certification
+certiorari
+chain
+challenge
+chambers
+chancellor
+chancery
+charge
+charter
+chattel
+chose
+circuit
+circumstantial
+citation
+cite
+civil
+claim
+claimant
+class
+clause
+clear
+clerk
+client
+closing
+codicil
+coercion
+collateral
+collusion
+commencement
+commission
+commitment
+committee
+common
+community
+commutation
+company
+comparative
+compensation
+competence
+competent
+complainant
+complaint
+compliance
+composition
+compromise
+compulsory
+concealment
+conciliation
+conclusion
+concurrent
+condemnation
+condition
+conditional
+condominium
+confession
+confidential
+confirmation
+confiscation
+conflict
+consent
+consequential
+conservator
+consideration
+consignment
+consolidation
+consortium
+conspiracy
+constitution
+constitutional
+construction
+constructive
+contempt
+contest
+contingency
+contingent
+continuance
+contract
+contractor
+contributory
+controversy
+conversion
+conveyance
+convict
+conviction
+copyright
+corollary
+corporate
+corporation
+corpus
+corroborate
+cosigner
+counsel
+counselor
+counterclaim
+counterpart
+county
+court
+covenant
+credibility
+creditor
+criminal
+cross
+culpable
+cumulative
+cure
+curtesy
+custody
+damages
+deadlock
+dealer
+debenture
+debt
+debtor
+decedent
+deceit
+declaration
+decree
+deed
+defalcation
+defamation
+default
+defeasance
+defect
+defendant
+defense
+deficiency
+defraud
+delegate
+deliberation
+delict
+delivery
+demand
+demise
+demonstrative
+demurrer
+denial
+deponent
+depose
+deposition
+depreciation
+deputy
+derivative
+descent
+desertion
+determination
+deterrent
+devise
+devisee
+devisor
+dictum
+digest
+dilatory
+diligence
+diminution
+direct
+disability
+disaffirm
+disbar
+discharge
+disclaimer
+disclosure
+discontinuance
+discovery
+discretion
+discrimination
+dismiss
+dismissal
+disorderly
+disposition
+dispute
+disqualification
+dissent
+dissolution
+distress
+distribute
+distribution
+district
+diversion
+dividend
+divorce
+docket
+doctrine
+document
+domain
+domicile
+donee
+donor
+double
+dower
+draft
+drawee
+drawer
+duress
+duty
+easement
+ejectment
+election
+emancipation
+embezzlement
+eminent
+employee
+employer
+employment
+encroachment
+encumbrance
+endorsement
+endowment
+enforce
+enforcement
+enjoin
+entitlement
+entity
+entrapment
+entry
+equal
+equitable
+equity
+error
+escheat
+escrow
+estate
+estoppel
+ethics
+eviction
+evidence
+examination
+exception
+exchange
+excise
+exclusion
+exculpatory
+excuse
+execute
+execution
+executor
+executory
+executrix
+exemplary
+exemption
+exhibit
+exoneration
+expectancy
+expert
+expiration
+express
+expropriation
+expungement
+extenuating
+extortion
+extradition
+extraordinary
+fabrication
+face
+facility
+fact
+factor
+failure
+fair
+false
+family
+fault
+feasance
+federal
+fee
+felony
+feme
+fiat
+fiction
+fidelity
+fiduciary
+file
+filing
+final
+finance
+finding
+fine
+firm
+first
+fiscal
+fixture
+foreclosure
+foreign
+forfeiture
+forgery
+form
+formal
+forum
+foundation
+franchise
+fraud
+fraudulent
+free
+freehold
+frivolous
+frustration
+fugitive
+full
+fund
+fundamental
+fungible
+future
+gain
+garnishee
+garnishment
+general
+gift
+good
+goodwill
+grace
+grand
+grant
+grantee
+grantor
+gratuitous
+grievance
+gross
+ground
+guarantee
+guarantor
+guaranty
+guardian
+guest
+guilty
+habeas
+habendum
+habitual
+hearing
+hearsay
+heir
+heiress
+hereditament
+hereditary
+heritage
+holder
+holding
+holographic
+homestead
+homicide
+hostile
+hypothecate
+identification
+identity
+illegal
+illegitimate
+immaterial
+immediate
+immunity
+impairment
+impeach
+impeachment
+impleader
+implied
+impossibility
+impound
+imprisonment
+improvement
+impute
+inadmissible
+inalienable
+incapacity
+inchoate
+incidental
+incompetent
+inconsistent
+incontestable
+incorporate
+incorporation
+incorporeal
+incriminate
+incumbrance
+indefeasible
+indemnification
+indemnify
+indemnity
+indenture
+independent
+indictment
+indigent
+indispensable
+individual
+indorse
+indorsement
+inducement
+industrial
+infancy
+infant
+inference
+information
+infraction
+infringement
+inherit
+inheritance
+initial
+injunction
+injury
+innocent
+inquest
+inquiry
+insanity
+insolvency
+inspection
+installment
+instance
+instruction
+instrument
+insufficient
+insurance
+intangible
+intent
+intention
+inter
+interest
+interference
+interim
+interlocutory
+interpleader
+interpretation
+interrogatory
+interstate
+intervene
+intervention
+intestacy
+intestate
+intimidation
+intra
+intrinsic
+introduce
+inventory
+invest
+investment
+invitation
+invoice
+involuntary
+ipso
+irreconcilable
+irrefutable
+irrelevant
+irrevocable
+issue
+joinder
+joint
+jointly
+journal
+judge
+judgment
+judicial
+judiciary
+junior
+jurat
+jurisdiction
+jurisdictional
+jurisprudence
+jurist
+juror
+jury
+justice
+justifiable
+justification
+juvenile
+kidnapping
+knowledge
+labor
+laches
+land
+landlord
+lapse
+larceny
+last
+latent
+lateral
+law
+lawful
+lawsuit
+lawyer
+lease
+leasehold
+legacy
+legal
+legatee
+legator
+legislation
+legislative
+legislator
+legislature
+legitimate
+lessee
+lessor
+letter
+letters
+levy
+liability
+liable
+libel
+liberal
+liberty
+license
+licensee
+licensor
+lien
+life
+limitation
+limited
+lineal
+liquidate
+liquidation
+litigant
+litigation
+living
+loan
+lobbying
+local
+locus
+lodger
+loss
+magistrate
+magna
+maintenance
+majority
+maker
+malfeasance
+malice
+malicious
+malpractice
+mandamus
+mandate
+mandatory
+manifest
+manner
+manslaughter
+manufacture
+margin
+marginal
+marital
+maritime
+market
+marketable
+marriage
+marshal
+master
+material
+matrimonial
+matter
+maturity
+maxim
+mayhem
+measure
+mechanic
+mediation
+mediator
+medical
+meeting
+member
+memorandum
+mens
+mental
+mercantile
+merchantable
+merger
+merit
+mesne
+military
+mineral
+minimum
+minor
+minority
+minute
+miranda
+misappropriation
+miscarriage
+misdemeanor
+misfeasance
+misjoinder
+misrepresentation
+mistake
+mistrial
+mitigate
+mitigation
+modification
+modify
+monetary
+money
+monopoly
+monument
+moot
+moral
+mortgage
+mortgagee
+mortgagor
+motion
+motive
+movable
+movant
+municipal
+murder
+mutiny
+mutual
+natural
+necessary
+necessity
+negligence
+negligent
+negotiable
+negotiate
+negotiation
+net
+neutral
+next
+nil
+nisi
+nominal
+nominee
+nonfeasance
+nonprofit
+nonsuit
+notary
+note
+notice
+notification
+notify
+novation
+nuisance
+null
+nullity
+nunc
+nuncupative
+oath
+obiter
+object
+objection
+obligation
+obligee
+obligor
+obscene
+obstruction
+occupation
+occupancy
+occupant
+occur
+occurrence
+offer
+offeree
+offeror
+office
+officer
+official
+offset
+omission
+omnibus
+open
+opening
+operation
+opinion
+option
+oral
+order
+ordinance
+ordinary
+organ
+organization
+original
+originate
+ouster
+outstanding
+overt
+owner
+ownership
+pact
+pain
+panel
+paper
+paramount
+parcel
+pardon
+parent
+pari
+parliament
+parol
+parole
+part
+partial
+participate
+particular
+partition
+partner
+partnership
+party
+pass
+passive
+patent
+paternal
+paternity
+patient
+patrimony
+patron
+pauper
+payable
+payee
+payment
+payor
+peace
+pecuniary
+penal
+penalty
+pendente
+pending
+penitentiary
+pension
+per
+percentage
+peremptory
+perfect
+perfection
+perform
+performance
+peril
+perjury
+permanent
+permission
+permit
+perpetual
+perpetuity
+person
+personal
+personalty
+personnel
+petition
+petitioner
+petty
+physical
+pierce
+piracy
+place
+plagiarism
+plaintiff
+plan
+plea
+plead
+pleading
+pledge
+pledgee
+pledgor
+plenary
+plenipotentiary
+police
+policy
+political
+poll
+polygamy
+possession
+possessory
+possibility
+post
+posthumous
+postpone
+power
+practice
+practitioner
+prayer
+preamble
+precatory
+precedent
+precept
+preclusion
+preemption
+preemptive
+preference
+preferential
+preferred
+prejudice
+prejudicial
+preliminary
+premeditation
+premises
+premium
+preponderance
+prerogative
+prescribe
+prescription
+prescriptive
+presence
+present
+presentment
+preservation
+preside
+president
+presumption
+pretrial
+price
+prima
+primary
+prime
+principal
+principle
+prior
+priority
+prison
+prisoner
+privacy
+private
+privilege
+privity
+privy
+probable
+probate
+probation
+probative
+procedural
+procedure
+proceed
+proceeding
+process
+procure
+procurement
+produce
+product
+profession
+professional
+proffer
+profit
+prohibition
+promise
+promisee
+promisor
+promissory
+promote
+promoter
+prompt
+promulgate
+proof
+proper
+property
+proportion
+proposal
+propose
+proposition
+propound
+proprietary
+proprietor
+proprietorship
+prorogue
+prosecute
+prosecution
+prosecutor
+prospective
+prospectus
+protect
+protection
+protest
+protocol
+prove
+provide
+provision
+provisional
+proviso
+provocation
+proximate
+proxy
+public
+publication
+publish
+punitive
+purchase
+purchaser
+purge
+purpose
+pursuant
+pursue
+pursuit
+putative
+qualification
+qualified
+qualify
+quantum
+quash
+quasi
+queen
+question
+quiet
+quitclaim
+quorum
+quota
+quotient
+race
+radar
+raise
+ransom
+rape
+rate
+ratification
+ratify
+ratio
+real
+reality
+realty
+reasonable
+rebate
+rebut
+rebuttable
+rebuttal
+recall
+receipt
+receive
+receiver
+receivership
+recent
+recess
+recidivist
+reciprocal
+reciprocity
+recital
+recite
+reckless
+recognition
+recognizance
+recommend
+recommendation
+reconciliation
+reconveyance
+record
+recordation
+recourse
+recover
+recovery
+recrimination
+rectification
+rectify
+recusal
+recuse
+redeem
+redemption
+redirect
+redress
+reduce
+reduction
+refer
+referee
+reference
+referendum
+reform
+reformation
+refund
+refusal
+refuse
+register
+registration
+registry
+regular
+regulate
+regulation
+regulatory
+rehabilitate
+rehearing
+reimburse
+reimbursement
+reinstate
+reinstatement
+reject
+rejection
+rejoinder
+relate
+relation
+relationship
+relative
+release
+relevance
+relevant
+reliance
+relief
+relinquish
+relinquishment
+rem
+remainder
+remainderman
+remand
+remedy
+remise
+remission
+remit
+remittance
+remittitur
+remote
+removal
+remove
+render
+rendition
+renew
+renewal
+renounce
+renunciation
+rent
+rental
+renunciation
+reorganization
+repair
+repeal
+repeat
+replevin
+reply
+report
+represent
+representation
+representative
+reprieve
+reprimand
+reproduction
+repudiate
+repudiation
+repugnant
+reputation
+request
+require
+requirement
+requisition
+res
+rescind
+rescission
+rescue
+reservation
+reserve
+residence
+resident
+residual
+residuary
+residue
+resign
+resignation
+resist
+resistance
+resolution
+resolve
+resort
+resource
+respect
+respective
+respondeat
+respondent
+response
+responsibility
+responsible
+restitution
+restrain
+restraint
+restriction
+restrictive
+result
+resulting
+retain
+retainer
+retention
+retire
+retirement
+retract
+retraction
+retroactive
+retrospective
+return
+revendication
+revenue
+reversal
+reverse
+reversion
+reversionary
+revert
+review
+revise
+revision
+revival
+revocation
+revoke
+right
+riparian
+risk
+robbery
+rogatory
+roll
+root
+royalty
+rule
+ruling
+sabotage
+safe
+safety
+sale
+salvage
+same
+sample
+sanction
+satisfaction
+satisfy
+save
+saving
+schedule
+scheme
+scope
+seal
+search
+season
+second
+secondary
+secret
+secretary
+section
+secure
+security
+sedition
+seize
+seizure
+self
+sell
+seller
+senate
+senator
+senior
+sentence
+separate
+separation
+sequester
+sequestration
+serial
+servant
+serve
+service
+servient
+servitude
+session
+set
+setback
+setoff
+settle
+settlement
+settlor
+sever
+severable
+several
+severalty
+severance
+shall
+sham
+share
+shareholder
+sheriff
+shield
+shipment
+shipper
+show
+showing
+sic
+sight
+sign
+signature
+signatory
+silence
+silent
+similar
+simple
+sine
+single
+singular
+situs
+slander
+slip
+small
+social
+society
+sole
+solemn
+solicit
+solicitation
+solicitor
+solvent
+sound
+source
+sovereign
+sovereignty
+space
+special
+specialty
+specific
+specification
+specify
+speculative
+speed
+speedy
+spend
+spendthrift
+split
+spoil
+spoliation
+sponsor
+spouse
+spurious
+squatter
+staff
+stake
+stamp
+stand
+standard
+standing
+stare
+state
+statement
+station
+status
+statute
+statutory
+stay
+steal
+step
+stipulate
+stipulation
+stock
+stockholder
+stop
+stoppage
+storage
+store
+straight
+stranger
+street
+strict
+strike
+structure
+sua
+sub
+subdivide
+subdivision
+subject
+subjective
+sublease
+sublet
+submission
+submit
+subordinate
+subordination
+suborn
+subornation
+subpoena
+subrogation
+subscribe
+subscriber
+subscription
+subsequent
+subsidiary
+subsidy
+substance
+substantial
+substantiate
+substantive
+substitute
+substitution
+succession
+successor
+sue
+suffer
+sufficiency
+sufficient
+suffrage
+suggest
+suggestion
+suit
+summary
+summon
+summons
+sunday
+sunset
+sunshine
+supersede
+supersedeas
+supervise
+supervision
+supervisor
+supplement
+supplemental
+supplementary
+supplier
+supply
+support
+suppose
+suppress
+suppression
+supra
+supreme
+surcharge
+surety
+surplus
+surprise
+surrender
+surrogate
+surveillance
+survey
+survive
+surviving
+survivor
+survivorship
+suspect
+suspend
+suspension
+sustain
+swear
+swearing
+sworn
+syllabus
+symbol
+syndicate
+system
+table
+tacit
+tail
+take
+taking
+tangible
+tariff
+tax
+taxable
+taxation
+taxpayer
+technical
+temporary
+tenancy
+tenant
+tender
+tenement
+tenor
+tenure
+term
+terminal
+terminate
+termination
+territorial
+territory
+test
+testament
+testamentary
+testate
+testator
+testatrix
+testify
+testimony
+theft
+theory
+thereafter
+thereby
+therefore
+therein
+thereof
+thereon
+thereto
+third
+thorough
+threat
+through
+tide
+time
+title
+toll
+tort
+tortfeasor
+tortious
+total
+trace
+tract
+trade
+trademark
+trading
+traffic
+transaction
+transcript
+transfer
+transferee
+transferor
+transient
+transit
+transmit
+transport
+transportation
+traverse
+treason
+treasure
+treasury
+treat
+treatment
+treaty
+treble
+trespass
+trespasser
+trial
+tribunal
+tribute
+trover
+true
+trust
+trustee
+trustor
+truth
+try
+turn
+turnover
+ultra
+unanimous
+unauthorized
+unavoidable
+uncertain
+unconditional
+unconscionable
+unconstitutional
+under
+underground
+undermine
+understand
+understanding
+undertake
+undertaking
+underwrite
+underwriter
+undue
+unearned
+unemployed
+unemployment
+unenforceable
+unequal
+unfair
+unfit
+uniform
+unilateral
+union
+unique
+unit
+united
+unity
+universal
+unjust
+unlawful
+unlimited
+unliquidated
+unpaid
+unreasonable
+unrecorded
+unsecured
+unsound
+until
+unusual
+uphold
+upon
+urban
+usage
+use
+user
+usual
+usurious
+usurpation
+usury
+utility
+utter
+uttering
+vacancy
+vacant
+vacate
+vacation
+vagrant
+vague
+valid
+validate
+validation
+validity
+valuable
+valuation
+value
+vandalism
+variance
+vehicle
+vendor
+vendee
+venire
+venue
+verbal
+verdict
+verification
+verify
+versus
+vest
+vested
+veto
+vexatious
+vicarious
+vice
+victim
+view
+vindicate
+violation
+violence
+violent
+virtual
+virtue
+visa
+visible
+vital
+vitiate
+viz
+void
+voidable
+voir
+voluntary
+volunteer
+vote
+vouch
+voucher
+voyage
+wage
+waive
+waiver
+want
+wanton
+ward
+warehouse
+warn
+warning
+warrant
+warranty
+waste
+water
+way
+weapon
+wear
+weight
+welfare
+whereas
+whereby
+wherein
+whereof
+whether
+which
+while
+whole
+wholesale
+will
+willful
+winding
+withdraw
+withdrawal
+withhold
+within
+without
+witness
+word
+work
+worker
+working
+world
+worship
+worth
+writ
+write
+writing
+written
+wrong
+wrongful
+year
+yield
+zone
+zoning
+abandonment
+abatement
+abeyance
+ab initio
+ab intestato
+acceleration clause
+accessory after the fact
+accessory before the fact
+accord and satisfaction
+acknowledgment of service
+act of God
+actus reus
+ad damnum
+ad hoc
+ad hominem
+ad infinitum
+ad litem
+ad valorem
+addendum
+adhesion contract
+administrative law
+adverse possession
+affirmative defense
+agency by estoppel
+aleatory contract
+alter ego
+alternative dispute resolution
+amicus curiae
+ancillary jurisdiction
+animus testandi
+annulment
+answer
+anticipatory breach
+apparent authority
+appellate jurisdiction
+arbitration clause
+arm's length
+articles of incorporation
+assumption of risk
+at will employment
+attractive nuisance
+bad faith
+bail bond
+bailment for hire
+balance of probabilities
+bankruptcy trustee
+bench trial
+beneficial interest
+best evidence rule
+beyond reasonable doubt
+bilateral contract
+bill of attainder
+bill of lading
+bill of particulars
+bill of rights
+bill of sale
+bona fide
+bona fide purchaser
+breach of contract
+breach of duty
+breach of trust
+breach of warranty
+burden of proof
+business judgment rule
+but for test
+capacity to contract
+capital punishment
+case law
+causa mortis
+cause of action
+caveat emptor
+caveat venditor
+cease and desist
+certificate of incorporation
+certificate of title
+certiorari
+chain of custody
+chain of title
+challenge for cause
+change of venue
+charitable trust
+chattel mortgage
+choice of law
+chose in action
+circumstantial evidence
+civil procedure
+class action
+clean hands doctrine
+clear and convincing evidence
+clear title
+close corporation
+cloud on title
+code of ethics
+collateral attack
+collateral estoppel
+collective bargaining
+color of law
+comity
+commercial paper
+common carrier
+common law
+community property
+comparative negligence
+compensatory damages
+competent evidence
+concurrent jurisdiction
+condition precedent
+condition subsequent
+conditional sale
+confession of judgment
+confidential relationship
+conflict of interest
+conflict of laws
+consequential damages
+consideration
+conspiracy
+constructive trust
+contempt of court
+contingent fee
+contract of adhesion
+contributory negligence
+conversion
+corporate veil
+corpus delicti
+counterclaim
+course of dealing
+course of performance
+court of equity
+court of law
+covenant not to compete
+covenant running with the land
+creditor's rights
+criminal procedure
+cross examination
+cruel and unusual punishment
+de facto
+de jure
+de minimis
+de novo
+deadly force
+death penalty
+deceptive trade practices
+declaratory judgment
+deed of trust
+defamation per se
+default judgment
+defective title
+deferred compensation
+degree of care
+demurrer
+deposition
+derivative action
+derivative work
+detrimental reliance
+direct evidence
+direct examination
+directed verdict
+discharge in bankruptcy
+discovery
+discretionary trust
+disparate impact
+disparate treatment
+dissenting opinion
+diversity jurisdiction
+dividend
+doctrine of merger
+domestic relations
+dominant estate
+double jeopardy
+due care
+due diligence
+due process
+duress
+duty of care
+duty to mitigate
+easement by necessity
+easement by prescription
+eminent domain
+employment at will
+en banc
+equal protection
+equitable relief
+equitable title
+errors and omissions
+escrow agent
+estate planning
+estoppel
+et al
+et seq
+ex contractu
+ex delicto
+ex officio
+ex parte
+ex post facto
+ex rel
+exclusionary rule
+exculpatory clause
+executed contract
+execution of judgment
+executive privilege
+executory contract
+exemplary damages
+exhaustion of remedies
+expectation damages
+expert witness
+express contract
+express warranty
+face value
+fair market value
+fair use
+false imprisonment
+federal question
+fee simple
+fee simple absolute
+felony murder
+fiduciary duty
+fiduciary relationship
+final judgment
+fixture
+for cause
+force majeure
+foreign corporation
+forum non conveniens
+forum shopping
+four corners rule
+fraud in the inducement
+fraudulent conveyance
+fraudulent misrepresentation
+free and clear
+fruit of the poisonous tree
+full faith and credit
+garnishment
+general damages
+general partner
+general partnership
+gift causa mortis
+gift inter vivos
+good faith
+goodwill
+grand jury
+grantor trust
+gross negligence
+guardian ad litem
+habeas corpus
+hearsay rule
+holder in due course
+hostile witness
+hung jury
+illegality
+illusory promise
+immunity from prosecution
+implied consent
+implied contract
+implied warranty
+impossibility of performance
+imputed knowledge
+in camera
+in forma pauperis
+in limine
+in loco parentis
+in pari delicto
+in personam
+in propria persona
+in re
+in rem
+inchoate offense
+incompetent
+incorporation by reference
+indemnification agreement
+independent contractor
+indispensable party
+informed consent
+injunctive relief
+insider trading
+insurable interest
+intellectual property
+intentional infliction of emotional distress
+intentional tort
+inter alia
+inter vivos
+interlocutory appeal
+interrogatories
+intestate succession
+invasion of privacy
+involuntary bankruptcy
+ipso facto
+irreconcilable differences
+irrevocable trust
+joint and several liability
+joint custody
+joint tenancy
+joint venture
+judgment creditor
+judgment debtor
+judgment notwithstanding the verdict
+judicial notice
+judicial review
+jurat
+jurisdiction
+jury instructions
+jury nullification
+just compensation
+justifiable homicide
+laches
+landlord tenant law
+last clear chance
+law of the case
+leading question
+lease option
+legal capacity
+legal malpractice
+legal tender
+legally sufficient
+legislative intent
+lesser included offense
+letter of credit
+letter of intent
+lex loci
+liability insurance
+libel per se
+lien
+life estate
+limited liability
+limited liability company
+limited liability partnership
+limited partner
+limited partnership
+liquidated damages
+lis pendens
+living trust
+living will
+long arm statute
+loss of consortium
+magistrate judge
+mailbox rule
+majority opinion
+malice aforethought
+malicious prosecution
+mandamus
+mandatory injunction
+marital property
+market value
+material breach
+material witness
+mechanic's lien
+mediation
+meeting of the minds
+mens rea
+merchant
+merger doctrine
+ministerial act
+minor breach
+miranda rights
+mirror image rule
+misappropriation
+misdemeanor
+mitigating circumstances
+moral turpitude
+mortgage
+motion for summary judgment
+motion in limine
+motion to dismiss
+movant
+mutual assent
+mutual mistake
+natural person
+necessary party
+negative easement
+negligence per se
+negligent infliction of emotional distress
+negotiable instrument
+no contest clause
+nolo contendere
+nominal damages
+non compos mentis
+non obstante veredicto
+noncompete agreement
+nondisclosure agreement
+nonprofit corporation
+notary public
+notice of appeal
+notice pleading
+novation
+nuisance
+nulla bona
+nunc pro tunc
+objection
+offer of proof
+offeree
+offeror
+official capacity
+omission
+opening statement
+operation of law
+opinion evidence
+oral contract
+order to show cause
+ordinary care
+original jurisdiction
+overt act
+pain and suffering
+parol evidence rule
+partial breach
+partition
+partnership agreement
+party in interest
+patent
+payable on death
+payment in full
+pecuniary damages
+penal code
+pendente lite
+per capita
+per curiam
+per diem
+per se
+per stirpes
+peremptory challenge
+perfect tender rule
+perfected security interest
+perjury
+permanent injunction
+personal injury
+personal jurisdiction
+personal property
+personal representative
+personal service
+petit jury
+petitioner
+piercing the corporate veil
+plain error
+plain meaning rule
+plaintiff
+plea bargain
+pleadings
+plenary
+police power
+positive law
+possession is nine tenths of the law
+possibility of reverter
+power of appointment
+power of attorney
+prayer for relief
+precedent
+predicate act
+preemption
+preference
+preferential transfer
+preliminary hearing
+preliminary injunction
+preponderance of the evidence
+prescription
+present interest
+presentment
+presumption of innocence
+pretrial conference
+prima facie
+prima facie case
+primary liability
+principal
+prior restraint
+priority
+private nuisance
+privilege
+privity of contract
+pro bono
+pro forma
+pro hac vice
+pro rata
+pro se
+pro tanto
+pro tem
+probable cause
+probate court
+probation
+procedural due process
+procedural law
+process server
+product liability
+professional corporation
+professional negligence
+promissory estoppel
+promissory note
+proof beyond a reasonable doubt
+proof of claim
+proof of service
+proper party
+property rights
+proprietary interest
+prosecutorial discretion
+protective order
+proximate cause
+proxy
+public defender
+public domain
+public nuisance
+public policy
+public record
+punitive damages
+purchase agreement
+purchase money mortgage
+qualified immunity
+quantum meruit
+quasi contract
+quasi in rem
+quid pro quo
+quiet enjoyment
+quiet title
+quitclaim deed
+quorum
+rational basis test
+real estate
+real party in interest
+real property
+reasonable care
+reasonable doubt
+reasonable person
+rebuttable presumption
+receiver
+reckless disregard
+recording statute
+recourse
+redemption
+redirect examination
+regulatory taking
+release
+relevant evidence
+reliance
+reliance damages
+remainder interest
+remand
+remedy
+remittitur
+renewal
+rent control
+replevin
+reply
+repudiation
+request for admission
+request for production
+res ipsa loquitur
+res judicata
+rescission
+reservation of rights
+respondeat superior
+respondent
+restitution
+restraining order
+restraint of trade
+restrictive covenant
+resulting trust
+retainer
+retroactive
+return of service
+reverse and remand
+reversible error
+reversion
+revocable trust
+right of first refusal
+right of survivorship
+right of way
+right to counsel
+riparian rights
+ripeness
+rule against perpetuities
+rule of law
+satisfaction of judgment
+scienter
+scope of employment
+search and seizure
+search warrant
+secondary liability
+secured creditor
+secured transaction
+security agreement
+security deposit
+security interest
+self defense
+self incrimination
+sentence
+separate property
+separation agreement
+separation of powers
+service by publication
+service of process
+servient estate
+settlement agreement
+severability clause
+severance
+shareholder derivative suit
+shelter rule
+shopkeeper's privilege
+short sale
+show cause order
+sidebar
+sight draft
+simple assault
+slander per se
+small claims court
+sole proprietorship
+sovereign immunity
+special appearance
+special damages
+special master
+special verdict
+special warranty deed
+specific performance
+spendthrift trust
+spousal privilege
+spousal support
+standard of care
+standard of proof
+standing
+stare decisis
+state action
+statute of frauds
+statute of limitations
+statute of repose
+statutory construction
+statutory damages
+statutory law
+stay of execution
+stipulation
+stock certificate
+stop and frisk
+strict construction
+strict liability
+strict scrutiny
+sua sponte
+sub judice
+subject matter jurisdiction
+sublease
+submission to jurisdiction
+subpoena
+subpoena duces tecum
+subrogation
+substantial performance
+substantive due process
+substantive law
+substitute service
+successor in interest
+sufficient cause
+sui generis
+sui juris
+summary judgment
+summons
+sunset provision
+superseding cause
+support trust
+supremacy clause
+surety
+surrender
+survival statute
+survivorship
+suspended sentence
+tangible property
+tax lien
+temporary injunction
+temporary restraining order
+tenancy at sufferance
+tenancy at will
+tenancy by the entirety
+tenancy for years
+tenancy in common
+tender
+testamentary capacity
+testamentary trust
+third party beneficiary
+time is of the essence
+title insurance
+title search
+tolling
+tort
+tortfeasor
+totten trust
+trade secret
+trademark
+transfer
+transferred intent
+trespass
+trespass to chattels
+trial court
+trial de novo
+trier of fact
+true bill
+trust deed
+trustee
+unclean hands
+unconscionable
+undue influence
+unfair competition
+uniform commercial code
+unilateral contract
+unilateral mistake
+unjust enrichment
+unlawful detainer
+unreasonable search and seizure
+usury
+venue
+verdict
+verification
+vested interest
+vested remainder
+vicarious liability
+void
+void for vagueness
+voidable
+voir dire
+voluntary bankruptcy
+waiver
+warrant
+warranty deed
+warranty of fitness
+warranty of habitability
+warranty of merchantability
+warranty of title
+waste
+whistleblower
+willful
+winding up
+with prejudice
+without prejudice
+witness
+work product
+workers compensation
+writ
+writ of attachment
+writ of certiorari
+writ of execution
+writ of habeas corpus
+writ of mandamus
+wrongful death
+wrongful termination
+zoning
+zoning variance

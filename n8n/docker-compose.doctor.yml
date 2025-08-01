@@ -1,0 +1,45 @@
+# Doctor service for FLP document processing
+# Use with: docker-compose -f docker-compose.yml -f n8n/docker-compose.doctor.yml up -d
+
+services:
+  doctor:
+    image: freelawproject/doctor:latest
+    container_name: doctor-judicial
+    ports:
+      - "${DOCTOR_PORT:-5050}:5050"
+    environment:
+      - WORKER_COUNT=4
+      - PYTHON_BINARY=/usr/bin/python3
+      # Optional Sentry configuration (disabled by default)
+      # - SENTRY_DSN=${SENTRY_DSN:-}
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    networks:
+      - backend
+    volumes:
+      # Temporary directory for processing
+      - doctor_temp:/tmp/doctor
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5050/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  doctor_temp:
+
+networks:
+  backend:
+    name: aletheia_backend
+    external: true

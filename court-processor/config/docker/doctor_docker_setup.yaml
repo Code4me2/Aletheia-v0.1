@@ -1,0 +1,31 @@
+# Doctor service configuration for docker-compose
+# Add this to your docker-compose.yml or create docker-compose.doctor.yml
+
+services:
+  doctor:
+    image: freelawproject/doctor:latest
+    container_name: doctor-judicial
+    ports:
+      - "5050:5050"
+    environment:
+      - WORKER_COUNT=4  # Adjust based on your system
+      - PYTHON_BINARY=/usr/bin/python3
+    mem_limit: 2g  # Doctor needs memory for OCR operations
+    mem_reservation: 1g
+    networks:
+      - backend
+    volumes:
+      # Optional: Mount a directory for processed files
+      - ./doctor-data:/tmp/doctor
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5050/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
