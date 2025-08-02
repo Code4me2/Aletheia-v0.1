@@ -401,6 +401,23 @@ class DataComposeApp {
                 const jsonData = await response.json();
                 // Extract text from JSON - adjust based on your n8n output structure
                 responseText = jsonData.response || jsonData.output || jsonData.message || JSON.stringify(jsonData);
+            } else if (contentType && contentType.includes('text/html')) {
+                // Handle HTML response from n8n (wrapped in iframe)
+                const htmlText = await response.text();
+                // Extract content from iframe srcdoc attribute
+                const match = htmlText.match(/srcdoc="([^"]+)"/);
+                if (match) {
+                    // Decode HTML entities and remove escape characters
+                    responseText = match[1]
+                        .replace(/&quot;/g, '"')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&#39;/g, "'");
+                } else {
+                    // Fallback: try to extract any text content
+                    responseText = htmlText.replace(/<[^>]*>/g, '').trim() || 'No response received';
+                }
             } else {
                 // Handle plain text response
                 responseText = await response.text();
