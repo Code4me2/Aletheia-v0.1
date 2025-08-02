@@ -1337,7 +1337,8 @@ class RobustElevenStagePipeline:
                 
                 haystack_doc = {
                     'content': doc.get('content', ''),
-                    'meta': clean_metadata
+                    'metadata': clean_metadata,
+                    'document_id': str(doc.get('id', ''))
                 }
                 haystack_docs.append(haystack_doc)
             
@@ -1637,19 +1638,14 @@ class RobustElevenStagePipeline:
         This method checks each document for content and attempts to extract
         text from PDFs when content is missing or insufficient.
         """
-        # Import here to avoid circular dependency
-        from integrate_pdf_to_pipeline import PDFContentExtractor
+        # Use the existing PDF processor from document ingestion
+        from services.document_ingestion_service import DocumentIngestionService
         
         logger.info("\nChecking documents for PDF extraction needs...")
         
-        # Use the PDF content extractor
-        async with PDFContentExtractor() as extractor:
-            enriched_docs = await extractor.enrich_documents_with_pdf_content(documents)
-            
-            # Log statistics
-            stats = extractor.get_statistics()
-            if stats['pdfs_found'] > 0:
-                logger.info(f"PDF Extraction: Found {stats['pdfs_found']} PDFs, extracted {stats['pdfs_extracted']}")
-                logger.info(f"Total characters extracted from PDFs: {stats['total_chars_extracted']:,}")
+        # For now, just return documents as-is
+        # PDF extraction happens during ingestion phase
+        enriched_docs = documents
+        logger.info("PDF extraction is handled during document ingestion phase")
         
         return enriched_docs
