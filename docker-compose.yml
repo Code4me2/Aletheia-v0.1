@@ -186,6 +186,27 @@ services:
       timeout: 10s
       retries: 3
 
+  docker-api:
+    build:
+      context: ./docker-api
+      dockerfile: Dockerfile
+    container_name: docker-api
+    restart: unless-stopped
+    ports:
+      - "5002:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - .:/workspace:ro
+    networks:
+      - frontend
+    environment:
+      - FLASK_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
   n8n_data:

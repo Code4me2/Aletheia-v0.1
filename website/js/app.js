@@ -2893,35 +2893,20 @@ async function viewLogs() {
 }
 
 async function fetchDockerLogs(service) {
-    // Map service names to Docker container names
-    const containerMap = {
-        'n8n': 'aletheia-v01_n8n_1',
-        'db': 'aletheia-v01_db_1',
-        'web': 'aletheia-v01_web_1',
-        'haystack': 'aletheia-v01_haystack_api_1'
-    };
-    
-    const containerName = containerMap[service];
-    if (!containerName) {
-        throw new Error('Unknown service');
-    }
-    
-    // In a production environment, you would call a backend API that executes docker logs
-    // For now, we'll make a request to a hypothetical endpoint
-    // This would need to be implemented on the backend
-    const response = await fetch(`/api/docker/logs/${containerName}?lines=100`, {
+    // Use the service name directly - the API handles the mapping
+    const response = await fetch(`/api/docker/logs/${service}?lines=100`, {
         method: 'GET',
         headers: {
-            'Accept': 'text/plain'
+            'Accept': 'application/json'
         }
     });
     
     if (!response.ok) {
-        throw new Error('Failed to fetch logs');
+        throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
     }
     
-    const rawLogs = await response.text();
-    return formatDockerLogs(rawLogs);
+    const data = await response.json();
+    return formatDockerLogs(data.logs || '');
 }
 
 function formatDockerLogs(rawLogs) {

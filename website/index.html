@@ -435,10 +435,16 @@
                         <div class="log-controls">
                             <select id="log-service" class="form-select">
                                 <option value="">Select Service...</option>
-                                <option value="n8n">n8n Logs</option>
-                                <option value="db">PostgreSQL Logs</option>
-                                <option value="web">NGINX Logs</option>
-                                <option value="haystack">Haystack Logs</option>
+                                <option value="web">NGINX Web Server</option>
+                                <option value="n8n">n8n Workflow Engine</option>
+                                <option value="db">PostgreSQL Database</option>
+                                <option value="redis">Redis Cache</option>
+                                <option value="lawyer-chat">Lawyer Chat</option>
+                                <option value="ai-portal">AI Portal</option>
+                                <option value="court-processor">Court Processor</option>
+                                <option value="docker-api">Docker API</option>
+                                <option value="haystack-service">Haystack Service</option>
+                                <option value="elasticsearch">Elasticsearch</option>
                             </select>
                             <button class="btn btn-secondary" onclick="viewLogs()">
                                 <i class="fas fa-file-alt"></i> View Logs
