@@ -1,0 +1,1254 @@
+# CourtListener RECAP Fetch API - Comprehensive Implementation Guide
+
+## Table of Contents
+1. [Overview](#overview)
+2. [Authentication](#authentication)
+3. [Core Concepts](#core-concepts)
+4. [API Endpoints](#api-endpoints)
+5. [Request Types](#request-types)
+6. [Status Management](#status-management)
+7. [Error Handling](#error-handling)
+8. [Security & Credentials](#security--credentials)
+9. [Rate Limiting & Throttling](#rate-limiting--throttling)
+10. [Webhooks](#webhooks)
+11. [Implementation Examples](#implementation-examples)
+12. [Best Practices](#best-practices)
+13. [Troubleshooting](#troubleshooting)
+
+## Overview
+
+The CourtListener RECAP Fetch API allows developers to programmatically purchase and download PACER content using their PACER credentials while contributing to the public RECAP Archive. This is an **asynchronous API** that queues requests for processing by CourtListener's infrastructure.
+
+### Key Features
+- **Free to use** (you only pay PACER fees)
+- **Asynchronous processing** with status tracking
+- **Automatic OCR** text extraction from PDFs
+- **Public archive contribution** - all content becomes freely available
+- **Webhook notifications** for request completion
+- **Three content types**: Dockets, PDFs, and Attachment Pages
+
+### Important Notes
+- You pay PACER fees directly ($0.10/page, $3.00 document maximum)
+- All downloaded content is added to the public RECAP Archive
+- PACER credentials are encrypted in transit, used immediately for cookies, then discarded
+- Session cookies expire after 1 hour
+
+## Authentication
+
+### Required Authentication
+All requests require a CourtListener API token in the Authorization header:
+
+```
+Authorization: Token <your-token-here>
+```
+
+### Getting Your Token
+1. Create a free CourtListener account at https://www.courtlistener.com/
+2. Visit your profile to find your API token
+3. Never forget the word "Token" in the header - common mistake
+
+### Authentication Examples
+
+**cURL:**
+```bash
+curl -X POST \
+  --header 'Authorization: Token <your-token-here>' \
+  --data 'request_type=1' \
+  "https://www.courtlistener.com/api/rest/v4/recap-fetch/"
+```
+
+**Python:**
+```python
+headers = {
+    'Authorization': 'Token <your-token-here>'
+}
+```
+
+**JavaScript:**
+```javascript
+const headers = {
+    'Authorization': 'Token <your-token-here>'
+};
+```
+
+## Core Concepts
+
+### Asynchronous Processing
+The API immediately returns a request ID and queues the request for processing. Most requests complete within seconds.
+
+**Workflow:**
+1. Submit POST request → Receive request ID
+2. Poll status endpoint OR use webhooks
+3. Access downloaded content via CourtListener APIs
+
+### Content Types
+- **Dockets**: Case information, docket entries, parties, attorneys
+- **PDFs**: Individual court documents  
+- **Attachment Pages**: Free HTML pages listing document attachments
+
+### PACER Integration
+- Uses your PACER credentials to purchase content
+- Credentials handled securely: encrypted in transit, immediately converted to cookies, then discarded
+- Cookies stored for maximum 1 hour
+
+## API Endpoints
+
+### Base URL
+```
+https://www.courtlistener.com/api/rest/v4/recap-fetch/
+```
+
+### Methods
+- **POST** `/api/rest/v4/recap-fetch/` - Submit new fetch request
+- **GET** `/api/rest/v4/recap-fetch/{id}/` - Check request status
+- **OPTIONS** `/api/rest/v4/recap-fetch/` - Get field definitions
+
+### URL Patterns
+```
+POST   /api/rest/v4/recap-fetch/           # Submit request
+GET    /api/rest/v4/recap-fetch/{id}/      # Check status  
+```
+
+## Request Types
+
+### 1. Docket Requests (request_type=1)
+
+Fetch complete docket information from PACER.
+
+#### Required Parameters
+- `request_type`: `1`
+- `pacer_username`: Your PACER username
+- `pacer_password`: Your PACER password
+
+#### Docket Identification (Choose One Method)
+
+**Method A: CourtListener Docket ID**
+```bash
+--data 'docket=12345'
+```
+
+**Method B: Docket Number + Court**
+```bash
+--data 'docket_number=5:16-cv-00432' \
+--data 'court=txed'
+```
+
+**Method C: PACER Case ID + Court (District Courts Only)**
+```bash
+--data 'pacer_case_id=123456' \
+--data 'court=txed'
+```
+
+#### Optional Parameters
+- `show_parties_and_counsel`: `true` - Include party and attorney information
+- `de_date_start`: `MM/DD/YYYY` - Start date for docket entries  
+- `de_date_end`: `MM/DD/YYYY` - End date for docket entries
+- `client_code`: Your client code (if applicable)
+
+#### Complete Example
+```bash
+curl -X POST \
+  --data 'request_type=1' \
+  --data 'docket_number=1:20-cv-12345' \
+  --data 'court=txed' \
+  --data 'show_parties_and_counsel=true' \
+  --data 'pacer_username=your_username' \
+  --data 'pacer_password=your_password' \
+  --header 'Authorization: Token <your-token-here>' \
+  "https://www.courtlistener.com/api/rest/v4/recap-fetch/"
+```
+
+### 2. PDF Document Requests (request_type=2)
+
+Fetch individual PDF documents by CourtListener document ID.
+
+#### Required Parameters
+- `request_type`: `2`
+- `recap_document`: CourtListener document ID (integer)
+- `pacer_username`: Your PACER username  
+- `pacer_password`: Your PACER password
+
+#### Optional Parameters
+- `client_code`: Your client code (if applicable)
+
+#### Example
+```bash
+curl -X POST \
+  --data 'request_type=2' \
+  --data 'recap_document=112345' \
+  --data 'pacer_username=your_username' \
+  --data 'pacer_password=your_password' \
+  --header 'Authorization: Token <your-token-here>' \
+  "https://www.courtlistener.com/api/rest/v4/recap-fetch/"
+```
+
+#### Important Notes
+- If we don't have the pacer_doc_id for a document, you'll get an error asking you to download the docket first
+- Documents must exist in CourtListener before PDF requests
+- PDFs are automatically OCR processed for text extraction
+
+### 3. Attachment Page Requests (request_type=3)
+
+Fetch attachment listing pages - these are FREE in PACER.
+
+#### Required Parameters  
+- `request_type`: `3`
+- `recap_document`: CourtListener document ID
+- `pacer_username`: Your PACER username
+- `pacer_password`: Your PACER password
+
+#### Example
+```bash
+curl -X POST \
+  --data 'request_type=3' \
+  --data 'recap_document=112345' \
+  --data 'pacer_username=your_username' \
+  --data 'pacer_password=your_password' \
+  --header 'Authorization: Token <your-token-here>' \
+  "https://www.courtlistener.com/api/rest/v4/recap-fetch/"
+```
+
+## Status Management
+
+### Response Format
+All POST requests return:
+```json
+{
+  "id": 123456,
+  "date_created": "2024-07-19T10:30:00Z",
+  "status": 1,
+  "error_message": "",
+  "docket": null,
+  "recap_document": null
+}
+```
+
+### Status Monitoring
+Check request status by polling the status endpoint:
+
+```bash
+curl -X GET \
+  --header 'Authorization: Token <your-token-here>' \
+  "https://www.courtlistener.com/api/rest/v4/recap-fetch/123456/"
+```
+
+### Status Codes
+Based on the official documentation and testing:
+
+| Code | Status | Description | Action |
+|------|---------|-------------|---------|
+| 1 | Awaiting Processing | Request queued | Keep polling |
+| 2 | Success | Completed successfully | Use the data |
+| 3 | Failed | Processing failed | Check error_message |
+| 4 | Queued for Retry | Will retry automatically | Keep polling |
+| 5 | Success After Retry | Completed after retry | Use the data |
+| 6 | Failed After Retries | Failed all retries | Check error, consider manual retry |
+
+### Polling Best Practices
+```python
+import time
+import requests
+
+def monitor_request(request_id, token, max_wait=300):
+    """Monitor a RECAP fetch request until completion."""
+    start_time = time.time()
+    
+    while time.time() - start_time < max_wait:
+        response = requests.get(
+            f'https://www.courtlistener.com/api/rest/v4/recap-fetch/{request_id}/',
+            headers={'Authorization': f'Token {token}'}
+        )
+        
+        data = response.json()
+        status = data['status']
+        
+        # Success states
+        if status in [2, 5]:
+            return data
+            
+        # Failure states  
+        if status in [3, 6]:
+            raise Exception(f"Request failed: {data['error_message']}")
+            
+        # Still processing
+        print(f"Status: {status} - Waiting...")
+        time.sleep(2)
+    
+    raise TimeoutError("Request timed out")
+```
+
+## Error Handling
+
+### Common Errors
+
+#### Authentication Errors
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+#### PACER Credential Errors
+```json
+{
+  "error_message": "Unable to log into PACER with provided credentials"
+}
+```
+
+#### Missing Document Errors
+"Please download the docket first" - occurs when trying to get PDF without pacer_doc_id
+
+#### Sealed Document Warning
+```json
+{
+  "error_message": "Document is sealed - proceed with caution"
+}
+```
+
+### Error Response Format
+```json
+{
+  "id": 123456,
+  "status": 3,
+  "error_message": "Detailed error description",
+  "date_completed": "2024-07-19T10:35:00Z"
+}
+```
+
+### Error Handling Implementation
+```python
+def handle_recap_response(response_data):
+    """Handle RECAP fetch response with proper error checking."""
+    status = response_data.get('status')
+    error_message = response_data.get('error_message', '')
+    
+    if status == 3:  # Failed
+        if 'download the docket first' in error_message:
+            raise ValueError("Missing docket - fetch docket before requesting PDF")
+        elif 'sealed' in error_message.lower():
+            print("WARNING: Accessing sealed document")
+        else:
+            raise Exception(f"Request failed: {error_message}")
+    
+    elif status == 6:  # Failed after retries
+        raise Exception(f"Request failed after retries: {error_message}")
+    
+    return response_data
+```
+
+## Security & Credentials
+
+### PACER Credential Security
+CourtListener implements enterprise-grade credential security:
+
+1. **Encryption in Transit**: All credentials encrypted via HTTPS
+2. **Immediate Use**: Credentials used immediately to obtain PACER session cookies
+3. **No Storage**: Credentials discarded after use - no database columns exist for storing them
+4. **Cookie Expiration**: Session cookies automatically expire after 1 hour
+5. **No Logging**: Credentials never written to logs
+
+### Security Best Practices
+
+#### Environment Variables
+```python
+import os
+
+PACER_USERNAME = os.environ['PACER_USERNAME']
+PACER_PASSWORD = os.environ['PACER_PASSWORD'] 
+COURTLISTENER_TOKEN = os.environ['CL_TOKEN']
+```
+
+#### Credential Rotation
+```python
+class PACERCredentialManager:
+    def __init__(self):
+        self.last_used = {}
+        self.session_duration = 3600  # 1 hour
+    
+    def should_refresh_credentials(self, username):
+        """Check if credentials need refresh based on 1-hour expiry."""
+        last_use = self.last_used.get(username, 0)
+        return time.time() - last_use > self.session_duration
+    
+    def mark_credentials_used(self, username):
+        """Mark credentials as recently used."""
+        self.last_used[username] = time.time()
+```
+
+#### Access Control
+- Implement IP whitelisting for production systems
+- Use service accounts with minimal required permissions
+- Monitor API usage via your CourtListener profile
+- Implement request logging (but never log credentials)
+
+## Rate Limiting & Throttling
+
+### API Limits
+CourtListener enforces the following limits:
+- **Authenticated Users**: 5,000 requests per hour
+- **Unauthenticated Users**: 100 requests per day
+
+### PACER Considerations
+- PACER itself has rate limiting
+- Large dockets can take significant time to generate
+- Some dockets with hundreds of parties can be extremely slow
+
+### Implementation Strategy
+```python
+import time
+from collections import deque
+
+class RateLimiter:
+    def __init__(self, max_requests=5000, time_window=3600):
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.requests = deque()
+    
+    def wait_if_needed(self):
+        """Implement rate limiting with sliding window."""
+        now = time.time()
+        
+        # Remove old requests outside time window
+        while self.requests and self.requests[0] < now - self.time_window:
+            self.requests.popleft()
+        
+        # Check if we need to wait
+        if len(self.requests) >= self.max_requests:
+            sleep_time = self.requests[0] + self.time_window - now
+            if sleep_time > 0:
+                print(f"Rate limit reached. Waiting {sleep_time:.1f} seconds...")
+                time.sleep(sleep_time)
+        
+        # Record this request
+        self.requests.append(now)
+
+# Usage
+rate_limiter = RateLimiter()
+
+def make_recap_request(data):
+    rate_limiter.wait_if_needed()
+    return requests.post(url, data=data, headers=headers)
+```
+
+### Bulk Operation Strategy
+```python
+def process_bulk_requests(request_list, delay=0.5):
+    """Process multiple requests with appropriate delays."""
+    results = []
+    
+    for i, request_data in enumerate(request_list):
+        try:
+            # Submit request
+            response = make_recap_request(request_data)
+            results.append(response.json())
+            
+            # Progress update
+            if i % 10 == 0:
+                print(f"Processed {i}/{len(request_list)} requests")
+            
+            # Rate limiting delay
+            time.sleep(delay)
+            
+        except Exception as e:
+            print(f"Request {i} failed: {e}")
+            results.append({"error": str(e)})
+    
+    return results
+```
+
+## Webhooks
+
+CourtListener supports webhooks for RECAP Fetch events, eliminating the need for polling.
+
+### Event Types
+- **recap_fetch.terminated** - Fired when request completes (success or failure)
+
+### Webhook Configuration
+Set up webhooks via the CourtListener web interface or API.
+
+### Webhook Payload
+```json
+{
+  "webhook": {
+    "version": 1,
+    "event_type": "recap_fetch.terminated"
+  },
+  "payload": {
+    "id": 123456,
+    "status": 2,
+    "docket": "https://www.courtlistener.com/api/rest/v4/dockets/456/",
+    "recap_document": "https://www.courtlistener.com/api/rest/v4/recap-documents/789/",
+    "error_message": "Successful upload!",
+    "date_completed": "2024-07-19T10:35:00Z"
+  }
+}
+```
+
+### Webhook Implementation
+```python
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/webhooks/recap', methods=['POST'])
+def handle_recap_webhook():
+    """Handle RECAP fetch completion webhook."""
+    data = request.json
+    
+    webhook_info = data['webhook']
+    payload = data['payload']
+    
+    if webhook_info['event_type'] == 'recap_fetch.terminated':
+        request_id = payload['id']
+        status = payload['status']
+        
+        if status in [2, 5]:  # Success
+            print(f"Request {request_id} completed successfully")
+            # Process successful completion
+            process_successful_fetch(payload)
+        else:  # Failed
+            print(f"Request {request_id} failed: {payload['error_message']}")
+            # Handle failure
+            process_failed_fetch(payload)
+    
+    return jsonify({"status": "received"})
+
+def process_successful_fetch(payload):
+    """Process successful RECAP fetch."""
+    if payload.get('docket'):
+        print(f"Docket available at: {payload['docket']}")
+    if payload.get('recap_document'):
+        print(f"Document available at: {payload['recap_document']}")
+
+def process_failed_fetch(payload):
+    """Process failed RECAP fetch."""
+    # Log error, possibly retry
+    error_msg = payload.get('error_message', 'Unknown error')
+    print(f"Fetch failed: {error_msg}")
+```
+
+### Webhook Security
+CourtListener webhooks do not include authentication signatures. For security:
+- Use HTTPS endpoints
+- Implement IP filtering for CourtListener IPs
+- Validate payload structure
+- Use webhook signing if available in future versions
+
+## Implementation Examples
+
+### Complete Python Implementation
+
+```python
+import os
+import time
+import requests
+from typing import Dict, List, Optional, Union
+
+class CourtListenerRECAPClient:
+    """Complete client for CourtListener RECAP Fetch API."""
+    
+    def __init__(self, token: str, pacer_username: str, pacer_password: str):
+        self.token = token
+        self.pacer_username = pacer_username
+        self.pacer_password = pacer_password
+        self.base_url = 'https://www.courtlistener.com/api/rest/v4/recap-fetch/'
+        self.headers = {'Authorization': f'Token {token}'}
+    
+    def fetch_docket(self, 
+                    docket_identifier: Union[int, str], 
+                    court: Optional[str] = None,
+                    show_parties_and_counsel: bool = True,
+                    date_start: Optional[str] = None,
+                    date_end: Optional[str] = None,
+                    client_code: Optional[str] = None) -> Dict:
+        """
+        Fetch a docket from PACER.
+        
+        Args:
+            docket_identifier: CourtListener docket ID (int) or docket_number (str)
+            court: Court ID (required if docket_number provided)
+            show_parties_and_counsel: Include party/attorney information
+            date_start: Start date for entries (MM/DD/YYYY)
+            date_end: End date for entries (MM/DD/YYYY)
+            client_code: Optional client code
+        """
+        data = {
+            'request_type': 1,
+            'pacer_username': self.pacer_username,
+            'pacer_password': self.pacer_password,
+            'show_parties_and_counsel': show_parties_and_counsel
+        }
+        
+        # Handle different docket identification methods
+        if isinstance(docket_identifier, int):
+            data['docket'] = docket_identifier
+        else:
+            if not court:
+                raise ValueError("Court ID required when using docket_number")
+            data['docket_number'] = docket_identifier
+            data['court'] = court
+        
+        # Optional parameters
+        if date_start:
+            data['de_date_start'] = date_start
+        if date_end:
+            data['de_date_end'] = date_end
+        if client_code:
+            data['client_code'] = client_code
+        
+        return self._submit_request(data)
+    
+    def fetch_pdf(self, recap_document_id: int, client_code: Optional[str] = None) -> Dict:
+        """Fetch a PDF document by CourtListener document ID."""
+        data = {
+            'request_type': 2,
+            'recap_document': recap_document_id,
+            'pacer_username': self.pacer_username,
+            'pacer_password': self.pacer_password
+        }
+        
+        if client_code:
+            data['client_code'] = client_code
+        
+        return self._submit_request(data)
+    
+    def fetch_attachment_page(self, recap_document_id: int) -> Dict:
+        """Fetch attachment page (free in PACER)."""
+        data = {
+            'request_type': 3,
+            'recap_document': recap_document_id,
+            'pacer_username': self.pacer_username,
+            'pacer_password': self.pacer_password
+        }
+        
+        return self._submit_request(data)
+    
+    def _submit_request(self, data: Dict) -> Dict:
+        """Submit request to RECAP Fetch API."""
+        response = requests.post(self.base_url, data=data, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+    
+    def check_status(self, request_id: int) -> Dict:
+        """Check status of a submitted request."""
+        url = f"{self.base_url}{request_id}/"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+    
+    def wait_for_completion(self, request_id: int, max_wait: int = 300, poll_interval: int = 2) -> Dict:
+        """Wait for request completion with polling."""
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait:
+            status_data = self.check_status(request_id)
+            status = status_data['status']
+            
+            # Success states
+            if status in [2, 5]:
+                return status_data
+            
+            # Failure states
+            if status in [3, 6]:
+                error_msg = status_data.get('error_message', 'Unknown error')
+                raise Exception(f"Request failed: {error_msg}")
+            
+            # Still processing
+            print(f"Status: {status} - Waiting...")
+            time.sleep(poll_interval)
+        
+        raise TimeoutError(f"Request {request_id} timed out after {max_wait} seconds")
+
+# Usage Example
+def main():
+    # Initialize client
+    client = CourtListenerRECAPClient(
+        token=os.environ['CL_TOKEN'],
+        pacer_username=os.environ['PACER_USERNAME'],
+        pacer_password=os.environ['PACER_PASSWORD']
+    )
+    
+    # Fetch a docket
+    try:
+        print("Fetching docket...")
+        request_data = client.fetch_docket(
+            docket_identifier='1:20-cv-12345',
+            court='txed',
+            show_parties_and_counsel=True
+        )
+        
+        request_id = request_data['id']
+        print(f"Request submitted with ID: {request_id}")
+        
+        # Wait for completion
+        result = client.wait_for_completion(request_id)
+        print(f"Success! Docket URL: {result.get('docket')}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+
+### JavaScript/Node.js Implementation
+
+```javascript
+const axios = require('axios');
+
+class CourtListenerRECAPClient {
+    constructor(token, pacerUsername, pacerPassword) {
+        this.token = token;
+        this.pacerUsername = pacerUsername;
+        this.pacerPassword = pacerPassword;
+        this.baseUrl = 'https://www.courtlistener.com/api/rest/v4/recap-fetch/';
+        this.headers = {
+            'Authorization': `Token ${token}`
+        };
+    }
+
+    async fetchDocket(options) {
+        const {
+            docketIdentifier,
+            court,
+            showPartiesAndCounsel = true,
+            dateStart,
+            dateEnd,
+            clientCode
+        } = options;
+
+        const data = {
+            request_type: 1,
+            pacer_username: this.pacerUsername,
+            pacer_password: this.pacerPassword,
+            show_parties_and_counsel: showPartiesAndCounsel
+        };
+
+        // Handle docket identification
+        if (typeof docketIdentifier === 'number') {
+            data.docket = docketIdentifier;
+        } else {
+            if (!court) {
+                throw new Error('Court ID required when using docket_number');
+            }
+            data.docket_number = docketIdentifier;
+            data.court = court;
+        }
+
+        // Optional parameters
+        if (dateStart) data.de_date_start = dateStart;
+        if (dateEnd) data.de_date_end = dateEnd;
+        if (clientCode) data.client_code = clientCode;
+
+        return this._submitRequest(data);
+    }
+
+    async fetchPDF(recapDocumentId, clientCode) {
+        const data = {
+            request_type: 2,
+            recap_document: recapDocumentId,
+            pacer_username: this.pacerUsername,
+            pacer_password: this.pacerPassword
+        };
+
+        if (clientCode) data.client_code = clientCode;
+
+        return this._submitRequest(data);
+    }
+
+    async fetchAttachmentPage(recapDocumentId) {
+        const data = {
+            request_type: 3,
+            recap_document: recapDocumentId,
+            pacer_username: this.pacerUsername,
+            pacer_password: this.pacerPassword
+        };
+
+        return this._submitRequest(data);
+    }
+
+    async _submitRequest(data) {
+        try {
+            const response = await axios.post(this.baseUrl, data, {
+                headers: this.headers
+            });
+            return response.data;
+        } catch (error) {
+            throw new Error(`Request failed: ${error.response?.data?.detail || error.message}`);
+        }
+    }
+
+    async checkStatus(requestId) {
+        try {
+            const response = await axios.get(`${this.baseUrl}${requestId}/`, {
+                headers: this.headers
+            });
+            return response.data;
+        } catch (error) {
+            throw new Error(`Status check failed: ${error.response?.data?.detail || error.message}`);
+        }
+    }
+
+    async waitForCompletion(requestId, maxWait = 300, pollInterval = 2) {
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < maxWait * 1000) {
+            const statusData = await this.checkStatus(requestId);
+            const status = statusData.status;
+
+            // Success states
+            if ([2, 5].includes(status)) {
+                return statusData;
+            }
+
+            // Failure states
+            if ([3, 6].includes(status)) {
+                const errorMsg = statusData.error_message || 'Unknown error';
+                throw new Error(`Request failed: ${errorMsg}`);
+            }
+
+            // Still processing
+            console.log(`Status: ${status} - Waiting...`);
+            await new Promise(resolve => setTimeout(resolve, pollInterval * 1000));
+        }
+
+        throw new Error(`Request ${requestId} timed out after ${maxWait} seconds`);
+    }
+}
+
+// Usage Example
+async function main() {
+    const client = new CourtListenerRECAPClient(
+        process.env.CL_TOKEN,
+        process.env.PACER_USERNAME,
+        process.env.PACER_PASSWORD
+    );
+
+    try {
+        console.log('Fetching docket...');
+        const requestData = await client.fetchDocket({
+            docketIdentifier: '1:20-cv-12345',
+            court: 'txed',
+            showPartiesAndCounsel: true
+        });
+
+        const requestId = requestData.id;
+        console.log(`Request submitted with ID: ${requestId}`);
+
+        // Wait for completion
+        const result = await client.waitForCompletion(requestId);
+        console.log(`Success! Docket URL: ${result.docket}`);
+
+    } catch (error) {
+        console.error(`Error: ${error.message}`);
+    }
+}
+
+module.exports = CourtListenerRECAPClient;
+```
+
+## Best Practices
+
+### 1. Request Optimization
+
+#### Check RECAP First
+Before purchasing, check if content already exists:
+
+```python
+def check_recap_availability(docket_number, court):
+    """Check if docket already exists in RECAP before purchasing."""
+    search_url = "https://www.courtlistener.com/api/rest/v4/search/"
+    params = {
+        'type': 'r',  # RECAP search
+        'q': f'docketNumber:"{docket_number}" AND court_id:{court}'
+    }
+    
+    response = requests.get(search_url, params=params, headers=headers)
+    results = response.json()
+    
+    return results['count'] > 0
+```
+
+#### Batch Processing
+```python
+def process_docket_batch(docket_list, batch_size=10):
+    """Process dockets in batches to manage load."""
+    results = []
+    
+    for i in range(0, len(docket_list), batch_size):
+        batch = docket_list[i:i + batch_size]
+        batch_results = []
+        
+        # Submit batch
+        for docket_info in batch:
+            try:
+                result = client.fetch_docket(**docket_info)
+                batch_results.append(result)
+                time.sleep(0.5)  # Rate limiting
+            except Exception as e:
+                print(f"Failed to submit {docket_info}: {e}")
+                batch_results.append({"error": str(e)})
+        
+        # Monitor batch completion
+        for result in batch_results:
+            if 'id' in result:
+                try:
+                    final_result = client.wait_for_completion(result['id'])
+                    results.append(final_result)
+                except Exception as e:
+                    print(f"Request {result['id']} failed: {e}")
+        
+        print(f"Completed batch {i//batch_size + 1}")
+    
+    return results
+```
+
+### 2. Error Recovery
+
+#### Retry Logic
+```python
+import random
+from functools import wraps
+
+def retry_with_backoff(max_retries=3, base_delay=1, max_delay=60):
+    """Decorator for retry logic with exponential backoff."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    
+                    if attempt == max_retries - 1:
+                        break
+                    
+                    # Exponential backoff with jitter
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    jitter = random.uniform(0.1, 0.9) * delay
+                    
+                    print(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay + jitter:.1f}s...")
+                    time.sleep(delay + jitter)
+            
+            raise last_exception
+        return wrapper
+    return decorator
+
+@retry_with_backoff(max_retries=3)
+def robust_fetch_docket(client, **kwargs):
+    """Fetch docket with automatic retry."""
+    return client.fetch_docket(**kwargs)
+```
+
+### 3. Cost Management
+
+#### Cost Estimation
+```python
+def estimate_pacer_costs(num_dockets, avg_docs_per_docket=50, avg_pages_per_doc=10):
+    """Estimate PACER costs for bulk operations."""
+    
+    # Docket costs ($3 max per docket)
+    docket_cost = num_dockets * 3.00
+    
+    # Document costs (assume 70% are new, 30% already in RECAP)
+    new_docs = num_dockets * avg_docs_per_docket * 0.7
+    doc_cost = new_docs * min(avg_pages_per_doc * 0.10, 3.00)
+    
+    total = docket_cost + doc_cost
+    
+    return {
+        'dockets': docket_cost,
+        'documents': doc_cost,
+        'total': total,
+        'estimated_dockets': num_dockets,
+        'estimated_new_docs': int(new_docs)
+    }
+
+# Example
+costs = estimate_pacer_costs(100)
+print(f"Estimated cost for 100 dockets: ${costs['total']:.2f}")
+```
+
+#### Budget Tracking
+```python
+class PACERBudgetTracker:
+    """Track PACER spending against budget."""
+    
+    def __init__(self, monthly_budget=1000):
+        self.monthly_budget = monthly_budget
+        self.current_spending = 0
+        self.requests_made = []
+    
+    def log_request(self, estimated_cost):
+        """Log a request and its estimated cost."""
+        self.current_spending += estimated_cost
+        self.requests_made.append({
+            'timestamp': time.time(),
+            'cost': estimated_cost
+        })
+        
+        if self.current_spending > self.monthly_budget * 0.8:
+            print(f"WARNING: 80% of budget used (${self.current_spending:.2f}/${self.monthly_budget})")
+    
+    def can_afford(self, estimated_cost):
+        """Check if request fits within budget."""
+        return self.current_spending + estimated_cost <= self.monthly_budget
+```
+
+### 4. Monitoring and Logging
+
+#### Request Logging
+```python
+import logging
+from datetime import datetime
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('recap_requests.log'),
+        logging.StreamHandler()
+    ]
+)
+
+def log_request_details(request_type, identifier, status, duration=None):
+    """Log request details for monitoring."""
+    log_data = {
+        'timestamp': datetime.now().isoformat(),
+        'request_type': request_type,
+        'identifier': identifier,
+        'status': status
+    }
+    
+    if duration:
+        log_data['duration_seconds'] = duration
+    
+    logging.info(f"RECAP Request: {log_data}")
+```
+
+#### Performance Metrics
+```python
+class RECAPMetrics:
+    """Track performance metrics for RECAP operations."""
+    
+    def __init__(self):
+        self.request_times = []
+        self.success_count = 0
+        self.failure_count = 0
+        self.total_cost = 0
+    
+    def record_request(self, duration, success, cost=0):
+        """Record metrics for a completed request."""
+        self.request_times.append(duration)
+        if success:
+            self.success_count += 1
+        else:
+            self.failure_count += 1
+        self.total_cost += cost
+    
+    def get_summary(self):
+        """Get performance summary."""
+        if not self.request_times:
+            return "No requests recorded"
+        
+        avg_time = sum(self.request_times) / len(self.request_times)
+        success_rate = self.success_count / (self.success_count + self.failure_count)
+        
+        return {
+            'total_requests': len(self.request_times),
+            'success_rate': success_rate,
+            'average_duration': avg_time,
+            'total_cost': self.total_cost
+        }
+```
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. Authentication Problems
+
+**Issue**: "Authentication credentials were not provided"
+```python
+# Check token format
+headers = {'Authorization': 'Token your-token-here'}  # ✓ Correct
+headers = {'Authorization': 'your-token-here'}        # ✗ Missing "Token"
+```
+
+**Issue**: Getting throttled as anonymous user
+```python
+# Verify token is being sent
+response = requests.post(url, data=data, headers=headers)
+print(f"Headers sent: {response.request.headers}")
+```
+
+#### 2. PACER Credential Issues
+
+**Issue**: "Unable to log into PACER"
+- Verify credentials work on PACER website
+- Check for account suspension
+- Ensure credentials haven't expired
+- Try different case for username
+
+**Issue**: Session expired
+- PACER sessions expire after 1 hour
+- Resubmit requests with fresh credentials
+
+#### 3. Request Status Issues
+
+**Issue**: Request stuck in status 1 (Awaiting Processing)
+```python
+def diagnose_stuck_request(client, request_id):
+    """Diagnose requests stuck in processing."""
+    status_data = client.check_status(request_id)
+    created_time = datetime.fromisoformat(status_data['date_created'].replace('Z', '+00:00'))
+    elapsed = datetime.now(timezone.utc) - created_time
+    
+    if elapsed.total_seconds() > 1800:  # 30 minutes
+        print(f"Request {request_id} stuck for {elapsed}. Consider contacting support.")
+        return True
+    return False
+```
+
+**Issue**: Requests failing with status 3
+```python
+def analyze_failures(failed_requests):
+    """Analyze patterns in failed requests."""
+    error_types = {}
+    
+    for request in failed_requests:
+        error = request.get('error_message', 'Unknown')
+        error_types[error] = error_types.get(error, 0) + 1
+    
+    print("Failure analysis:")
+    for error, count in sorted(error_types.items(), key=lambda x: x[1], reverse=True):
+        print(f"  {error}: {count} occurrences")
+```
+
+#### 4. Network and Timeout Issues
+
+```python
+import requests.adapters
+from urllib3.util.retry import Retry
+
+def create_robust_session():
+    """Create session with retry strategy."""
+    session = requests.Session()
+    
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        method_whitelist=["HEAD", "GET", "OPTIONS", "POST"]
+    )
+    
+    adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    
+    return session
+```
+
+### Debugging Tools
+
+#### Request Validation
+```python
+def validate_recap_request(request_data):
+    """Validate RECAP request before submission."""
+    required_fields = ['request_type', 'pacer_username', 'pacer_password']
+    
+    for field in required_fields:
+        if field not in request_data:
+            raise ValueError(f"Missing required field: {field}")
+    
+    request_type = request_data['request_type']
+    
+    if request_type == 1:  # Docket
+        if not any(k in request_data for k in ['docket', 'docket_number', 'pacer_case_id']):
+            raise ValueError("Docket request requires docket ID, docket_number, or pacer_case_id")
+        
+        if 'docket_number' in request_data and 'court' not in request_data:
+            raise ValueError("Court required when using docket_number")
+    
+    elif request_type in [2, 3]:  # PDF or Attachment
+        if 'recap_document' not in request_data:
+            raise ValueError("recap_document required for PDF/attachment requests")
+    
+    else:
+        raise ValueError(f"Invalid request_type: {request_type}")
+    
+    print("Request validation passed")
+    return True
+```
+
+#### Status Monitoring Dashboard
+```python
+def create_status_dashboard(client, request_ids):
+    """Create simple status dashboard for multiple requests."""
+    print("=" * 60)
+    print("RECAP Request Status Dashboard")
+    print("=" * 60)
+    
+    status_counts = {}
+    
+    for request_id in request_ids:
+        try:
+            status_data = client.check_status(request_id)
+            status = status_data['status']
+            status_counts[status] = status_counts.get(status, 0) + 1
+            
+            status_name = {
+                1: "Processing", 2: "Success", 3: "Failed",
+                4: "Retry Queue", 5: "Success (Retry)", 6: "Failed (Final)"
+            }.get(status, f"Unknown ({status})")
+            
+            print(f"Request {request_id}: {status_name}")
+            
+            if status in [3, 6] and status_data.get('error_message'):
+                print(f"  Error: {status_data['error_message']}")
+        
+        except Exception as e:
+            print(f"Request {request_id}: Error checking status - {e}")
+    
+    print("\nSummary:")
+    for status, count in status_counts.items():
+        status_name = {
+            1: "Processing", 2: "Successful", 3: "Failed",
+            4: "Retry Queue", 5: "Successful (Retry)", 6: "Failed (Final)"
+        }.get(status, f"Status {status}")
+        print(f"  {status_name}: {count}")
+```
+
+### Getting Help
+
+#### CourtListener Support
+- **GitHub Discussions**: https://github.com/freelawproject/courtlistener/discussions
+- **Contact Form**: https://www.courtlistener.com/contact/
+- **Email**: info@free.law
+
+#### PACER Support
+- **PACER Help**: https://pacer.uscourts.gov/help
+- **Technical Support**: 1-800-676-6856
+
+#### API Documentation
+- **REST API Docs**: https://www.courtlistener.com/help/api/rest/
+- **RECAP API Docs**: https://www.courtlistener.com/help/api/rest/recap/
+
+---
+
+## Summary
+
+The CourtListener RECAP Fetch API provides a powerful, cost-effective way to access PACER content while contributing to the public good. Key points for successful implementation:
+
+1. **Security First**: Handle PACER credentials securely using environment variables
+2. **Asynchronous Design**: Plan for polling or webhook-based status monitoring  
+3. **Rate Limiting**: Respect API limits and implement proper request spacing
+4. **Error Handling**: Build robust retry logic and error recovery
+5. **Cost Management**: Monitor spending and check RECAP before purchasing
+6. **Community Benefit**: All content becomes freely available to everyone
+
+This documentation provides the foundation for building reliable, production-ready integrations with the CourtListener RECAP Fetch API.

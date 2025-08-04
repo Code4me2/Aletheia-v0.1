@@ -54,6 +54,20 @@ This implementation provides all necessary features using direct Elasticsearch c
 
 ## Quick Start
 
+### Using the CLI (Recommended)
+```bash
+# From the haystack-service directory
+./cli start          # Start services
+./cli load test      # Load test data
+./cli search "legal" # Test search
+./cli status         # Check health
+
+# Or use make commands
+make dev             # Start dev environment with test data
+make help            # See all available commands
+```
+
+### Using Docker Compose Directly
 ```bash
 # Build and run with Docker Compose (from project root)
 docker-compose -f docker-compose.yml -f n8n/docker-compose.haystack.yml up -d
@@ -64,6 +78,8 @@ curl http://localhost:8000/health
 # View API documentation
 open http://localhost:8000/docs
 ```
+
+For detailed CLI usage, see [CLI.md](CLI.md).
 
 ## Testing
 

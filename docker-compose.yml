@@ -2,7 +2,7 @@ services:
   web:
     image: nginx:latest
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "${WEB_HOST:-127.0.0.1}:${WEB_PORT:-8080}:80"
     volumes:
       - ./website:/usr/share/nginx/html
       - ./nginx/conf.d:/etc/nginx/conf.d
@@ -74,15 +74,45 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       PYTHONPATH: /app
       COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
+      COURTLISTENER_API_KEY: ${COURTLISTENER_API_TOKEN}
+      PACER_USERNAME: ${PACER_USERNAME}
+      PACER_PASSWORD: ${PACER_PASSWORD}
+      RECAP_WEBHOOK_URL: http://recap-webhook:5000/webhook/recap-fetch
     volumes:
       - ./court-data/pdfs:/data/pdfs
       - ./court-data/logs:/data/logs
       - ./court-processor:/app
     depends_on:
       - db
+      - recap-webhook
     networks:
       - backend
     restart: unless-stopped
+  
+  recap-webhook:
+    build:
+      context: ./court-processor/api
+      dockerfile: Dockerfile
+    environment:
+      COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
+      COURTLISTENER_API_KEY: ${COURTLISTENER_API_TOKEN}
+      RECAP_DOWNLOAD_DIR: /data/recap_downloads
+      RECAP_WEBHOOK_SECRET: ${RECAP_WEBHOOK_SECRET}
+      FLASK_ENV: production
+      PYTHONPATH: /app/court-processor
+    ports:
+      - "${RECAP_WEBHOOK_PORT:-5001}:5000"
+    volumes:
+      - ./court-data/recap_downloads:/data/recap_downloads
+      - ./court-processor:/app/court-processor
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   lawyer-chat:
     build: 
@@ -110,8 +140,6 @@ services:
       - PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
       # Redis config
       - REDIS_URL=redis://redis:6379/0
-    ports:
-      - "${LAWYER_CHAT_PORT:-3001}:3000"
     depends_on:
       - db
       - n8n
@@ -160,6 +188,27 @@ services:
       - backend
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  docker-api:
+    build:
+      context: ./docker-api
+      dockerfile: Dockerfile
+    container_name: docker-api
+    restart: unless-stopped
+    ports:
+      - "5002:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - .:/workspace:ro
+    networks:
+      - frontend
+    environment:
+      - FLASK_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

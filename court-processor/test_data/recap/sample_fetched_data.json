@@ -1,0 +1,78 @@
+{
+  "fetch_time": "2024-11-15",
+  "dockets": [
+    {
+      "id": 67895234,
+      "case_name": "Apple Inc. v. Masimo Corporation",
+      "court": "txed",
+      "nature_of_suit": "830",
+      "date_filed": "2024-10-28",
+      "docket_number": "2:24-cv-00567",
+      "assigned_to": "Rodney Gilstrap",
+      "assigned_to_id": 1234,
+      "parties": [
+        {"name": "Apple Inc.", "type": "Plaintiff"},
+        {"name": "Masimo Corporation", "type": "Defendant"}
+      ]
+    },
+    {
+      "id": 67895235,
+      "case_name": "Samsung Electronics Co. v. Imperium IP Holdings",
+      "court": "txed",
+      "nature_of_suit": "830",
+      "date_filed": "2024-11-01",
+      "docket_number": "2:24-cv-00589"
+    }
+  ],
+  "documents": [
+    {
+      "id": 98123456,
+      "docket_entry": 42,
+      "document_number": "42",
+      "description": "Transcript of Claim Construction Hearing held on 11/12/2024 before Judge Gilstrap",
+      "page_count": 187,
+      "date_filed": "2024-11-13",
+      "is_available": true,
+      "filepath_local": "recap/gov.uscourts.txed.67895234/42.pdf",
+      "document_type": "transcript",
+      "plain_text": null,
+      "ocr_status": null
+    },
+    {
+      "id": 98123457,
+      "docket_entry": 41,
+      "document_number": "41",
+      "description": "Order Setting Claim Construction Hearing",
+      "page_count": 3,
+      "date_filed": "2024-11-01",
+      "is_available": true
+    },
+    {
+      "id": 98123458,
+      "docket_entry": 38,
+      "document_number": "38",
+      "description": "Transcript of Discovery Hearing",
+      "page_count": 45,
+      "date_filed": "2024-10-25",
+      "is_available": false,
+      "document_type": "transcript"
+    }
+  ],
+  "transcripts": [
+    {
+      "docket_id": 67895234,
+      "case_name": "Apple Inc. v. Masimo Corporation",
+      "doc_id": 98123456,
+      "description": "Transcript of Claim Construction Hearing held on 11/12/2024 before Judge Gilstrap",
+      "pages": 187
+    },
+    {
+      "docket_id": 67895234,
+      "case_name": "Apple Inc. v. Masimo Corporation", 
+      "doc_id": 98123458,
+      "description": "Transcript of Discovery Hearing",
+      "pages": 45
+    }
+  ],
+  "errors": []
+}

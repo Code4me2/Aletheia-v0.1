@@ -2654,27 +2654,101 @@ body {
   color: var(--secondary-color);
 }
 
-/* Service Status */
+/* Service Status & Monitoring */
 .service-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 .service-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 18px;
   background: var(--light-bg);
   border-radius: var(--border-radius-sm);
   border-left: 4px solid transparent;
   transition: var(--transition);
+  cursor: pointer;
+  position: relative;
 }
 
 .service-item:hover {
   background: var(--bg-secondary);
   transform: translateX(2px);
+}
+
+.service-item.expanded {
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.service-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  gap: 15px;
+}
+
+.service-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.service-expand-icon {
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+  color: var(--text-muted);
+}
+
+.service-item.expanded .service-expand-icon {
+  transform: rotate(90deg);
+}
+
+.service-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.service-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.service-stat-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.service-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.service-restart-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: var(--transition);
+}
+
+.service-restart-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
 }
 
 .service-name {
@@ -2695,28 +2769,80 @@ body {
   font-size: 1.1rem;
 }
 
-.service-status.online {
-  color: var(--success-color);
-}
-
-.service-status.online + .service-item {
+/* Service status colors based on log severity */
+.service-item.status-healthy {
   border-left-color: var(--success-color);
 }
 
-.service-status.offline {
-  color: var(--danger-color);
+.service-item.status-warning {
+  border-left-color: var(--warning-color);
 }
 
-.service-status.offline + .service-item {
+.service-item.status-error {
   border-left-color: var(--danger-color);
 }
 
-.service-status.checking {
-  color: var(--warning-color);
+.service-item.status-info {
+  border-left-color: var(--info-color);
 }
 
-.service-status.checking + .service-item {
-  border-left-color: var(--warning-color);
+.service-item.status-unknown {
+  border-left-color: var(--text-muted);
+}
+
+/* Service log viewer */
+.service-logs {
+  margin: 0 18px 12px 18px;
+  background: var(--dark-bg);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-height: 300px;
+  overflow: hidden;
+  display: none;
+}
+
+.service-item.expanded .service-logs {
+  display: block;
+}
+
+.service-logs-header {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.service-logs-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.service-logs-action {
+  background: none;
+  border: none;
+  color: var(--light-text);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+}
+
+.service-logs-action:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.service-logs-content {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 250px;
+  font-family: var(--code-font);
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 /* Service Status Timestamps */
@@ -2724,6 +2850,28 @@ body {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 4px;
+}
+
+/* Service Controls */
+.service-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color);
+}
+
+.auto-refresh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.auto-refresh-toggle input[type="checkbox"] {
+  margin: 0;
 }
 
 /* Quick Actions */

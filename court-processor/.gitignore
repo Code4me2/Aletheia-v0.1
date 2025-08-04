@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Archives and temp files
+archive/
+downloaded_pdfs/
+opinion_pdfs/
+recap_pdfs/
+test_data/
+*.log
+*.json
+!requirements.json
+
+# Data exports
+*.csv
+data/test_results/
+data/exports/
+
+# Reports
+reports/
+
+# Temporary files
+*_CLEANUP_*.md
+*_STATUS_*.md
+orchestrator_history.json
+
+# Docker
+docker-compose.override.yml

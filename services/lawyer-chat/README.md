@@ -341,7 +341,7 @@ The application integrates with n8n via webhook. Request format:
    ```bash
    npm run dev
    ```
-   Access at http://localhost:3001
+   Access at http://localhost:8080/chat (via nginx proxy)
 
 ### Testing
 
