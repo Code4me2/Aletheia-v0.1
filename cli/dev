@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Aletheia Development CLI Discovery Tool
+Helps developers find and use service-specific CLI tools
+"""
+
+import click
+import os
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+# Service CLI registry
+SERVICE_CLIS = {
+    'haystack': {
+        'path': 'n8n/haystack-service/cli',
+        'description': 'Haystack/Elasticsearch document search service',
+        'docs': 'n8n/haystack-service/CLI.md'
+    },
+    'court-processor': {
+        'path': 'court-processor/cli',
+        'description': 'Court document processing service',
+        'docs': 'court-processor/CLI.md'
+    },
+    'lawyer-chat': {
+        'path': 'services/lawyer-chat/cli',
+        'description': 'Legal AI chat application',
+        'docs': 'services/lawyer-chat/CLI.md'
+    },
+    'ai-portal': {
+        'path': 'services/ai-portal/cli',
+        'description': 'AI services portal',
+        'docs': 'services/ai-portal/CLI.md'
+    }
+}
+
+def get_project_root() -> Path:
+    """Find the project root directory"""
+    current = Path(__file__).parent.parent
+    return current
+
+def find_available_clis() -> List[Tuple[str, Dict]]:
+    """Find which service CLIs actually exist"""
+    root = get_project_root()
+    available = []
+    
+    for name, info in SERVICE_CLIS.items():
+        cli_path = root / info['path']
+        if cli_path.exists():
+            available.append((name, info))
+    
+    return available
+
+@click.group()
+def cli():
+    """Aletheia service CLI discovery tool"""
+    pass
+
+@cli.command()
+def list():
+    """List all available service CLIs"""
+    available = find_available_clis()
+    
+    if not available:
+        click.echo("No service CLIs found. They may not be implemented yet.")
+        return
+    
+    click.echo(click.style("\nAvailable Service CLIs:", bold=True))
+    click.echo("=" * 50)
+    
+    for name, info in available:
+        click.echo(f"\n{click.style(name, fg='green', bold=True)}")
+        click.echo(f"  Description: {info['description']}")
+        click.echo(f"  Location: {info['path']}")
+        if (get_project_root() / info['docs']).exists():
+            click.echo(f"  Docs: {info['docs']}")
+        click.echo(f"  Usage: ./cli/dev run {name} [ARGS]")
+    
+    click.echo("\n" + "=" * 50)
+    click.echo(f"Total: {len(available)} service CLI(s) available\n")
+
+@cli.command(context_settings=dict(
+    ignore_unknown_options=True,
+    allow_extra_args=True,
+))
+@click.argument('service')
+@click.pass_context
+def run(ctx, service):
+    """Run a service CLI with arguments"""
+    if service not in SERVICE_CLIS:
+        click.echo(f"Error: Unknown service '{service}'", err=True)
+        click.echo(f"Available services: {', '.join(SERVICE_CLIS.keys())}", err=True)
+        return 1
+    
+    info = SERVICE_CLIS[service]
+    cli_path = get_project_root() / info['path']
+    
+    if not cli_path.exists():
+        click.echo(f"Error: CLI for {service} not found at {info['path']}", err=True)
+        click.echo(f"Expected location: {cli_path}", err=True)
+        return 1
+    
+    # Pass through all arguments after the service name
+    args = [str(cli_path)] + ctx.args
+    
+    # Execute the service CLI
+    result = subprocess.run(args)
+    return result.returncode
+
+@cli.command()
+@click.argument('service')
+def docs(service):
+    """Open documentation for a service CLI"""
+    if service not in SERVICE_CLIS:
+        click.echo(f"Error: Unknown service '{service}'", err=True)
+        click.echo(f"Available services: {', '.join(SERVICE_CLIS.keys())}", err=True)
+        return 1
+    
+    info = SERVICE_CLIS[service]
+    docs_path = get_project_root() / info['docs']
+    
+    if not docs_path.exists():
+        click.echo(f"Documentation not found at {info['docs']}", err=True)
+        return 1
+    
+    # Try to open with default editor
+    editors = ['code', 'vim', 'nano', 'cat']
+    for editor in editors:
+        try:
+            subprocess.run([editor, str(docs_path)])
+            break
+        except FileNotFoundError:
+            continue
+
+@cli.command()
+def create():
+    """Template for creating a new service CLI"""
+    click.echo("""
+To create a CLI for your service:
+
+1. Create a 'cli' executable in your service directory:
+   services/my-service/cli
+
+2. Make it executable:
+   chmod +x services/my-service/cli
+
+3. Create documentation:
+   services/my-service/CLI.md
+
+4. Add to SERVICE_CLIS in cli/dev:
+   'my-service': {
+       'path': 'services/my-service/cli',
+       'description': 'My service description',
+       'docs': 'services/my-service/CLI.md'
+   }
+
+Example CLI structure:
+   #!/usr/bin/env python3
+   import click
+   
+   @click.group()
+   def cli():
+       '''My service CLI'''
+       pass
+   
+   @cli.command()
+   def start():
+       '''Start the service'''
+       click.echo("Starting service...")
+   
+   if __name__ == '__main__':
+       cli()
+""")
+
+@cli.command()
+def all():
+    """Show all registered services (including missing ones)"""
+    root = get_project_root()
+    
+    click.echo(click.style("\nAll Registered Services:", bold=True))
+    click.echo("=" * 60)
+    
+    for name, info in SERVICE_CLIS.items():
+        cli_path = root / info['path']
+        docs_path = root / info['docs']
+        
+        status = "✓" if cli_path.exists() else "✗"
+        docs_status = "📚" if docs_path.exists() else "📄"
+        
+        click.echo(f"\n{status} {click.style(name, bold=True)}")
+        click.echo(f"  {info['description']}")
+        click.echo(f"  CLI: {info['path']} {'(exists)' if cli_path.exists() else '(missing)'}")
+        click.echo(f"  {docs_status} Docs: {info['docs']} {'(exists)' if docs_path.exists() else '(missing)'}")
+
+if __name__ == '__main__':
+    cli()

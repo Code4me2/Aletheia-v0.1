@@ -1,0 +1,5 @@
+# Requirements for Haystack CLI tool
+click>=8.0.0
+requests>=2.25.0
+elasticsearch>=7.10.0,<8.0.0
+psycopg2-binary>=2.8.0

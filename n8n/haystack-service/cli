@@ -1,0 +1,571 @@
+#!/usr/bin/env python3
+"""
+Haystack Service CLI
+Development and testing tool for the Haystack/Elasticsearch service
+"""
+
+import click
+import subprocess
+import json
+import os
+import sys
+import time
+import requests
+from pathlib import Path
+from typing import Dict, List, Optional
+
+# Service configuration
+SERVICE_NAME = "haystack"
+API_PORT = 8000
+ES_PORT = 9200
+API_URL = f"http://localhost:{API_PORT}"
+ES_URL = f"http://localhost:{ES_PORT}"
+INDEX_NAME = "legal-documents-rag"
+
+# Color output helpers
+class Colors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BLUE = '\033[94m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+def success(msg: str):
+    click.echo(f"{Colors.GREEN}✓ {msg}{Colors.ENDC}")
+
+def error(msg: str):
+    click.echo(f"{Colors.RED}✗ {msg}{Colors.ENDC}", err=True)
+
+def info(msg: str):
+    click.echo(f"{Colors.BLUE}ℹ {msg}{Colors.ENDC}")
+
+def warning(msg: str):
+    click.echo(f"{Colors.YELLOW}⚠ {msg}{Colors.ENDC}")
+
+@click.group()
+@click.version_option(version='1.0.0')
+def cli():
+    """Haystack service CLI for development and testing"""
+    pass
+
+# Service management
+@cli.command()
+@click.option('--build', is_flag=True, help='Build images before starting')
+@click.option('--standalone', is_flag=True, help='Start in standalone mode (no PostgreSQL)')
+def start(build: bool, standalone: bool):
+    """Start Haystack and Elasticsearch services"""
+    info("Starting Haystack services...")
+    
+    # Set environment for standalone mode
+    env_vars = ""
+    if standalone:
+        env_vars = "HAYSTACK_MODE=standalone "
+        info("Starting in standalone mode (no PostgreSQL integration)")
+    
+    # Build command
+    cmd = f"{env_vars}docker-compose -f ../../docker-compose.yml -f ../docker-compose.haystack.yml up -d"
+    if build:
+        cmd += " --build"
+    cmd += " elasticsearch haystack-service"
+    
+    # Execute from the right directory
+    original_dir = os.getcwd()
+    os.chdir(Path(__file__).parent)
+    
+    result = subprocess.run(cmd, shell=True)
+    os.chdir(original_dir)
+    
+    if result.returncode == 0:
+        success("Services started")
+        info("Waiting for services to be healthy...")
+        
+        # Wait for health
+        if wait_for_health():
+            success("All services are healthy")
+            info(f"Haystack API: {API_URL}")
+            info(f"Elasticsearch: {ES_URL}")
+        else:
+            warning("Services started but health check failed")
+    else:
+        error("Failed to start services")
+
+@cli.command()
+def stop():
+    """Stop Haystack and Elasticsearch services"""
+    info("Stopping Haystack services...")
+    
+    original_dir = os.getcwd()
+    os.chdir(Path(__file__).parent)
+    
+    cmd = "docker-compose -f ../../docker-compose.yml -f ../docker-compose.haystack.yml stop elasticsearch haystack-service"
+    result = subprocess.run(cmd, shell=True)
+    
+    os.chdir(original_dir)
+    
+    if result.returncode == 0:
+        success("Services stopped")
+    else:
+        error("Failed to stop services")
+
+@cli.command()
+def status():
+    """Check service health status"""
+    info("Checking Haystack service status...")
+    
+    # Check containers
+    containers = ['elasticsearch-judicial', 'haystack-judicial']
+    for container in containers:
+        result = subprocess.run(
+            f"docker ps --filter name={container} --format '{{{{.Status}}}}'",
+            shell=True, capture_output=True, text=True
+        )
+        if result.stdout.strip():
+            success(f"{container}: {result.stdout.strip()}")
+        else:
+            error(f"{container}: Not running")
+    
+    # Check API health
+    try:
+        response = requests.get(f"{API_URL}/health", timeout=5)
+        if response.status_code == 200:
+            success("Haystack API is healthy")
+            health_data = response.json()
+            click.echo(json.dumps(health_data, indent=2))
+        else:
+            error(f"Haystack API returned {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        error(f"Cannot reach Haystack API: {str(e)}")
+    
+    # Check Elasticsearch
+    try:
+        response = requests.get(f"{ES_URL}/_cluster/health", timeout=5)
+        if response.status_code == 200:
+            health = response.json()
+            status_color = Colors.GREEN if health['status'] == 'green' else Colors.YELLOW
+            click.echo(f"Elasticsearch cluster: {status_color}{health['status']}{Colors.ENDC}")
+        else:
+            error(f"Elasticsearch returned {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        error(f"Cannot reach Elasticsearch: {str(e)}")
+
+@cli.command()
+@click.option('--follow', '-f', is_flag=True, help='Follow log output')
+@click.option('--tail', '-n', default=100, help='Number of lines to show')
+def logs(follow: bool, tail: int):
+    """View service logs"""
+    cmd = f"docker-compose -f ../../docker-compose.yml -f ../docker-compose.haystack.yml logs --tail={tail}"
+    if follow:
+        cmd += " -f"
+    cmd += " elasticsearch haystack-service"
+    
+    original_dir = os.getcwd()
+    os.chdir(Path(__file__).parent)
+    subprocess.run(cmd, shell=True)
+    os.chdir(original_dir)
+
+# Data management
+@cli.command()
+@click.argument('source', type=click.Choice(['test', 'postgres', 'file']))
+@click.option('--limit', default=100, help='Number of documents to load')
+@click.option('--file', 'filepath', help='Path to JSON file (for file source)')
+@click.option('--query', help='PostgreSQL query (for postgres source)')
+def load(source: str, limit: int, filepath: Optional[str], query: Optional[str]):
+    """Load data into Haystack"""
+    info(f"Loading data from {source}...")
+    
+    documents = []
+    
+    if source == 'test':
+        # Generate test documents
+        documents = generate_test_documents(limit)
+        info(f"Generated {len(documents)} test documents")
+        
+    elif source == 'postgres':
+        # Load from PostgreSQL
+        if not query:
+            query = f"""
+                SELECT id, plain_text, court_id, case_name, date_filed
+                FROM court_data.opinions
+                WHERE plain_text IS NOT NULL AND plain_text != ''
+                LIMIT {limit}
+            """
+        
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=os.getenv('POSTGRES_HOST', 'localhost'),
+                database=os.getenv('POSTGRES_DB', 'n8n'),
+                user=os.getenv('POSTGRES_USER', 'postgres'),
+                password=os.getenv('POSTGRES_PASSWORD', 'password')
+            )
+            cur = conn.cursor()
+            cur.execute(query)
+            
+            for row in cur.fetchall():
+                documents.append({
+                    "content": row[1],
+                    "metadata": {
+                        "document_id": str(row[0]),
+                        "court": row[2] if len(row) > 2 else None,
+                        "case_name": row[3] if len(row) > 3 else None,
+                        "date_filed": row[4].isoformat() if len(row) > 4 and row[4] else None,
+                        "source": "courtlistener"
+                    }
+                })
+            conn.close()
+            success(f"Loaded {len(documents)} documents from PostgreSQL")
+        except Exception as e:
+            error(f"Failed to load from PostgreSQL: {str(e)}")
+            return
+            
+    elif source == 'file':
+        if not filepath:
+            error("Please provide --file parameter")
+            return
+        
+        try:
+            with open(filepath) as f:
+                documents = json.load(f)
+            success(f"Loaded {len(documents)} documents from {filepath}")
+        except Exception as e:
+            error(f"Failed to load file: {str(e)}")
+            return
+    
+    # Ingest documents
+    if documents:
+        ingest_documents(documents)
+
+@cli.command()
+@click.confirmation_option(prompt='Are you sure you want to clear all documents?')
+def clear():
+    """Clear all documents from Elasticsearch"""
+    info(f"Clearing all documents from {INDEX_NAME}...")
+    
+    try:
+        response = requests.delete(f"{ES_URL}/{INDEX_NAME}")
+        if response.status_code in [200, 404]:
+            success("All documents cleared")
+        else:
+            error(f"Failed to clear: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        error(f"Failed to connect to Elasticsearch: {str(e)}")
+
+@cli.command()
+@click.argument('query_text')
+@click.option('--type', 'search_type', 
+              type=click.Choice(['hybrid', 'vector', 'bm25']), 
+              default='hybrid',
+              help='Search type')
+@click.option('--limit', default=5, help='Number of results')
+@click.option('--filter', 'filters', multiple=True, 
+              help='Filters in key=value format')
+def search(query_text: str, search_type: str, limit: int, filters: tuple):
+    """Search documents"""
+    info(f"Searching for: '{query_text}' (type: {search_type})")
+    
+    # Parse filters
+    filter_dict = {}
+    for f in filters:
+        if '=' in f:
+            key, value = f.split('=', 1)
+            filter_dict[f"metadata.{key}"] = value
+    
+    # Build request
+    request_data = {
+        'query': query_text,
+        'search_type': search_type,
+        'top_k': limit
+    }
+    if filter_dict:
+        request_data['filters'] = filter_dict
+    
+    try:
+        response = requests.post(f"{API_URL}/search", json=request_data)
+        if response.status_code == 200:
+            results = response.json()
+            success(f"Found {results['total_results']} results")
+            
+            for i, result in enumerate(results['results'][:limit], 1):
+                click.echo(f"\n{Colors.BOLD}Result {i}:{Colors.ENDC}")
+                click.echo(f"Score: {result['score']:.4f}")
+                click.echo(f"Content: {result['content'][:200]}...")
+                if result.get('metadata'):
+                    click.echo(f"Metadata: {json.dumps(result['metadata'], indent=2)}")
+        else:
+            error(f"Search failed: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        error(f"Failed to connect: {str(e)}")
+
+@cli.command()
+def console():
+    """Start interactive Python console"""
+    info("Starting interactive console...")
+    
+    # Check for elasticsearch module
+    try:
+        import elasticsearch
+    except ImportError:
+        error("The 'elasticsearch' module is not installed")
+        info("Install it with: pip install elasticsearch")
+        return
+    
+    console_script = """
+import requests
+import json
+import os
+
+try:
+    from elasticsearch import Elasticsearch
+    es = Elasticsearch(['localhost:9200'])
+except ImportError:
+    print("Warning: elasticsearch module not available")
+    es = None
+api_url = 'http://localhost:8000'
+
+def search(query, search_type='hybrid', limit=5):
+    '''Quick search function'''
+    response = requests.post(
+        f'{api_url}/search',
+        json={'query': query, 'search_type': search_type, 'top_k': limit}
+    )
+    return response.json()
+
+def ingest(documents):
+    '''Quick ingest function'''
+    response = requests.post(f'{api_url}/ingest', json=documents)
+    return response.json()
+
+def get_doc(doc_id):
+    '''Get document by ID'''
+    response = requests.get(f'{api_url}/get_document_with_context/{doc_id}')
+    return response.json()
+
+# Quick access to test data
+test_docs = [
+    {
+        "content": "Sample legal document about contracts",
+        "metadata": {"type": "contract", "jurisdiction": "federal"}
+    },
+    {
+        "content": "Constitutional law precedent case",
+        "metadata": {"type": "constitutional", "court": "supreme"}
+    }
+]
+
+print("\\n{0}Haystack Development Console{1}".format('\\033[1m', '\\033[0m'))
+print("\\nAvailable objects:")
+if es:
+    print("  es           - Elasticsearch client")
+else:
+    print("  es           - Not available (install elasticsearch module)")
+print("  api_url      - Haystack API base URL")
+print("  search()     - Quick search: search('query')")
+print("  ingest()     - Quick ingest: ingest(documents)")
+print("  get_doc()    - Get document: get_doc('doc-id')")
+print("  test_docs    - Sample documents for testing")
+print("\\nExample: results = search('legal precedent')")
+print()
+"""
+    
+    # Write temporary script
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        f.write(console_script)
+        temp_file = f.name
+    
+    # Start interactive Python
+    subprocess.run([sys.executable, '-i', temp_file])
+    
+    # Clean up
+    os.unlink(temp_file)
+
+# Elasticsearch commands
+@cli.group()
+def es():
+    """Direct Elasticsearch operations"""
+    pass
+
+@es.command()
+def indices():
+    """List all indices"""
+    try:
+        response = requests.get(f'{ES_URL}/_cat/indices?v')
+        click.echo(response.text)
+    except requests.exceptions.RequestException as e:
+        error(f"Failed to connect: {str(e)}")
+
+@es.command()
+def stats():
+    """Get index statistics"""
+    try:
+        response = requests.get(f'{ES_URL}/{INDEX_NAME}/_stats')
+        if response.status_code == 200:
+            stats = response.json()
+            if '_all' in stats:
+                total_docs = stats['_all']['primaries']['docs']['count']
+                total_size = stats['_all']['primaries']['store']['size_in_bytes']
+                
+                info(f"Index: {INDEX_NAME}")
+                click.echo(f"Documents: {total_docs:,}")
+                click.echo(f"Size: {total_size / 1024 / 1024:.2f} MB")
+            else:
+                warning("Index does not exist yet")
+        else:
+            error(f"Failed to get stats: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        error(f"Failed to connect: {str(e)}")
+
+@es.command()
+@click.argument('query_dsl')
+def query(query_dsl: str):
+    """Execute raw Elasticsearch query"""
+    try:
+        query_json = json.loads(query_dsl)
+        response = requests.post(
+            f'{ES_URL}/{INDEX_NAME}/_search',
+            json=query_json,
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 200:
+            click.echo(json.dumps(response.json(), indent=2))
+        else:
+            error(f"Query failed: {response.status_code}")
+    except json.JSONDecodeError as e:
+        error(f"Invalid JSON: {str(e)}")
+    except requests.exceptions.RequestException as e:
+        error(f"Failed to connect: {str(e)}")
+
+# Development utilities
+@cli.command()
+def test():
+    """Run quick functionality test"""
+    info("Running Haystack functionality test...")
+    
+    # 1. Check health
+    click.echo("\n1. Checking service health...")
+    try:
+        response = requests.get(f"{API_URL}/health")
+        if response.status_code == 200:
+            success("API is healthy")
+        else:
+            error("API health check failed")
+            return
+    except:
+        error("Cannot connect to API")
+        return
+    
+    # 2. Ingest test document
+    click.echo("\n2. Testing document ingestion...")
+    test_doc = [{
+        "content": "Test document for Haystack CLI validation",
+        "metadata": {"type": "test", "timestamp": time.time()}
+    }]
+    
+    try:
+        response = requests.post(f"{API_URL}/ingest", json=test_doc)
+        if response.status_code == 200:
+            result = response.json()
+            doc_id = result['document_ids'][0]
+            success(f"Ingested test document: {doc_id}")
+        else:
+            error("Ingestion failed")
+            return
+    except Exception as e:
+        error(f"Ingestion error: {str(e)}")
+        return
+    
+    # 3. Test search
+    click.echo("\n3. Testing search...")
+    try:
+        response = requests.post(
+            f"{API_URL}/search",
+            json={"query": "Haystack CLI validation", "top_k": 1}
+        )
+        if response.status_code == 200:
+            results = response.json()
+            if results['total_results'] > 0:
+                success("Search working correctly")
+            else:
+                warning("Search returned no results")
+        else:
+            error("Search failed")
+    except Exception as e:
+        error(f"Search error: {str(e)}")
+    
+    click.echo("\n" + "="*50)
+    success("Basic functionality test completed")
+
+# Helper functions
+def wait_for_health(timeout: int = 60) -> bool:
+    """Wait for services to be healthy"""
+    start_time = time.time()
+    
+    while time.time() - start_time < timeout:
+        try:
+            # Check Haystack API
+            api_response = requests.get(f"{API_URL}/health", timeout=2)
+            
+            # Check Elasticsearch
+            es_response = requests.get(f"{ES_URL}/_cluster/health", timeout=2)
+            
+            if api_response.status_code == 200 and es_response.status_code == 200:
+                return True
+        except:
+            pass
+        
+        time.sleep(2)
+    
+    return False
+
+def ingest_documents(documents: List[Dict]):
+    """Helper to ingest documents"""
+    batch_size = 100
+    total = len(documents)
+    
+    for i in range(0, total, batch_size):
+        batch = documents[i:i+batch_size]
+        try:
+            response = requests.post(f"{API_URL}/ingest", json=batch)
+            if response.status_code == 200:
+                result = response.json()
+                success(f"Ingested batch {i//batch_size + 1}: {result['documents_processed']} documents")
+            else:
+                error(f"Failed batch {i//batch_size + 1}: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            error(f"Failed to ingest batch: {str(e)}")
+
+def generate_test_documents(count: int) -> List[Dict]:
+    """Generate test documents"""
+    templates = [
+        "Legal analysis of {topic} in {area} law context.",
+        "Court ruling on {topic} establishes {area} precedent.",
+        "The {area} implications of {topic} are significant.",
+        "Recent {topic} developments affect {area} practice."
+    ]
+    
+    topics = ["contracts", "torts", "IP", "privacy", "compliance"]
+    areas = ["federal", "state", "international", "constitutional"]
+    
+    documents = []
+    import random
+    
+    for i in range(count):
+        template = random.choice(templates)
+        topic = random.choice(topics)
+        area = random.choice(areas)
+        
+        documents.append({
+            "content": template.format(topic=topic, area=area),
+            "metadata": {
+                "doc_id": f"test-{i}",
+                "type": "test",
+                "topic": topic,
+                "area": area
+            }
+        })
+    
+    return documents
+
+if __name__ == '__main__':
+    cli()
