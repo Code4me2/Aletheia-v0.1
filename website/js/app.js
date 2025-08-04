@@ -125,14 +125,7 @@ class DataComposeApp {
                 // Update the timestamp
                 document.getElementById('last-updated').textContent = new Date().toLocaleString();
                 
-                // Start auto-refresh timer (every 30 seconds)
-                if (window.serviceRefreshInterval) {
-                    clearInterval(window.serviceRefreshInterval);
-                }
-                window.serviceRefreshInterval = setInterval(() => {
-                    checkAllServices();
-                    document.getElementById('last-updated').textContent = new Date().toLocaleString();
-                }, 30000);
+                // Auto-refresh is now handled by the new monitoring system
                 
                 // Ensure RAG Testing script is loaded
                 if (!window.RAGTestingManager && !document.querySelector('script[src*="rag-testing.js"]')) {
@@ -142,11 +135,8 @@ class DataComposeApp {
                 }
             },
             onHide: () => {
-                // Clear the auto-refresh interval when leaving dashboard
-                if (window.serviceRefreshInterval) {
-                    clearInterval(window.serviceRefreshInterval);
-                    window.serviceRefreshInterval = null;
-                }
+                // Stop auto-refresh when leaving dashboard
+                stopAutoRefresh();
             }
         });
     }
@@ -2787,21 +2777,27 @@ function toggleLineStyle() {
 // );
 
 // Developer Dashboard Functions
+const DOCKER_SERVICES = [
+    { id: 'web', name: 'NGINX Web Server', icon: '🌐' },
+    { id: 'n8n', name: 'n8n Workflow Engine', icon: '⚙️' },
+    { id: 'db', name: 'PostgreSQL Database', icon: '🗄️' },
+    { id: 'redis', name: 'Redis Cache', icon: '💾' },
+    { id: 'lawyer-chat', name: 'Lawyer Chat', icon: '💬' },
+    { id: 'ai-portal', name: 'AI Portal', icon: '🤖' },
+    { id: 'ai-portal-nginx', name: 'AI Portal Proxy', icon: '🔀' },
+    { id: 'court-processor', name: 'Court Processor', icon: '⚖️' },
+    { id: 'recap-webhook', name: 'RECAP Webhook', icon: '🔗' },
+    { id: 'docker-api', name: 'Docker API', icon: '🐳' },
+    { id: 'elasticsearch', name: 'Elasticsearch', icon: '🔍' },
+    { id: 'haystack-service', name: 'Haystack Service', icon: '📚' }
+];
+
+let autoRefreshInterval = null;
+let serviceStatsCache = {};
+let expandedServices = new Set();
+
 async function checkAllServices() {
-    // Update last checked time
-    document.getElementById('last-updated').textContent = new Date().toLocaleString();
-    
-    // Check n8n
-    checkService('/n8n/healthz', 'n8n-status', 'n8n Workflow Engine');
-    
-    // Check PostgreSQL (through n8n's database connection)
-    checkService('/n8n/rest/workflows', 'db-status', 'PostgreSQL Database');
-    
-    // Check Haystack/Elasticsearch
-    checkService('http://localhost:8000/health', 'haystack-status', 'Haystack/Elasticsearch', true);
-    
-    // Check Lawyer Chat
-    checkService('/chat', 'lawyer-chat-status', 'Lawyer Chat');
+    await initializeServiceMonitoring();
 }
 
 async function checkService(url, statusId, serviceName, isExternal = false) {
@@ -2861,6 +2857,431 @@ async function checkService(url, statusId, serviceName, isExternal = false) {
     }
 }
 
+// New Enhanced Service Monitoring Functions
+async function initializeServiceMonitoring() {
+    const serviceList = document.getElementById('service-list');
+    if (!serviceList) return;
+    
+    // Create service items
+    serviceList.innerHTML = DOCKER_SERVICES.map(service => createServiceItemHTML(service)).join('');
+    
+    // Fetch initial stats and start monitoring
+    await refreshAllServices();
+    
+    // Set up auto-refresh if enabled
+    const autoRefreshCheckbox = document.getElementById('auto-refresh');
+    if (autoRefreshCheckbox && autoRefreshCheckbox.checked) {
+        startAutoRefresh();
+    }
+}
+
+function createServiceItemHTML(service) {
+    return `
+        <div class="service-item status-unknown" data-service="${service.id}" onclick="toggleServiceLogs('${service.id}')">
+            <div class="service-row">
+                <div class="service-info">
+                    <i class="fas fa-chevron-right service-expand-icon"></i>
+                    <div>
+                        <div class="service-name">${service.icon} ${service.name}</div>
+                        <div class="service-last-check" id="${service.id}-last-check">Loading...</div>
+                    </div>
+                </div>
+                <div class="service-stats" id="${service.id}-stats">
+                    <span class="service-stat"><span class="service-stat-label">CPU:</span> --</span>
+                    <span class="service-stat"><span class="service-stat-label">MEM:</span> --</span>
+                </div>
+                <div class="service-actions">
+                    <span class="service-status" id="${service.id}-status">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                    </span>
+                    <button class="service-restart-btn" onclick="restartService('${service.id}', event)" title="Restart">
+                        <i class="fas fa-redo-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="service-logs" id="${service.id}-logs">
+                <div class="service-logs-header">
+                    <span>Logs</span>
+                    <div class="service-logs-actions">
+                        <button class="service-logs-action" onclick="copyServiceLogs('${service.id}', event)" title="Copy">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="service-logs-action" onclick="downloadServiceLogs('${service.id}', event)" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="service-logs-action" onclick="clearServiceLogs('${service.id}', event)" title="Clear">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="service-logs-content" id="${service.id}-logs-content">
+                    <pre>Loading logs...</pre>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function refreshAllServices() {
+    try {
+        // Fetch Docker stats and health in parallel
+        const [statsResponse, healthResponse] = await Promise.all([
+            fetch('/api/docker/stats'),
+            fetch('/api/docker/health')
+        ]);
+        
+        if (statsResponse.ok) {
+            const data = await statsResponse.json();
+            updateServiceStats(data.stats);
+        }
+        
+        if (healthResponse.ok) {
+            const healthData = await healthResponse.json();
+            updateServiceHealth(healthData.services);
+        }
+        
+        // Update timestamp
+        const lastUpdated = document.getElementById('last-updated');
+        if (lastUpdated) {
+            lastUpdated.textContent = new Date().toLocaleString();
+        }
+    } catch (error) {
+        console.error('Error refreshing services:', error);
+    }
+}
+
+function updateServiceStats(stats) {
+    // Create a map for quick lookup
+    const statsMap = {};
+    stats.forEach(stat => {
+        // Extract container name from ID or use full container ID
+        const serviceName = findServiceByContainer(stat.container);
+        if (serviceName) {
+            statsMap[serviceName] = stat;
+        }
+    });
+    
+    // Update each service
+    DOCKER_SERVICES.forEach(service => {
+        const stat = statsMap[service.id];
+        const serviceItem = document.querySelector(`[data-service="${service.id}"]`);
+        const statsElement = document.getElementById(`${service.id}-stats`);
+        const statusElement = document.getElementById(`${service.id}-status`);
+        const lastCheckElement = document.getElementById(`${service.id}-last-check`);
+        
+        if (stat) {
+            // Update stats
+            if (statsElement) {
+                statsElement.innerHTML = `
+                    <span class="service-stat"><span class="service-stat-label">CPU:</span> ${stat.cpu_percent}</span>
+                    <span class="service-stat"><span class="service-stat-label">MEM:</span> ${stat.memory_usage.split(' / ')[0]}</span>
+                `;
+            }
+            
+            // Update status
+            if (statusElement) {
+                statusElement.innerHTML = '<i class="fas fa-check-circle"></i>';
+            }
+            
+            // Update last check
+            if (lastCheckElement) {
+                lastCheckElement.textContent = 'Running';
+            }
+            
+            // Analyze logs for status color (will be implemented with log fetching)
+            updateServiceStatusColor(service.id, 'healthy');
+            
+            // Cache the stats
+            serviceStatsCache[service.id] = stat;
+        } else {
+            // Service not found in stats
+            if (statsElement) {
+                statsElement.innerHTML = `
+                    <span class="service-stat"><span class="service-stat-label">CPU:</span> --</span>
+                    <span class="service-stat"><span class="service-stat-label">MEM:</span> --</span>
+                `;
+            }
+            
+            if (statusElement) {
+                statusElement.innerHTML = '<i class="fas fa-times-circle"></i>';
+            }
+            
+            if (lastCheckElement) {
+                lastCheckElement.textContent = 'Stopped';
+            }
+            
+            updateServiceStatusColor(service.id, 'error');
+        }
+    });
+}
+
+function findServiceByContainer(containerId) {
+    // Map container names to service IDs
+    const containerMapping = {
+        'docker-api': 'docker-api',
+        'aletheia-web-1': 'web',
+        'aletheia-db-1': 'db',
+        'aletheia-n8n-1': 'n8n',
+        'redis': 'redis',
+        'lawyer-chat': 'lawyer-chat',
+        'ai-portal-app': 'ai-portal',
+        'ai-portal-nginx': 'ai-portal-nginx',
+        'aletheia-court-processor-1': 'court-processor',
+        'aletheia-recap-webhook-1': 'recap-webhook',
+        'elasticsearch-judicial': 'elasticsearch',
+        'haystack-judicial': 'haystack-service',
+        'unstructured-judicial': 'unstructured'
+    };
+    
+    // Direct mapping
+    if (containerMapping[containerId]) {
+        return containerMapping[containerId];
+    }
+    
+    // Fallback: try to match by partial name
+    for (const service of DOCKER_SERVICES) {
+        if (containerId.includes(service.id) || 
+            containerId.includes(service.id.replace('-', '')) ||
+            service.id.includes(containerId)) {
+            return service.id;
+        }
+    }
+    return null;
+}
+
+function updateServiceHealth(healthData) {
+    // Update each service based on health data
+    DOCKER_SERVICES.forEach(service => {
+        const health = healthData[service.id];
+        if (!health) return;
+        
+        const serviceItem = document.querySelector(`[data-service="${service.id}"]`);
+        const statusElement = document.getElementById(`${service.id}-status`);
+        const lastCheckElement = document.getElementById(`${service.id}-last-check`);
+        
+        // Determine status icon and text based on health status
+        let statusIcon, statusText;
+        
+        switch(health.status) {
+            case 'healthy':
+                statusIcon = '<i class="fas fa-check-circle"></i>';
+                statusText = 'Running';
+                break;
+            case 'warning':
+                statusIcon = '<i class="fas fa-exclamation-triangle"></i>';
+                statusText = 'Running (Warnings)';
+                break;
+            case 'error':
+                statusIcon = '<i class="fas fa-exclamation-circle"></i>';
+                statusText = 'Running (Errors)';
+                break;
+            case 'stopped':
+                statusIcon = '<i class="fas fa-times-circle"></i>';
+                statusText = 'Stopped';
+                break;
+            default:
+                statusIcon = '<i class="fas fa-question-circle"></i>';
+                statusText = 'Unknown';
+        }
+        
+        // Update status icon
+        if (statusElement) {
+            statusElement.innerHTML = statusIcon;
+        }
+        
+        // Update last check text
+        if (lastCheckElement) {
+            lastCheckElement.textContent = statusText;
+        }
+        
+        // Update status color based on health
+        updateServiceStatusColor(service.id, health.status);
+    });
+}
+
+function updateServiceStatusColor(serviceId, status) {
+    const serviceItem = document.querySelector(`[data-service="${serviceId}"]`);
+    if (!serviceItem) return;
+    
+    // Remove all status classes
+    serviceItem.classList.remove('status-healthy', 'status-warning', 'status-error', 'status-info', 'status-unknown', 'status-stopped');
+    
+    // Map status to CSS class
+    let statusClass = status;
+    if (status === 'stopped') {
+        statusClass = 'error'; // Use error styling for stopped services
+    }
+    
+    // Add appropriate status class
+    serviceItem.classList.add(`status-${statusClass}`);
+}
+
+async function toggleServiceLogs(serviceId) {
+    const serviceItem = document.querySelector(`[data-service="${serviceId}"]`);
+    const logsContent = document.getElementById(`${serviceId}-logs-content`);
+    
+    if (!serviceItem) return;
+    
+    // Toggle expanded state
+    if (serviceItem.classList.contains('expanded')) {
+        serviceItem.classList.remove('expanded');
+        expandedServices.delete(serviceId);
+    } else {
+        serviceItem.classList.add('expanded');
+        expandedServices.add(serviceId);
+        
+        // Fetch logs when expanding
+        await fetchServiceLogs(serviceId);
+    }
+}
+
+async function fetchServiceLogs(serviceId) {
+    const logsContent = document.getElementById(`${serviceId}-logs-content`);
+    if (!logsContent) return;
+    
+    try {
+        const response = await fetch(`/api/docker/logs/${serviceId}?lines=100`);
+        if (response.ok) {
+            const data = await response.json();
+            const formattedLogs = formatDockerLogs(data.logs || '');
+            logsContent.innerHTML = formattedLogs;
+            
+            // Analyze logs for status color
+            analyzeLogsForStatus(serviceId, data.logs || '');
+            
+            // Auto-scroll to bottom
+            logsContent.scrollTop = logsContent.scrollHeight;
+        } else {
+            logsContent.innerHTML = '<span class="log-line error">Failed to fetch logs</span>';
+        }
+    } catch (error) {
+        logsContent.innerHTML = '<span class="log-line error">Error loading logs: ' + error.message + '</span>';
+    }
+}
+
+function analyzeLogsForStatus(serviceId, logs) {
+    const lines = logs.split('\n').slice(-50); // Check last 50 lines
+    let hasError = false;
+    let hasWarning = false;
+    
+    lines.forEach(line => {
+        const upperLine = line.toUpperCase();
+        if (upperLine.includes('ERROR') || upperLine.includes('FATAL') || upperLine.includes('CRITICAL')) {
+            hasError = true;
+        } else if (upperLine.includes('WARNING') || upperLine.includes('WARN')) {
+            hasWarning = true;
+        }
+    });
+    
+    // Update status color based on log analysis
+    if (hasError) {
+        updateServiceStatusColor(serviceId, 'error');
+    } else if (hasWarning) {
+        updateServiceStatusColor(serviceId, 'warning');
+    } else {
+        updateServiceStatusColor(serviceId, 'healthy');
+    }
+}
+
+function copyServiceLogs(serviceId, event) {
+    event.stopPropagation();
+    const logsContent = document.getElementById(`${serviceId}-logs-content`);
+    if (!logsContent) return;
+    
+    const text = logsContent.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        // Show temporary success message
+        const btn = event.target.closest('.service-logs-action');
+        const originalTitle = btn.title;
+        btn.title = 'Copied!';
+        setTimeout(() => btn.title = originalTitle, 2000);
+    });
+}
+
+function downloadServiceLogs(serviceId, event) {
+    event.stopPropagation();
+    const logsContent = document.getElementById(`${serviceId}-logs-content`);
+    if (!logsContent) return;
+    
+    const text = logsContent.textContent;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${serviceId}-logs-${timestamp}.txt`;
+    
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function clearServiceLogs(serviceId, event) {
+    event.stopPropagation();
+    const logsContent = document.getElementById(`${serviceId}-logs-content`);
+    if (!logsContent) return;
+    
+    logsContent.innerHTML = '<span class="log-line info">Logs cleared</span>';
+}
+
+async function restartService(serviceId, event) {
+    event.stopPropagation();
+    
+    if (!confirm(`Are you sure you want to restart ${serviceId}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/docker/restart/${serviceId}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            // Show success message
+            const serviceItem = document.querySelector(`[data-service="${serviceId}"]`);
+            const statusElement = document.getElementById(`${serviceId}-status`);
+            if (statusElement) {
+                statusElement.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Restarting...';
+            }
+            
+            // Refresh stats after a delay
+            setTimeout(() => refreshAllServices(), 3000);
+        } else {
+            alert(`Failed to restart ${serviceId}`);
+        }
+    } catch (error) {
+        alert(`Error restarting ${serviceId}: ${error.message}`);
+    }
+}
+
+function toggleAutoRefresh() {
+    const checkbox = document.getElementById('auto-refresh');
+    if (checkbox.checked) {
+        startAutoRefresh();
+    } else {
+        stopAutoRefresh();
+    }
+}
+
+function startAutoRefresh() {
+    stopAutoRefresh(); // Clear any existing interval
+    autoRefreshInterval = setInterval(() => {
+        refreshAllServices();
+        // Refresh logs for expanded services
+        expandedServices.forEach(serviceId => {
+            fetchServiceLogs(serviceId);
+        });
+    }, 10000); // 10 seconds
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+// Replace the old viewLogs function with an empty one since we removed that card
 async function viewLogs() {
     const service = document.getElementById('log-service').value;
     const logViewer = document.getElementById('log-viewer');

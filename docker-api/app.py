@@ -230,5 +230,283 @@ def docker_status():
             'error': f'Failed to get Docker status: {result["error"]}'
         }), 500
 
+@app.route('/api/docker/logs/all', methods=['GET'])
+def get_all_logs():
+    """Get logs for all services with structured parsing"""
+    lines = request.args.get('lines', '50')
+    
+    all_logs = {}
+    for service in DOCKER_SERVICES:
+        cmd = f"cd /workspace && docker compose logs --tail={lines} {service} 2>&1"
+        result = run_docker_command(cmd)
+        
+        if result['success']:
+            logs = result['output']
+            # Parse logs to extract timestamp, level, and message
+            parsed_logs = parse_log_lines(logs, service)
+            all_logs[service] = {
+                'raw': logs,
+                'parsed': parsed_logs,
+                'has_error': any(log.get('level') == 'ERROR' for log in parsed_logs),
+                'has_warning': any(log.get('level') == 'WARNING' for log in parsed_logs),
+                'line_count': len(parsed_logs)
+            }
+        else:
+            all_logs[service] = {
+                'raw': '',
+                'parsed': [],
+                'error': result['error'],
+                'has_error': False,
+                'has_warning': False,
+                'line_count': 0
+            }
+    
+    return jsonify({
+        'services': all_logs,
+        'timestamp': datetime.now().isoformat()
+    })
+
+def parse_log_lines(logs, service):
+    """Parse log lines to extract timestamp, level, and message"""
+    lines = logs.strip().split('\n')
+    parsed = []
+    
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        # Try to extract log level
+        level = 'INFO'
+        upper_line = line.upper()
+        if 'ERROR' in upper_line or 'FATAL' in upper_line or 'CRITICAL' in upper_line:
+            level = 'ERROR'
+        elif 'WARNING' in upper_line or 'WARN' in upper_line:
+            level = 'WARNING'
+        elif 'DEBUG' in upper_line:
+            level = 'DEBUG'
+        
+        # Try to extract timestamp (common formats)
+        timestamp = None
+        # ISO format: 2024-01-01T12:00:00
+        iso_match = re.search(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', line)
+        if iso_match:
+            timestamp = iso_match.group()
+        else:
+            # Common log format: [2024-01-01 12:00:00]
+            bracket_match = re.search(r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]', line)
+            if bracket_match:
+                timestamp = bracket_match.group().strip('[]')
+        
+        parsed.append({
+            'timestamp': timestamp,
+            'level': level,
+            'message': line,
+            'service': service
+        })
+    
+    return parsed
+
+@app.route('/api/docker/health', methods=['GET'])
+def get_service_health():
+    """Get health status of all services based on container state and logs"""
+    health_status = {}
+    
+    # First get container states
+    cmd = "docker ps -a --format '{{.Names}}|{{.Status}}'"
+    result = run_docker_command(cmd)
+    
+    container_status = {}
+    if result['success']:
+        for line in result['output'].strip().split('\n'):
+            if '|' in line:
+                name, status = line.split('|', 1)
+                container_status[name] = 'running' if 'Up' in status else 'stopped'
+    
+    # Get recent logs to check for errors
+    for service in DOCKER_SERVICES:
+        # Check if container exists and is running
+        is_running = False
+        for container_name, status in container_status.items():
+            if service in container_name or container_name in service:
+                is_running = (status == 'running')
+                break
+        
+        # Get recent logs
+        cmd = f"cd /workspace && docker compose logs --tail=50 {service} 2>&1"
+        result = run_docker_command(cmd)
+        
+        has_error = False
+        has_warning = False
+        
+        if result['success'] and result['output']:
+            lines = result['output'].strip().split('\n')[-20:]  # Last 20 lines
+            for line in lines:
+                upper_line = line.upper()
+                if any(word in upper_line for word in ['ERROR', 'FATAL', 'CRITICAL', 'EXCEPTION']):
+                    has_error = True
+                elif any(word in upper_line for word in ['WARNING', 'WARN']):
+                    has_warning = True
+        
+        # Determine health status
+        if not is_running:
+            status = 'stopped'
+        elif has_error:
+            status = 'error'
+        elif has_warning:
+            status = 'warning'
+        else:
+            status = 'healthy'
+        
+        health_status[service] = {
+            'status': status,
+            'is_running': is_running,
+            'has_recent_errors': has_error,
+            'has_recent_warnings': has_warning
+        }
+    
+    return jsonify({
+        'services': health_status,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/docker/logs/all', methods=['GET'])
+def get_all_logs():
+    """Get logs for all services with structured parsing"""
+    lines = request.args.get('lines', '50')
+    
+    all_logs = {}
+    for service in DOCKER_SERVICES:
+        cmd = f"cd /workspace && docker compose logs --tail={lines} {service} 2>&1"
+        result = run_docker_command(cmd)
+        
+        if result['success']:
+            logs = result['output']
+            # Parse logs to extract timestamp, level, and message
+            parsed_logs = parse_log_lines(logs, service)
+            all_logs[service] = {
+                'raw': logs,
+                'parsed': parsed_logs,
+                'has_error': any(log.get('level') == 'ERROR' for log in parsed_logs),
+                'has_warning': any(log.get('level') == 'WARNING' for log in parsed_logs),
+                'line_count': len(parsed_logs)
+            }
+        else:
+            all_logs[service] = {
+                'raw': '',
+                'parsed': [],
+                'error': result['error'],
+                'has_error': False,
+                'has_warning': False,
+                'line_count': 0
+            }
+    
+    return jsonify({
+        'services': all_logs,
+        'timestamp': datetime.now().isoformat()
+    })
+
+def parse_log_lines(logs, service):
+    """Parse log lines to extract timestamp, level, and message"""
+    lines = logs.strip().split('\n')
+    parsed = []
+    
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        # Try to extract log level
+        level = 'INFO'
+        upper_line = line.upper()
+        if 'ERROR' in upper_line or 'FATAL' in upper_line or 'CRITICAL' in upper_line:
+            level = 'ERROR'
+        elif 'WARNING' in upper_line or 'WARN' in upper_line:
+            level = 'WARNING'
+        elif 'DEBUG' in upper_line:
+            level = 'DEBUG'
+        
+        # Try to extract timestamp (common formats)
+        timestamp = None
+        # ISO format: 2024-01-01T12:00:00
+        iso_match = re.search(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', line)
+        if iso_match:
+            timestamp = iso_match.group()
+        else:
+            # Common log format: [2024-01-01 12:00:00]
+            bracket_match = re.search(r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]', line)
+            if bracket_match:
+                timestamp = bracket_match.group().strip('[]')
+        
+        parsed.append({
+            'timestamp': timestamp,
+            'level': level,
+            'message': line,
+            'service': service
+        })
+    
+    return parsed
+
+@app.route('/api/docker/health', methods=['GET'])
+def get_service_health():
+    """Get health status of all services based on container state and logs"""
+    health_status = {}
+    
+    # First get container states
+    cmd = "docker ps -a --format '{{.Names}}|{{.Status}}'"
+    result = run_docker_command(cmd)
+    
+    container_status = {}
+    if result['success']:
+        for line in result['output'].strip().split('\n'):
+            if '|' in line:
+                name, status = line.split('|', 1)
+                container_status[name] = 'running' if 'Up' in status else 'stopped'
+    
+    # Get recent logs to check for errors
+    for service in DOCKER_SERVICES:
+        # Check if container exists and is running
+        is_running = False
+        for container_name, status in container_status.items():
+            if service in container_name or container_name in service:
+                is_running = (status == 'running')
+                break
+        
+        # Get recent logs
+        cmd = f"cd /workspace && docker compose logs --tail=50 {service} 2>&1"
+        result = run_docker_command(cmd)
+        
+        has_error = False
+        has_warning = False
+        
+        if result['success'] and result['output']:
+            lines = result['output'].strip().split('\n')[-20:]  # Last 20 lines
+            for line in lines:
+                upper_line = line.upper()
+                if any(word in upper_line for word in ['ERROR', 'FATAL', 'CRITICAL', 'EXCEPTION']):
+                    has_error = True
+                elif any(word in upper_line for word in ['WARNING', 'WARN']):
+                    has_warning = True
+        
+        # Determine health status
+        if not is_running:
+            status = 'stopped'
+        elif has_error:
+            status = 'error'
+        elif has_warning:
+            status = 'warning'
+        else:
+            status = 'healthy'
+        
+        health_status[service] = {
+            'status': status,
+            'is_running': is_running,
+            'has_recent_errors': has_error,
+            'has_recent_warnings': has_warning
+        }
+    
+    return jsonify({
+        'services': health_status,
+        'timestamp': datetime.now().isoformat()
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -323,50 +323,23 @@
             <!-- Developer Dashboard Section -->
             <section id="developer-dashboard" class="content-section">
                 <div class="dashboard-grid">
-                    <!-- Service Status Card -->
-                    <div class="dashboard-card">
-                        <h3><i class="fas fa-server"></i> Service Status</h3>
-                        <div class="service-list">
-                            <div class="service-item" data-service="n8n">
-                                <div>
-                                    <span class="service-name">n8n Workflow Engine</span>
-                                    <div class="service-last-check" id="n8n-last-check"></div>
-                                </div>
-                                <span class="service-status" id="n8n-status">
-                                    <i class="fas fa-circle-notch fa-spin"></i> Checking...
-                                </span>
-                            </div>
-                            <div class="service-item" data-service="db">
-                                <div>
-                                    <span class="service-name">PostgreSQL Database</span>
-                                    <div class="service-last-check" id="db-last-check"></div>
-                                </div>
-                                <span class="service-status" id="db-status">
-                                    <i class="fas fa-circle-notch fa-spin"></i> Checking...
-                                </span>
-                            </div>
-                            <div class="service-item" data-service="haystack">
-                                <div>
-                                    <span class="service-name">Haystack/Elasticsearch</span>
-                                    <div class="service-last-check" id="haystack-last-check"></div>
-                                </div>
-                                <span class="service-status" id="haystack-status">
-                                    <i class="fas fa-circle-notch fa-spin"></i> Checking...
-                                </span>
-                            </div>
-                            <div class="service-item" data-service="lawyer-chat">
-                                <div>
-                                    <span class="service-name">Lawyer Chat</span>
-                                    <div class="service-last-check" id="lawyer-chat-last-check"></div>
-                                </div>
-                                <span class="service-status" id="lawyer-chat-status">
-                                    <i class="fas fa-circle-notch fa-spin"></i> Checking...
-                                </span>
+                    <!-- Service Status & Monitoring Card -->
+                    <div class="dashboard-card dashboard-card-wide">
+                        <h3><i class="fas fa-server"></i> Service Status & Monitoring</h3>
+                        <div class="service-list" id="service-list">
+                            <!-- Services will be dynamically populated -->
+                        </div>
+                        <div class="service-controls">
+                            <button class="btn btn-secondary" onclick="refreshAllServices()">
+                                <i class="fas fa-sync-alt"></i> Refresh All
+                            </button>
+                            <div class="auto-refresh-toggle">
+                                <label>
+                                    <input type="checkbox" id="auto-refresh" checked onchange="toggleAutoRefresh()">
+                                    Auto-refresh (10s)
+                                </label>
                             </div>
                         </div>
-                        <button class="btn btn-secondary mt-10" onclick="checkAllServices()">
-                            <i class="fas fa-sync-alt"></i> Refresh Status
-                        </button>
                     </div>
 
                     <!-- Quick Actions Card -->
@@ -425,48 +398,6 @@
                             <div class="info-item">
                                 <span class="info-label">Last Updated:</span>
                                 <span class="info-value" id="last-updated">-</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Logs & Monitoring Card -->
-                    <div class="dashboard-card">
-                        <h3><i class="fas fa-chart-line"></i> Logs & Monitoring</h3>
-                        <div class="log-controls">
-                            <select id="log-service" class="form-select">
-                                <option value="">Select Service...</option>
-                                <option value="web">NGINX Web Server</option>
-                                <option value="n8n">n8n Workflow Engine</option>
-                                <option value="db">PostgreSQL Database</option>
-                                <option value="redis">Redis Cache</option>
-                                <option value="lawyer-chat">Lawyer Chat</option>
-                                <option value="ai-portal">AI Portal</option>
-                                <option value="court-processor">Court Processor</option>
-                                <option value="docker-api">Docker API</option>
-                                <option value="haystack-service">Haystack Service</option>
-                                <option value="elasticsearch">Elasticsearch</option>
-                            </select>
-                            <button class="btn btn-secondary" onclick="viewLogs()">
-                                <i class="fas fa-file-alt"></i> View Logs
-                            </button>
-                        </div>
-                        <div id="log-viewer" class="log-viewer hidden">
-                            <div class="log-viewer-header">
-                                <span class="log-viewer-title">Logs</span>
-                                <div class="log-viewer-actions">
-                                    <button class="log-viewer-action" onclick="clearLogViewer()" title="Clear">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                    <button class="log-viewer-action" onclick="copyLogs()" title="Copy">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                    <button class="log-viewer-action" onclick="downloadLogs()" title="Download">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="log-viewer-content">
-                                <pre id="log-content"></pre>
                             </div>
                         </div>
                     </div>
