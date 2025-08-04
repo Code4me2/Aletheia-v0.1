@@ -43,6 +43,282 @@ def info(msg: str):
 def warning(msg: str):
     click.echo(f"{Colors.YELLOW}⚠ {msg}{Colors.ENDC}")
 
+def format_content(content: str, max_lines: int = 15, line_width: int = 80) -> str:
+    """Format content for display with smart truncation"""
+    # Clean up whitespace and HTML entities
+    content = ' '.join(content.split())
+    content = content.replace('&quot;', '"').replace('&amp;', '&')
+    
+    # Try to extract the most relevant section
+    # Legal documents often have key information after certain markers
+    key_sections = [
+        # Court holdings and rulings
+        ('held that', 100), ('holds that', 100),
+        ('court found', 100), ('court ruled', 100),
+        ('we hold', 100), ('we find', 100),
+        ('conclusion', 80), ('accordingly', 80),
+        ('therefore', 80), ('thus', 60),
+        
+        # Legal standards and tests
+        ('standard', 70), ('test', 70),
+        ('factors', 70), ('elements', 70),
+        
+        # Case specifics
+        ('plaintiff', 50), ('defendant', 50),
+        ('alleges', 60), ('claims', 60),
+        ('infringement', 80), ('violation', 80),
+        
+        # Procedural markers
+        ('issue', 70), ('question', 70),
+        ('whether', 60),
+    ]
+    
+    # Find the highest scoring section
+    best_score = 0
+    best_start = 0
+    content_lower = content.lower()
+    
+    for term, score in key_sections:
+        pos = content_lower.find(term)
+        if pos != -1 and score > best_score:
+            best_score = score
+            # Start a bit before the term for context
+            best_start = max(0, pos - 100)
+    
+    # Extract section if we found a good match
+    if best_score > 0:
+        # Find sentence boundaries
+        start = best_start
+        # Go back to start of sentence
+        while start > 0 and content[start-1] not in '.!?':
+            start -= 1
+        
+        # Extract roughly max_lines worth of content
+        char_limit = line_width * max_lines
+        end = min(len(content), start + char_limit)
+        
+        # Try to end at sentence boundary
+        last_period = content.rfind('.', start, end)
+        if last_period > start:
+            end = last_period + 1
+        
+        extract = content[start:end].strip()
+        
+        # Add ellipsis if truncated
+        if start > 0:
+            extract = "[...] " + extract
+        if end < len(content):
+            extract = extract + " [...]"
+            
+        content = extract
+    
+    # If no key sections found or content is short, show beginning
+    elif len(content) > line_width * max_lines:
+        # Show first part and indicate truncation
+        char_limit = line_width * (max_lines - 1)
+        last_period = content.rfind('.', 0, char_limit)
+        if last_period > char_limit * 0.7:  # If we can end at sentence
+            content = content[:last_period + 1] + "\n\n[... document continues]"
+        else:
+            # Cut at word boundary
+            last_space = content.rfind(' ', 0, char_limit)
+            content = content[:last_space] + " [...]\n\n[... document continues]"
+    
+    # Word wrap the final content
+    lines = []
+    paragraphs = content.split('\n')
+    
+    for para in paragraphs:
+        if not para.strip():
+            lines.append('')
+            continue
+            
+        words = para.split()
+        current_line = ""
+        for word in words:
+            if len(current_line + word) + 1 > line_width:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+            else:
+                current_line = current_line + " " + word if current_line else word
+        if current_line:
+            lines.append(current_line)
+    
+    return '\n'.join(lines)
+
+def extract_embedded_metadata(content: str) -> Optional[Dict]:
+    """Extract metadata from content that appears to contain embedded dictionary/JSON data"""
+    import ast
+    import re
+    
+    # Try to find dictionary-like content
+    # Look for patterns like 'key': 'value' or "key": "value"
+    if not content:
+        return None
+    
+    # Find the start of what looks like metadata
+    # Usually starts with 'case_name' or similar fields
+    metadata_fields = [
+        'case_name', 'court', 'date_filed', 'docket_number', 'judge', 
+        'nature_of_suit', 'cause', 'jurisdiction_type', 'pacer_case_id',
+        'federal_dn_judge_initials_assigned', 'slug'
+    ]
+    
+    # Find where the metadata starts
+    start_pos = -1
+    for field in metadata_fields:
+        pattern = rf"['\"]?{field}['\"]?\s*:"
+        match = re.search(pattern, content)
+        if match and (start_pos == -1 or match.start() < start_pos):
+            start_pos = match.start()
+    
+    if start_pos == -1:
+        return None
+    
+    # Try to extract the dictionary-like content
+    # Look for balanced braces or until the actual document content starts
+    try:
+        # Simple approach: extract key-value pairs
+        metadata = {}
+        
+        # Common patterns in the data
+        patterns = [
+            (r"'case_name'\s*:\s*'([^']*)'", 'case_name'),
+            (r"'case_name_full'\s*:\s*'([^']*)'", 'case_name_full'),
+            (r"'slug'\s*:\s*'([^']*)'", 'slug'),
+            (r"'docket_number'\s*:\s*'([^']*)'", 'docket_number'),
+            (r"'federal_dn_judge_initials_assigned'\s*:\s*'([^']*)'", 'judge'),
+            (r"'court'\s*:\s*(\d+)", 'court_id'),
+            (r"'date_filed'\s*:\s*'([^']*)'", 'date_filed'),
+            (r"'cause'\s*:\s*'([^']*)'", 'cause'),
+            (r"'nature_of_suit'\s*:\s*'([^']*)'", 'nature_of_suit'),
+            (r"'jury_demand'\s*:\s*'([^']*)'", 'jury_demand'),
+            (r"'jurisdiction_type'\s*:\s*'([^']*)'", 'jurisdiction_type'),
+            (r"'pacer_case_id'\s*:\s*'([^']*)'", 'pacer_case_id'),
+        ]
+        
+        for pattern, key in patterns:
+            match = re.search(pattern, content[start_pos:start_pos+2000])  # Look in first 2000 chars
+            if match:
+                value = match.group(1)
+                if value and value != 'None':
+                    metadata[key] = value
+        
+        # If case_name is empty but we have a slug, derive case name from slug
+        if metadata.get('slug') and not metadata.get('case_name'):
+            slug = metadata['slug']
+            # Convert slug to case name: "smith-v-jones" -> "Smith v. Jones"
+            case_name = slug.replace('-v-', ' v. ')
+            case_name = ' '.join(word.capitalize() for word in case_name.split('-'))
+            metadata['case_name'] = case_name
+        
+        return metadata if metadata else None
+        
+    except Exception:
+        return None
+
+def format_metadata(metadata: Dict, indent: str = "") -> None:
+    """Format metadata in a clean table-like format with colored field labels"""
+    if not metadata:
+        return
+    
+    # Define field display names and order
+    field_order = [
+        ('case_name', 'Case'),
+        ('case_name_full', 'Full Case Name'),
+        ('court', 'Court'),
+        ('court_id', 'Court ID'),
+        ('judge', 'Judge'),
+        ('date_filed', 'Date Filed'),
+        ('date', 'Date'),
+        ('docket_number', 'Docket Number'),
+        ('pacer_case_id', 'PACER Case ID'),
+        ('cause', 'Cause'),
+        ('nature_of_suit', 'Nature of Suit'),
+        ('jury_demand', 'Jury Demand'),
+        ('jurisdiction_type', 'Jurisdiction Type'),
+        ('slug', 'Slug'),
+        ('document_id', 'Document ID'),
+        ('type', 'Type'),
+        ('topic', 'Topic'),
+        ('subtopic', 'Subtopic'),
+        ('jurisdiction', 'Jurisdiction'),
+        ('citation', 'Citation'),
+        ('landmark_case', 'Landmark Case'),
+        ('regulation', 'Regulation'),
+        ('enforcement', 'Enforcement'),
+        ('constitutional_basis', 'Constitutional Basis'),
+        ('statute', 'Statute'),
+        ('scope', 'Scope'),
+        ('framework', 'Framework'),
+        ('source', 'Source'),
+        ('recent_development', 'Recent Development'),
+    ]
+    
+    # Calculate max label width for alignment
+    max_label_width = 0
+    for field, label in field_order:
+        if field in metadata:
+            max_label_width = max(max_label_width, len(label))
+    
+    # Also check for any fields not in our order
+    other_fields = []
+    for field in metadata:
+        if field not in [f[0] for f in field_order]:
+            display_name = field.replace('_', ' ').title()
+            max_label_width = max(max_label_width, len(display_name))
+            other_fields.append((field, display_name))
+    
+    # Add padding
+    max_label_width += 2
+    
+    click.echo(f"\n{Colors.BOLD}Metadata:{Colors.ENDC}")
+    
+    # Display fields in order
+    displayed_fields = set()
+    for field, label in field_order:
+        if field in metadata:
+            value = metadata[field]
+            displayed_fields.add(field)
+            
+            # Format special fields
+            if field == 'document_id' and isinstance(value, str) and len(value) > 16:
+                value = f"{value[:8]}...{value[-4:]}"
+            elif field == 'date_filed' or field == 'date':
+                # Keep date formatting as is
+                pass
+            elif isinstance(value, bool):
+                value = "Yes" if value else "No"
+            elif isinstance(value, list):
+                if field == 'exceptions':
+                    value = ", ".join(value)
+                else:
+                    value = ", ".join(str(v) for v in value)
+            
+            # Print with colored label
+            label_str = f"{indent}{Colors.BLUE}{label}:{Colors.ENDC}"
+            padding = " " * (max_label_width - len(label) - 1)
+            click.echo(f"{label_str}{padding}{value}")
+    
+    # Display any remaining fields
+    for field, display_name in other_fields:
+        if field not in displayed_fields:
+            value = metadata[field]
+            
+            # Format value
+            if isinstance(value, bool):
+                value = "Yes" if value else "No"
+            elif isinstance(value, list):
+                value = ", ".join(str(v) for v in value)
+            elif isinstance(value, dict):
+                # For nested dicts, just show as JSON
+                value = json.dumps(value, indent=2)
+            
+            label_str = f"{indent}{Colors.YELLOW}{display_name}:{Colors.ENDC}"
+            padding = " " * (max_label_width - len(display_name) - 1)
+            click.echo(f"{label_str}{padding}{value}")
+
 @click.group()
 @click.version_option(version='1.0.0')
 def cli():
@@ -260,7 +536,9 @@ def clear():
 @click.option('--limit', default=5, help='Number of results')
 @click.option('--filter', 'filters', multiple=True, 
               help='Filters in key=value format')
-def search(query_text: str, search_type: str, limit: int, filters: tuple):
+@click.option('--full', is_flag=True, help='Show full content without truncation')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+def search(query_text: str, search_type: str, limit: int, filters: tuple, full: bool, output_json: bool):
     """Search documents"""
     info(f"Searching for: '{query_text}' (type: {search_type})")
     
@@ -284,14 +562,51 @@ def search(query_text: str, search_type: str, limit: int, filters: tuple):
         response = requests.post(f"{API_URL}/search", json=request_data)
         if response.status_code == 200:
             results = response.json()
+            
+            # JSON output
+            if output_json:
+                click.echo(json.dumps(results, indent=2))
+                return
+            
             success(f"Found {results['total_results']} results")
             
             for i, result in enumerate(results['results'][:limit], 1):
-                click.echo(f"\n{Colors.BOLD}Result {i}:{Colors.ENDC}")
-                click.echo(f"Score: {result['score']:.4f}")
-                click.echo(f"Content: {result['content'][:200]}...")
+                click.echo(f"\n{Colors.BOLD}{'='*80}{Colors.ENDC}")
+                click.echo(f"{Colors.BOLD}Result {i} of {min(limit, results['total_results'])}{Colors.ENDC}")
+                click.echo(f"{Colors.BOLD}Score:{Colors.ENDC} {result['score']:.4f}")
+                
+                # Display metadata if available
                 if result.get('metadata'):
-                    click.echo(f"Metadata: {json.dumps(result['metadata'], indent=2)}")
+                    format_metadata(result['metadata'])
+                else:
+                    # Try to extract metadata from content if it appears to be embedded
+                    content = result.get('content', '')
+                    if content and (content.strip().startswith('{') or "'case_name'" in content):
+                        extracted_meta = extract_embedded_metadata(content)
+                        if extracted_meta:
+                            format_metadata(extracted_meta)
+                
+                # Display formatted content
+                click.echo(f"\n{Colors.BOLD}Content:{Colors.ENDC}")
+                if full:
+                    # Show full content with basic wrapping
+                    content = result['content']
+                    # Basic word wrapping
+                    words = content.split()
+                    lines = []
+                    current_line = ""
+                    for word in words:
+                        if len(current_line + word) + 1 > 80:
+                            lines.append(current_line)
+                            current_line = word
+                        else:
+                            current_line = current_line + " " + word if current_line else word
+                    if current_line:
+                        lines.append(current_line)
+                    click.echo('\n'.join(lines))
+                else:
+                    formatted_content = format_content(result['content'])
+                    click.echo(formatted_content)
         else:
             error(f"Search failed: {response.status_code}")
     except requests.exceptions.RequestException as e:
