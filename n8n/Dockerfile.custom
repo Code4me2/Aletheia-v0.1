@@ -1,0 +1,52 @@
+# Custom n8n image with pre-installed custom nodes
+FROM n8nio/n8n:1.101.1
+
+# Switch to root to install dependencies
+USER root
+
+# Install build tools if needed
+RUN apk add --no-cache --virtual .build-deps \
+    python3 \
+    make \
+    g++
+
+# Create directory for custom nodes
+RUN mkdir -p /opt/custom-nodes
+
+# Copy custom nodes
+COPY ./custom-nodes/n8n-nodes-haystack /opt/custom-nodes/n8n-nodes-haystack
+COPY ./custom-nodes/n8n-nodes-hierarchicalSummarization /opt/custom-nodes/n8n-nodes-hierarchicalSummarization
+COPY ./custom-nodes/n8n-nodes-bitnet /opt/custom-nodes/n8n-nodes-bitnet
+COPY ./custom-nodes/n8n-nodes-citationchecker /opt/custom-nodes/n8n-nodes-citationchecker
+COPY ./custom-nodes/n8n-nodes-deepseek /opt/custom-nodes/n8n-nodes-deepseek
+COPY ./custom-nodes/n8n-nodes-yake /opt/custom-nodes/n8n-nodes-yake
+COPY ./custom-nodes/n8n-nodes-unstructured /opt/custom-nodes/n8n-nodes-unstructured
+
+# Install custom nodes globally
+WORKDIR /opt/custom-nodes
+RUN for dir in n8n-nodes-*; do \
+        if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then \
+            echo "Installing $dir..."; \
+            cd "/opt/custom-nodes/$dir"; \
+            npm install --production --no-save && \
+            npm link && \
+            cd /usr/local/lib/node_modules/n8n && \
+            npm link "$dir"; \
+            cd /opt/custom-nodes; \
+        fi; \
+    done
+
+# Clean up build dependencies
+RUN apk del .build-deps
+
+# Switch back to node user
+USER node
+
+# Set working directory
+WORKDIR /home/node
+
+# Copy init script
+COPY ./init-workflows.sh /data/init-workflows.sh
+
+# Use the init script as entrypoint
+ENTRYPOINT ["/bin/sh", "/data/init-workflows.sh"]

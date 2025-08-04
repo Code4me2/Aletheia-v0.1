@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { X, ArrowLeftRight } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar';
 import DownloadButton from '@/components/DownloadButton';
 import { PDFGenerator, generateCitationsText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
@@ -9,9 +9,11 @@ import type { Citation } from '@/types';
 interface CitationPanelProps {
   citation: Citation;
   onClose: () => void;
+  onSwap?: () => void;
+  isCitationOnRight?: boolean;
 }
 
-export default function CitationPanel({ citation, onClose }: CitationPanelProps) {
+export default function CitationPanel({ citation, onClose, onSwap, isCitationOnRight = true }: CitationPanelProps) {
   const { isDarkMode } = useSidebarStore();
 
   const handleDownloadPDF = async () => {
@@ -45,6 +47,19 @@ export default function CitationPanel({ citation, onClose }: CitationPanelProps)
           Citation Document
         </h3>
         <div className="flex items-center space-x-2">
+          {onSwap && (
+            <button
+              onClick={onSwap}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-400 hover:text-white' 
+                  : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+              }`}
+              title={isCitationOnRight ? 'Move citation to left' : 'Move citation to right'}
+            >
+              <ArrowLeftRight className="w-5 h-5" />
+            </button>
+          )}
           <DownloadButton 
             onDownloadPDF={handleDownloadPDF}
             onDownloadText={handleDownloadText}

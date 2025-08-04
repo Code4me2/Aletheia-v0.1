@@ -1,5 +1,5 @@
 {
-  "name": "n8n-nodes-hierarchicalsummarization",
+  "name": "n8n-nodes-hierarchicalSummarization",
   "version": "0.3.0",
   "description": "n8n node for hierarchical document summarization",
   "keywords": [

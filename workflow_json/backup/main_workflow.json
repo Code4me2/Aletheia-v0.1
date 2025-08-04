@@ -1,0 +1,514 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "c188c31c-1c45-4118-9ece-5b6057ab5177",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        260
+      ],
+      "id": "724d06dd-3108-4574-b911-9d2eab53a37c",
+      "name": "Webhook",
+      "webhookId": "c188c31c-1c45-4118-9ece-5b6057ab5177"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.content }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        820,
+        300
+      ],
+      "id": "82e2ca03-8eef-4c02-9055-5183e21f1bd7",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "hs_public",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "fde6c952-cb6d-4ae1-88bd-57ce2e98ccf8"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "69976539-de14-4212-9802-482c3d18f8b2",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "get_summaries",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "707edf3e-8136-4179-915e-0dc37223789b",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "delete_summarization",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b2144066-0952-4459-8848-a56de38bde1d",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "public_chat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -540,
+        260
+      ],
+      "id": "0a3dc129-d1e1-4475-ac84-128167734b8c",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        820,
+        140
+      ],
+      "id": "80a1f511-dbbb-4670-a556-f58c09a2bab8",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "summaryPrompt": "Keep your description concise and objective. ",
+        "contextPrompt": "describe in 200 words or less the content provided, with attention to any systematic practices.",
+        "directoryPath": "={{ $json.body.directoryPath }}",
+        "batchSize": 32768,
+        "resilience": {
+          "retryEnabled": true,
+          "maxRetries": 3,
+          "requestTimeout": 60000,
+          "fallbackEnabled": true,
+          "rateLimit": 30
+        }
+      },
+      "type": "hierarchicalSummarization",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        20
+      ],
+      "id": "498faec9-280d-42a1-9b46-c5f3cc2c64b6",
+      "name": "Hierarchical Summarization",
+      "credentials": {
+        "postgres": {
+          "id": "VLnn0kEGUTPNBqW5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -60,
+        180
+      ],
+      "id": "865fe1ac-a6a2-49d7-8e2b-ae57e1044013",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "eT6Unj67DfYj73os",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {
+          "maxTokensToSample": 20000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -180,
+        840
+      ],
+      "id": "a98074d3-e62c-4754-9b61-6b3e6b012c45",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "eT6Unj67DfYj73os",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        820,
+        480
+      ],
+      "id": "5ef3e8ee-df59-4b08-ac4f-d9e3cc749cbb",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.sessionKey }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -60,
+        960
+      ],
+      "id": "fe510371-1e16-4dcb-9e72-d06cc1bb449f",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "VLnn0kEGUTPNBqW5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH batch_data AS (\n      SELECT\n          id,\n          content,\n          summary,\n          hierarchy_level,\n          parent_id,\n          child_ids,\n          metadata,\n          document_type,\n          source_document_ids,\n          COALESCE(metadata->>'source',\n  metadata->>'sources', 'document_' || id) as source_name\n      FROM hierarchical_documents\n      WHERE batch_id = $1\n      ORDER BY hierarchy_level, id\n  ),\n  level_counts AS (\n      SELECT\n          hierarchy_level,\n          COUNT(*) as doc_count,\n          CASE\n              WHEN hierarchy_level = 0 THEN 'Source \n  Documents'\n              WHEN hierarchy_level = 1 THEN 'Initial \n  Summaries'\n              WHEN hierarchy_level = 2 THEN 'Combined \n  Summaries'\n              ELSE 'Level ' || hierarchy_level\n          END as label\n      FROM batch_data\n      GROUP BY hierarchy_level\n  )\n  SELECT json_build_object(\n      'batchId', $1,\n      'levels', (\n          SELECT json_agg(\n              json_build_object(\n                  'level', hierarchy_level,\n                  'count', doc_count,\n                  'label', label\n              ) ORDER BY hierarchy_level\n          )\n          FROM level_counts\n      ),\n      'documents', (\n          SELECT json_object_agg(\n              hierarchy_level::text,\n              level_docs\n          )\n          FROM (\n              SELECT\n                  hierarchy_level,\n                  json_agg(\n                      json_build_object(\n                          'id', id,\n                          'content', content,\n                          'summary', summary,\n                          'source', source_name,\n                          'parent_id', parent_id,\n                          'parent_ids', CASE\n                              WHEN document_type = 'batch'\n  OR document_type = 'chunk'\n                              THEN source_document_ids\n                              WHEN parent_id IS NOT NULL\n                              THEN ARRAY[parent_id]\n                              ELSE ARRAY[]::integer[]\n                          END,\n                          'child_ids', child_ids\n                      ) ORDER BY id\n                  ) as level_docs\n              FROM batch_data\n              GROUP BY hierarchy_level\n          ) as grouped_docs\n      )\n  ) as hierarchy;\n",
+        "options": {
+          "queryReplacement": "={{ $json.body.batchId }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        300,
+        280
+      ],
+      "id": "19ed5378-5cee-4170-a409-1cc5f6818a86",
+      "name": "Summary Retrieval",
+      "credentials": {
+        "postgres": {
+          "id": "VLnn0kEGUTPNBqW5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Searches through indexed court documents using\n  Elasticsearch-powered Haystack. This tool is ideal for\n  legal research, finding precedents, and retrieving\n  specific court opinions based on content, judges, or\n  metadata.\n\n  Search Parameters:\n  - query (required): The search text. Can be keywords,\n  phrases, legal concepts, or case references. Examples:\n  \"tax evasion penalties\", \"Judge Smith bankruptcy\",\n  \"jurisdiction federal court\"\n\n  - searchType: Controls how the search is performed\n    * \"hybrid\" (default): Combines keyword and semantic\n  search for best results. Use when you want both exact\n  matches and conceptually related documents\n    * \"vector\": Pure semantic search that understands\n  meaning. Use for conceptual queries like \"cases about\n  employee rights\"\n    * \"bm25\": Traditional keyword search. Use when you need\n  exact phrase matches or specific legal terms\n\n  - topK: Number of results to return (1-100, default: 5).\n  Increase for comprehensive research, decrease for focused\n  results\n\n  - filters: Metadata filters as JSON string to narrow\n  results. Common filters:\n    * {\"court\": \"tax\"} - Only Tax Court opinions\n    * {\"judge\": \"Smith\"} - Only opinions by Judge Smith\n    * {\"court\": \"tax\", \"year\": 2024} - Combine multiple\n  filters\n    * {\"date_range\": {\"start\": \"2023-01-01\", \"end\":\n  \"2023-12-31\"}} - Date filtering\n\n  Returns: Ranked documents with relevance scores, full\n  text, metadata (judge, court, date), and highlighting of\n  matched terms. Higher scores indicate better matches.\n\n  Use cases:\n  - Finding similar cases: Use vector search with conceptual\n   queries\n  - Researching specific judges: Combine judge name in query\n   with filter\n  - Precedent search: Use hybrid search with legal concepts\n  - Citation lookup: Use bm25 with exact case names",
+        "workflowId": {
+          "__rl": true,
+          "value": "4tosuT8sCkEYQT9N",
+          "mode": "list",
+          "cachedResultName": "basic search"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            ""
+          ],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "searchType",
+              "displayName": "searchType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "topK",
+              "displayName": "topK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": true
+            },
+            {
+              "id": "filters",
+              "displayName": "filters",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        300,
+        940
+      ],
+      "id": "339c15d4-7f0c-415c-b109-1afb861c14da",
+      "name": "Call n8n Workflow Tool"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You are a helpful paralegal, focused on concrete legal references and presidents. Citation formatting is critical.\n\n## Citation Formats\n\n  ### 1. Direct Quotes\n  When quoting directly from a source, use the inline citation format:\n  quoted text from the source\n  Example: <cite id=\"smith-v-jones-2020\">The court held that \"procedural requirements must be strictly followed\"</cite>\n\n  ### 2. Reference Citations\n  For general references or paraphrased content, use bracketed superscript numbers:\n  - Single reference: [1]\n  - Multiple references: [1, 2, 3]\n  - Sub-references for specific points: [2a], [2b], [2c]\n\n  ### 3. Citation Section Structure\n  Always include a \"## Citations\" section at the end of your response with this exact format:\n\n  ```markdown\n  ## Citations\n\n  [1] **Case Name, Citation (Court Year)**\n  - **Holding**: Brief summary of the court's decision\n  - **Relevance**: How this case applies to the current issue\n  - **Connection**: Primary/Supporting/Distinguishing/Background\n\n  [2] **Second Case Name, Citation (Court Year)**\n  - **Holding**: Brief summary of the court's decision\n  - **Relevance**: How this case applies to the current issue\n  - **Connection**: Primary/Supporting/Distinguishing/Background\n  [2a] **Specific Issue**: Details about procedural aspects\n  [2b] **Another Issue**: Details about substantive law\n\n  Connection Types\n\n  - Primary: Directly on point with the legal issue\n  - Supporting: Provides additional support or context\n  - Distinguishing: Shows contrasting precedent or limitations\n  - Background: Provides foundational legal principles\n\n  Formatting Rules\n\n  1. Case names should be properly formatted (e.g., \"Smith v. Jones\")\n  2. Use standard legal citations (e.g., \"123 F.3d 456 (2d Cir. 2020)\")\n  3. For inline citations, use shortened case names as IDs (e.g., id=\"smith-2020\")\n  4. Keep citation IDs consistent throughout the response\n  5. Always provide metadata (Holding, Relevance, Connection) for each citation\n\n  Example Response Structure\n\n  When analyzing a legal issue, I'll examine relevant precedents and statutory authority.\n\n  The foundational principle comes from the judiciary's duty to \"say what the law is\"[1]. This principle has been applied in\n  various contexts[2], particularly in administrative law cases[2a] and constitutional challenges[2b].\n\n  Recent developments have refined this approach[3], establishing that courts must consider both procedural[3a] and substantive\n   aspects[3b] when reviewing agency actions.\n\n  Citations\n\n  [1] Marbury v. Madison, 5 U.S. 137 (1803)\n  - Holding: Established judicial review and the Supreme Court's authority to interpret the Constitution\n  - Relevance: Foundational principle for all judicial review analysis\n  - Connection: Primary\n\n  [2] Chevron U.S.A., Inc. v. NRDC, 467 U.S. 837 (1984)\n  - Holding: Courts must defer to reasonable agency interpretations of ambiguous statutes\n  - Relevance: Defines the framework for reviewing agency actions\n  - Connection: Primary\n  [2a] Procedural Deference: Agencies receive deference on their procedural choices\n  [2b] Substantive Interpretation: Two-step analysis for statutory interpretation\n\n  [3] Loper Bright Enterprises v. Raimondo, 144 S. Ct. 2244 (2024)\n  - Holding: Overruled Chevron deference, returning to traditional statutory interpretation\n  - Relevance: Fundamentally changes how courts review agency interpretations\n  - Connection: Primary\n  [3a] Procedural Changes: Courts no longer defer to agency procedural interpretations\n  [3b] Substantive Review: Courts exercise independent judgment on legal questions\n\n  Important Notes\n\n  - Maintain consistency between inline citations and the Citations section\n  - Use descriptive, memorable citation IDs (not just numbers)\n  - Provide substantive analysis, not just string citations\n  - Ensure all bracketed references [X] have corresponding entries in Citations section"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        700
+      ],
+      "id": "07f44b11-edbd-416f-afb5-daa3b7e0932f",
+      "name": "AI Agent"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Hierarchical Summarization",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summary Retrieval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hierarchical Summarization": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Hierarchical Summarization",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary Retrieval": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call n8n Workflow Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4831bbd38dd63d2d9401abefbc42583492031872a4afa363243d72ca8bf05984"
+  },
+  "name": "Main Workflow",
+  "active": false
+}

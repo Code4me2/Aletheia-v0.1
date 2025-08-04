@@ -63,7 +63,7 @@ playwright.config.ts
 .vscode
 .idea
 
-# Generated files (will be regenerated in Docker)
+# Generated files
 src/generated
 
 # Scripts (not needed in production, except docker-entrypoint.sh)

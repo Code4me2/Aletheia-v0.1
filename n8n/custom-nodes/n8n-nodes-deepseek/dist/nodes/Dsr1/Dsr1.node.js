@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Dsr1 = void 0;
+const n8n_workflow_1 = require("n8n-workflow");
 class Dsr1 {
     constructor() {
         this.description = {
@@ -12,8 +13,8 @@ class Dsr1 {
             defaults: {
                 name: 'DeepSeek R1',
             },
-            inputs: ["main"],
-            outputs: ["main"],
+            inputs: [n8n_workflow_1.NodeConnectionType.Main],
+            outputs: [n8n_workflow_1.NodeConnectionType.Main],
             properties: [
                 {
                     displayName: 'Operation',

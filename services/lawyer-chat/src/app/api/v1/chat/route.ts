@@ -4,6 +4,9 @@ import { getAuthHeaders } from '@/utils/apiAuth';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createLogger } from '@/utils/logger';
+import { getErrorMessage } from '@/utils/errors';
+import { ChatRequestSchema } from '@/schemas/api';
+import { STREAM, API, CHAT, UI } from '@/config/constants';
 import type { ChatResponse } from '@/types';
 
 const logger = createLogger('chat-api');
@@ -20,13 +23,25 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    const body = await request.json();
+    const rawBody = await request.json();
     
-    // Sanitize JSON to prevent prototype pollution
-    const sanitizedBody = sanitizeJson(body);
+    // Validate and parse request body with schema
+    const parseResult = ChatRequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid request body',
+        details: parseResult.error.flatten()
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const body = parseResult.data;
     
     // Validate and sanitize message
-    const messageValidation = validateMessage(sanitizedBody.message || '');
+    const messageValidation = validateMessage(body.message);
     if (!messageValidation.isValid) {
       return new Response(JSON.stringify({ error: messageValidation.error }), {
         status: 400,
@@ -48,11 +63,11 @@ export async function POST(request: NextRequest) {
     const payload = {
       action: 'public_chat',
       message: messageValidation.sanitized!,
-      tools: Array.isArray(sanitizedBody.tools) ? sanitizedBody.tools.filter((t: unknown) => typeof t === 'string').slice(0, 5) : [], // Max 5 tools
-      tool: sanitizedBody.tool || 'default', // Keep for backward compatibility
-      sessionKey: sanitizedBody.sessionKey || sanitizedBody.sessionId || session.user?.email || 'anonymous',
-      sessionId: session.user?.email || sanitizedBody.sessionId,
-      userId: session.user?.email || sanitizedBody.userId,
+      tools: body.tools.slice(0, 5), // Max 5 tools (already validated by schema)
+      tool: 'default', // Keep for backward compatibility
+      sessionKey: body.sessionKey || body.sessionId || session.user?.email || 'anonymous',
+      sessionId: session.user?.email || body.sessionId,
+      userId: session.user?.email || body.userId,
       timestamp: new Date().toISOString(),
       // Removed metadata to prevent information disclosure
     };
@@ -92,7 +107,7 @@ export async function POST(request: NextRequest) {
         const stream = new ReadableStream({
           async start(controller) {
             // Stream the fallback message
-            const chunkSize = 2;
+            const chunkSize = STREAM.CHUNK_SIZE_CHARS;
             for (let i = 0; i < fallbackText.length; i += chunkSize) {
               const chunk = fallbackText.slice(i, Math.min(i + chunkSize, fallbackText.length));
               // Ensure chunk is properly encoded to prevent unicode issues
@@ -101,7 +116,7 @@ export async function POST(request: NextRequest) {
                 type: 'text'
               };
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(safeChunk)}\n\n`));
-              await new Promise(resolve => setTimeout(resolve, 30));
+              await new Promise(resolve => setTimeout(resolve, STREAM.CHUNK_DELAY_MS));
             }
             
             // Add mock analytics if analytics tool was selected
@@ -185,7 +200,7 @@ export async function POST(request: NextRequest) {
         const sources = responseData.sources || responseData.references || [];
         
         // Send text in chunks for smooth streaming effect
-        const chunkSize = 2; // Characters per chunk for smoother effect
+        const chunkSize = STREAM.CHUNK_SIZE_CHARS;
         for (let i = 0; i < text.length; i += chunkSize) {
           const chunk = text.slice(i, Math.min(i + chunkSize, text.length));
           // Ensure chunk is properly encoded to prevent unicode issues
@@ -196,7 +211,7 @@ export async function POST(request: NextRequest) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(safeChunk)}\n\n`));
           
           // Small delay for typing effect (adjust as needed)
-          await new Promise(resolve => setTimeout(resolve, 30));
+          await new Promise(resolve => setTimeout(resolve, STREAM.CHUNK_DELAY_MS));
         }
         
         // Send sources at the end
@@ -219,11 +234,11 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('API route error', error);
+    logger.error('API route error', getErrorMessage(error));
     
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: getErrorMessage(error)
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

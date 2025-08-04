@@ -1,0 +1,38 @@
+{
+  "name": "Hierarchical Summarization Template",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "processDocuments",
+        "sourceType": "directory",
+        "directoryPath": "/files/documents",
+        "databaseConfig": "manual",
+        "dbHost": "db",
+        "dbPort": 5432,
+        "dbName": "aletheia_db",
+        "dbUser": "aletheia_user",
+        "dbPassword": "Chdq)CgwJqv!u@)WL!I9bcCTuYPcz5_a",
+        "batchConfig": {
+          "batchStrategy": "token",
+          "tokenBatchSize": 2048
+        }
+      },
+      "name": "Hierarchical Summarization",
+      "type": "n8n-nodes-hierarchicalSummarization.hierarchicalSummarization",
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "PostgreSQL - Aletheia"
+        }
+      }
+    }
+  ],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

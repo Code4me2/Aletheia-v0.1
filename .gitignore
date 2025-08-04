@@ -117,3 +117,8 @@ services/lawyer-chat/auth.md
 # Package lock files (uncomment if you don't want to track these)
 # package-lock.json
 # **/package-lock.json
+
+# Temporary test files
+test-formatter.mjs
+test-markdown-formatting.js
+services/lawyer-chat/test-formatting.js

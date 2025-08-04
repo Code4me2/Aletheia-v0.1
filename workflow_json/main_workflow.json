@@ -171,7 +171,7 @@
           "rateLimit": 30
         }
       },
-      "type": "CUSTOM.hierarchicalSummarization",
+      "type": "n8n-nodes-hierarchicalSummarization.HierarchicalSummarization",
       "typeVersion": 1,
       "position": [
         -60,
@@ -508,5 +508,7 @@
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "4831bbd38dd63d2d9401abefbc42583492031872a4afa363243d72ca8bf05984"
-  }
+  },
+  "name": "Main Workflow",
+  "active": false
 }
