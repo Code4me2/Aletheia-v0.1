@@ -327,7 +327,16 @@ def get_service_health():
         # Check if container exists and is running
         is_running = False
         for container_name, status in container_status.items():
-            if service in container_name or container_name in service:
+            # Special cases for container name mapping
+            if service == 'haystack-service' and 'haystack-judicial' == container_name:
+                is_running = (status == 'running')
+                print(f"Matched haystack-service to {container_name}, status: {status}")
+                break
+            elif service == 'elasticsearch' and 'elasticsearch-judicial' == container_name:
+                is_running = (status == 'running')
+                print(f"Matched elasticsearch to {container_name}, status: {status}")
+                break
+            elif service in container_name or container_name in service:
                 is_running = (status == 'running')
                 break
         
@@ -444,69 +453,6 @@ def parse_log_lines(logs, service):
         })
     
     return parsed
-
-@app.route('/api/docker/health', methods=['GET'])
-def get_service_health():
-    """Get health status of all services based on container state and logs"""
-    health_status = {}
-    
-    # First get container states
-    cmd = "docker ps -a --format '{{.Names}}|{{.Status}}'"
-    result = run_docker_command(cmd)
-    
-    container_status = {}
-    if result['success']:
-        for line in result['output'].strip().split('\n'):
-            if '|' in line:
-                name, status = line.split('|', 1)
-                container_status[name] = 'running' if 'Up' in status else 'stopped'
-    
-    # Get recent logs to check for errors
-    for service in DOCKER_SERVICES:
-        # Check if container exists and is running
-        is_running = False
-        for container_name, status in container_status.items():
-            if service in container_name or container_name in service:
-                is_running = (status == 'running')
-                break
-        
-        # Get recent logs
-        cmd = f"cd /workspace && docker compose logs --tail=50 {service} 2>&1"
-        result = run_docker_command(cmd)
-        
-        has_error = False
-        has_warning = False
-        
-        if result['success'] and result['output']:
-            lines = result['output'].strip().split('\n')[-20:]  # Last 20 lines
-            for line in lines:
-                upper_line = line.upper()
-                if any(word in upper_line for word in ['ERROR', 'FATAL', 'CRITICAL', 'EXCEPTION']):
-                    has_error = True
-                elif any(word in upper_line for word in ['WARNING', 'WARN']):
-                    has_warning = True
-        
-        # Determine health status
-        if not is_running:
-            status = 'stopped'
-        elif has_error:
-            status = 'error'
-        elif has_warning:
-            status = 'warning'
-        else:
-            status = 'healthy'
-        
-        health_status[service] = {
-            'status': status,
-            'is_running': is_running,
-            'has_recent_errors': has_error,
-            'has_recent_warnings': has_warning
-        }
-    
-    return jsonify({
-        'services': health_status,
-        'timestamp': datetime.now().isoformat()
-    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

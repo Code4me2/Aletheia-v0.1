@@ -3160,27 +3160,10 @@ async function fetchServiceLogs(serviceId) {
 }
 
 function analyzeLogsForStatus(serviceId, logs) {
-    const lines = logs.split('\n').slice(-50); // Check last 50 lines
-    let hasError = false;
-    let hasWarning = false;
-    
-    lines.forEach(line => {
-        const upperLine = line.toUpperCase();
-        if (upperLine.includes('ERROR') || upperLine.includes('FATAL') || upperLine.includes('CRITICAL')) {
-            hasError = true;
-        } else if (upperLine.includes('WARNING') || upperLine.includes('WARN')) {
-            hasWarning = true;
-        }
-    });
-    
-    // Update status color based on log analysis
-    if (hasError) {
-        updateServiceStatusColor(serviceId, 'error');
-    } else if (hasWarning) {
-        updateServiceStatusColor(serviceId, 'warning');
-    } else {
-        updateServiceStatusColor(serviceId, 'healthy');
-    }
+    // Don't analyze logs for status - we already have accurate health data from the API
+    // This function was causing incorrect status updates when viewing logs
+    // The health endpoint already checks both container status and recent logs
+    return;
 }
 
 function copyServiceLogs(serviceId, event) {
