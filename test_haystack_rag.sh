@@ -1,10 +1,16 @@
 #!/bin/bash
 # Test Haystack RAG Functionality using curl
 
+# Source port configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/scripts/port-config.sh"
+
+HAYSTACK_URL="http://localhost:${HAYSTACK_PORT}"
+
 echo "=============================================="
 echo "Haystack RAG Functionality Test Suite"
 echo "Time: $(date)"
-echo "Target: http://localhost:8000"
+echo "Target: ${HAYSTACK_URL}"
 echo "=============================================="
 echo
 
@@ -42,7 +48,7 @@ run_test() {
 # Test 1: Health Check
 echo "1. Health Check"
 run_test "Service health" \
-    "curl -s http://localhost:8000/health" \
+    "curl -s ${HAYSTACK_URL}/health" \
     '"status":"healthy"'
 echo
 
@@ -58,7 +64,7 @@ INGEST_DATA='[{
     "document_type": "legal_document"
 }]'
 
-RESPONSE=$(curl -s -X POST http://localhost:8000/ingest \
+RESPONSE=$(curl -s -X POST ${HAYSTACK_URL}/ingest \
     -H "Content-Type: application/json" \
     -d "$INGEST_DATA")
 
@@ -87,7 +93,7 @@ SEARCH_DATA='{
 }'
 
 run_test "BM25 search" \
-    "curl -s -X POST http://localhost:8000/search -H 'Content-Type: application/json' -d '$SEARCH_DATA'" \
+    "curl -s -X POST ${HAYSTACK_URL}/search -H 'Content-Type: application/json' -d '$SEARCH_DATA'" \
     '"results":\['
 echo
 
@@ -102,7 +108,7 @@ VECTOR_SEARCH='{
 }'
 
 run_test "Vector search" \
-    "curl -s -X POST http://localhost:8000/search -H 'Content-Type: application/json' -d '$VECTOR_SEARCH'" \
+    "curl -s -X POST ${HAYSTACK_URL}/search -H 'Content-Type: application/json' -d '$VECTOR_SEARCH'" \
     '"results":\['
 echo
 
@@ -115,7 +121,7 @@ HYBRID_SEARCH='{
 }'
 
 run_test "Hybrid search" \
-    "curl -s -X POST http://localhost:8000/search -H 'Content-Type: application/json' -d '$HYBRID_SEARCH'" \
+    "curl -s -X POST ${HAYSTACK_URL}/search -H 'Content-Type: application/json' -d '$HYBRID_SEARCH'" \
     '"search_type":"hybrid"'
 echo
 
@@ -123,7 +129,7 @@ echo
 echo "6. Document Context Retrieval"
 if [ ! -z "$DOC_ID" ]; then
     run_test "Get document context" \
-        "curl -s http://localhost:8000/get_document_with_context/$DOC_ID" \
+        "curl -s ${HAYSTACK_URL}/get_document_with_context/$DOC_ID" \
         '"content":'
 else
     echo -e "${RED}❌ Skipped - No document ID available${NC}"
@@ -141,7 +147,7 @@ FILTERED_SEARCH='{
 }'
 
 run_test "Filtered search" \
-    "curl -s -X POST http://localhost:8000/search -H 'Content-Type: application/json' -d '$FILTERED_SEARCH'" \
+    "curl -s -X POST ${HAYSTACK_URL}/search -H 'Content-Type: application/json' -d '$FILTERED_SEARCH'" \
     '"results":'
 echo
 
@@ -154,7 +160,7 @@ EMPTY_SEARCH='{
 }'
 
 run_test "Empty search handling" \
-    "curl -s -X POST http://localhost:8000/search -H 'Content-Type: application/json' -d '$EMPTY_SEARCH'" \
+    "curl -s -X POST ${HAYSTACK_URL}/search -H 'Content-Type: application/json' -d '$EMPTY_SEARCH'" \
     '"total_results":'
 echo
 

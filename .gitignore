@@ -122,3 +122,6 @@ services/lawyer-chat/auth.md
 test-formatter.mjs
 test-markdown-formatting.js
 services/lawyer-chat/test-formatting.js
+
+# Backup files from port implementation
+*.backup-*

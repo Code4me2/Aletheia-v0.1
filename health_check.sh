@@ -1,13 +1,18 @@
 #!/bin/bash
+
+# Source port configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/scripts/port-config.sh"
+
 echo "Checking Aletheia-v0.1 Services..."
 echo "================================"
 
-# Check each service
+# Check each service using dynamic ports
 services=(
-    "http://localhost:8080|Main Web"
-    "http://localhost:8085|AI Portal"
-    "http://localhost:8080/chat|Lawyer Chat"
-    "http://localhost:8080/n8n/healthz|n8n"
+    "$(get_service_url web)|Main Web"
+    "$(get_service_url ai-portal)|AI Portal"
+    "$(get_service_url chat)|Lawyer Chat"
+    "$(get_service_url n8n)/healthz|n8n"
 )
 
 for service in "${services[@]}"; do
@@ -24,8 +29,3 @@ echo "================================"
 echo "Container Status:"
 echo "================================"
 docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(ai-portal|lawyer-chat|n8n|web|db|court)" || echo "No matching containers found"
-
-echo "================================"
-echo "Current Git Remote:"
-git remote get-url origin 2>/dev/null || echo "No origin remote"
-echo "Upstream: $(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo 'Not set')"

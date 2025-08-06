@@ -1,0 +1,113 @@
+# Centralized Port Configuration for Aletheia
+# This file defines all port mappings and ranges for different environments
+
+# Port Range Allocation Strategy:
+# 8000-8099: Core Services (web, api, reverse proxy)
+# 8100-8199: Application Services (n8n, chat, portal)
+# 8200-8299: Data Services (db, redis, elasticsearch)
+# 8300-8399: Monitoring & Analytics
+# 8400-8499: Development & Testing
+# 8500-8599: AI/ML Services
+
+environments:
+  development:
+    core_services:
+      web: 8080
+      api_gateway: 8081
+      reverse_proxy: 8082
+    
+    application_services:
+      n8n: 8100
+      lawyer_chat: 8101
+      ai_portal: 8102
+      
+    data_services:
+      postgresql: 8200
+      redis: 8201
+      elasticsearch: 8202
+      
+    ai_services:
+      haystack: 8500
+      bitnet: 8501
+      ollama_proxy: 8502
+      
+    monitoring:
+      prometheus: 8300
+      grafana: 8301
+      loki: 8302
+      node_exporter: 8303
+
+  staging:
+    core_services:
+      web: 9080
+      api_gateway: 9081
+      reverse_proxy: 9082
+    
+    application_services:
+      n8n: 9100
+      lawyer_chat: 9101
+      ai_portal: 9102
+      
+    data_services:
+      postgresql: 9200
+      redis: 9201
+      elasticsearch: 9202
+      
+    ai_services:
+      haystack: 9500
+      bitnet: 9501
+      ollama_proxy: 9502
+      
+    monitoring:
+      prometheus: 9300
+      grafana: 9301
+      loki: 9302
+      node_exporter: 9303
+
+  production:
+    # Production uses standard ports behind load balancer
+    core_services:
+      web: 80
+      web_ssl: 443
+      api_gateway: 8080
+      
+    # Internal services use non-exposed ports
+    application_services:
+      n8n: 5678
+      lawyer_chat: 3000
+      ai_portal: 3001
+      
+    data_services:
+      postgresql: 5432
+      redis: 6379
+      elasticsearch: 9200
+      
+    ai_services:
+      haystack: 8000
+      bitnet: 8001
+      
+    monitoring:
+      prometheus: 9090
+      grafana: 3000
+      loki: 3100
+      node_exporter: 9100
+
+# Service Dependencies and Internal Ports
+# These remain consistent across environments
+internal_ports:
+  postgresql: 5432
+  redis: 6379
+  n8n: 5678
+  lawyer_chat: 3000
+  ai_portal: 3000
+  elasticsearch: 9200
+  haystack: 8000
+  prometheus: 9090
+  grafana: 3000
+  loki: 3100
+
+# Port Conflict Detection Ranges
+reserved_ranges:
+  system: [1, 1023]
+  common_services: [3000, 3010, 5432, 5678, 6379, 8080, 9090, 9200]
+  avoid: [22, 25, 53, 80, 110, 143, 443, 993, 995]

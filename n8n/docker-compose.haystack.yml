@@ -15,7 +15,7 @@ services:
       - cluster.name=judicial-cluster
     ports:
       - "${ELASTICSEARCH_PORT:-9200}:9200"
-      - "9300:9300"
+      - "${ELASTICSEARCH_CLUSTER_PORT:-9300}:9300"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
@@ -56,7 +56,7 @@ services:
       dockerfile: ./n8n/unstructured-service/Dockerfile
     container_name: unstructured-judicial
     ports:
-      - "8880:8880"
+      - "${UNSTRUCTURED_PORT:-8880}:8880"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1

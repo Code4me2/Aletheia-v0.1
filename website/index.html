@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Configuration -->
+    <script src="js/port-injection.js"></script>
     <script src="js/config.js"></script>
 </head>
 <body>
@@ -70,7 +71,7 @@
                         <small>AI Legal Assistant</small>
                     </div>
                 </a>
-                <a href="http://localhost:8085" class="app-menu-item">
+                <a href="/portal" class="app-menu-item">
                     <i class="fas fa-building"></i>
                     <div>
                         <span>AI Portal</span>
@@ -346,16 +347,16 @@
                     <div class="dashboard-card">
                         <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
                         <div class="action-buttons">
-                            <a href="http://localhost:5678" target="_blank" class="btn btn-primary">
+                            <a href="/n8n/" target="_blank" class="btn btn-primary">
                                 <i class="fas fa-external-link-alt"></i> Open n8n Interface
                             </a>
                             <a href="/chat" target="_blank" class="btn btn-primary">
                                 <i class="fas fa-external-link-alt"></i> Open Lawyer Chat
                             </a>
-                            <a href="http://localhost:9200" target="_blank" class="btn btn-secondary">
+                            <a href="#" onclick="window.open(CONFIG.services?.elasticsearchDirect || 'http://localhost:' + (window.ELASTICSEARCH_PORT || '8202'), '_blank'); return false;" class="btn btn-secondary">
                                 <i class="fas fa-search"></i> Elasticsearch Console
                             </a>
-                            <a href="http://localhost:8000/docs" target="_blank" class="btn btn-secondary">
+                            <a href="#" onclick="window.open((CONFIG.services?.haystackDirect || 'http://localhost:' + (window.HAYSTACK_PORT || '8500')) + '/docs', '_blank'); return false;" class="btn btn-secondary">
                                 <i class="fas fa-book"></i> Haystack API Docs
                             </a>
                         </div>

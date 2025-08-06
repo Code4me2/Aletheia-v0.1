@@ -10,7 +10,7 @@ A sophisticated web application that integrates workflow automation (n8n) with A
 - Python 3.8+ (for data import scripts)
 - 8GB+ RAM recommended (Elasticsearch uses 2GB, PostgreSQL 2GB, other services 4GB)
 - Modern web browser
-- Ports available: 8080, 5678, 9200, 8000
+- Ports available: See [Port Mapping Guide](docs/PORT_MAPPING_GUIDE.md) for flexible configuration
 - (Optional) Ollama with DeepSeek model for AI features (not available for windows yet)
 
 ### 1. Clone the repository
@@ -23,6 +23,10 @@ cd Aletheia-v0.1
 ### 2. Configure environment variables
 
 ```bash
+# Generate environment-specific configuration
+./scripts/deploy.sh -e development up
+
+# Or manually:
 cp .env.example .env
 # Note: Default values in .env work for local development
 # Add API keys for optional features:
@@ -33,11 +37,17 @@ cp .env.example .env
 ### 3. Start all services
 
 ```bash
-# Main services
+# Using new deployment script (recommended)
+./scripts/deploy.sh up
+
+# Or traditional method:
 docker-compose up -d
 
-# Haystack/Elasticsearch (required for search features)
-cd n8n && ./start_haystack_services.sh && cd ..
+# With monitoring stack:
+./scripts/deploy.sh -m up
+
+# For production deployment:
+./scripts/deploy.sh -e production -m -l -s up
 ```
 
 ### 4. Verify services are healthy
@@ -368,25 +378,55 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ### Port Mapping
 
-| Service         | Internal Port | External Port | Purpose                                 | Optional |
-| --------------- | ------------- | ------------- | --------------------------------------- | -------- |
-| Web (NGINX)     | 80            | 8080          | Main reverse proxy                      | No       |
-| n8n             | 5678          | 5678          | Workflow automation                     | No       |
-| PostgreSQL (db) | 5432          | -             | Database (internal only)                | No       |
-| Lawyer Chat     | 3000          | -             | AI chat interface (via nginx at /chat)  | No       |
-| AI Portal       | 3000          | -             | Internal only (via ai-portal-nginx)     | No       |
-| AI Portal NGINX | 80            | 8085          | AI portal proxy                         | No       |
-| Elasticsearch   | 9200, 9300    | 9200, 9300    | Document search & cluster communication | Yes      |
-| Haystack        | 8000          | 8000          | Document API                            | Yes      |
+**New Flexible Port System**: The project now uses an advanced port mapping system that automatically manages ports across different environments. See the [Port Mapping Guide](docs/PORT_MAPPING_GUIDE.md) for complete details.
+
+#### Quick Overview
+
+```bash
+# View current environment's port mappings
+./scripts/deploy.sh ports
+
+# Deploy with specific environment
+./scripts/deploy.sh -e staging up
+./scripts/deploy.sh -e production -m -l -s up
+```
+
+#### Default Development Ports
+
+| Service         | Port  | Access URL                          |
+|-----------------|-------|-------------------------------------|
+| Web Interface   | 8080  | http://localhost:8080               |
+| n8n             | 8100  | http://localhost:8080/n8n/          |
+| Lawyer Chat     | 8101  | http://localhost:8080/chat/         |
+| AI Portal       | 8102  | http://localhost:8080/portal/       |
+| API Gateway     | 8081  | http://localhost:8081               |
+| PostgreSQL      | 8200  | postgresql://localhost:8200         |
+| Redis           | 8201  | redis://localhost:8201              |
+| Elasticsearch   | 8202  | http://localhost:8202               |
+| Prometheus      | 8300  | http://localhost:8300               |
+| Grafana         | 8301  | http://localhost:8301               |
 
 ### Additional Services (When Enabled)
 
-| Service       | Internal Port | External Port | Purpose            | Docker Compose File           |
-| ------------- | ------------- | ------------- | ------------------ | ----------------------------- |
-| Prometheus    | 9090          | 9090          | Metrics collection | docker-compose.production.yml |
-| Grafana       | 3000          | 3002          | Dashboards         | docker-compose.production.yml |
-| Loki          | 3100          | 3100          | Log aggregation    | docker-compose.production.yml |
-| Node Exporter | 9100          | 9100          | System metrics     | docker-compose.staging.yml    |
+The monitoring stack and additional services are automatically configured with environment-appropriate ports:
+
+```bash
+# Enable monitoring stack
+./scripts/deploy.sh -m up
+
+# Enable load balancer
+./scripts/deploy.sh -l up
+
+# Full production deployment
+./scripts/deploy.sh -e production -m -l -s up
+```
+
+Services include:
+- **Prometheus**: Metrics collection
+- **Grafana**: Visualization dashboards
+- **Loki**: Log aggregation
+- **HAProxy**: Load balancing
+- **Consul**: Service discovery
 
 ### Key Architectural Decisions
 

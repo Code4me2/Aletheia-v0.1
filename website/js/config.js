@@ -23,3 +23,18 @@ const CONFIG = window.DATA_COMPOSE_CONFIG || {
 // Legacy support - maintain backward compatibility
 CONFIG.WEBHOOK_ID = CONFIG.webhooks.chat.id;
 CONFIG.WEBHOOK_URL = CONFIG.webhooks.chat.url;
+
+// Service URLs configuration
+CONFIG.services = {
+  aiPortal: '/portal',
+  n8n: '/n8n',
+  chat: '/chat',
+  api: '/api',
+  // Direct service access (for development)
+  ...(window.location.hostname === 'localhost' ? {
+    aiPortalDirect: `:${window.AI_PORTAL_PORT || '8102'}`,
+    n8nDirect: `:${window.N8N_PORT || '8100'}`,
+    haystackDirect: `http://localhost:${window.HAYSTACK_PORT || '8500'}`,
+    elasticsearchDirect: `http://localhost:${window.ELASTICSEARCH_PORT || '8202'}`
+  } : {})
+};
