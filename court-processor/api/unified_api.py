@@ -18,8 +18,22 @@ from services.unified_document_processor import (
     DeduplicationManager
 )
 from services.document_ingestion_service import DocumentIngestionService
+from services.unified_collection_service import UnifiedCollectionService
 from services.recap_docket_service import RECAPDocketService
 from services.recap.webhook_handler import RECAPWebhookHandler
+
+# Import database search endpoints
+try:
+    from api.database_search_endpoint import router as database_router
+    database_router_available = True
+except ImportError:
+    # Try alternative import path
+    try:
+        from database_search_endpoint import router as database_router
+        database_router_available = True
+    except ImportError:
+        database_router_available = False
+        logger.warning("Database search endpoint not available")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +45,11 @@ app = FastAPI(
     description="API for searching and processing court documents with separated Opinion and RECAP paths",
     version="2.0.0"
 )
+
+# Include database search router if available
+if database_router_available:
+    app.include_router(database_router)
+    logger.info("Database search endpoints loaded")
 
 # Configure CORS
 app.add_middleware(
@@ -334,50 +353,71 @@ async def search_opinions(request: OpinionSearchRequest):
     Search for court opinions using broad criteria
     
     This endpoint searches published court opinions from the CourtListener
-    opinion database. Supports keyword searches, date ranges, and court filters.
+    Search API, which returns full text content including 020lead documents.
     """
     start_time = datetime.now()
     
     try:
-        # Initialize ingestion service
-        async with DocumentIngestionService(
-            api_key=os.getenv('COURTLISTENER_API_KEY')
-        ) as service:
-            # Perform search
-            results = await service.search_opinions(
-                query=request.query,
-                court_ids=request.court_ids,
-                date_after=request.date_filed_after,
-                date_before=request.date_filed_before,
-                document_types=request.document_types,
-                max_results=request.max_results,
-                nature_of_suit=request.nature_of_suit
-            )
-            
-            # Process results through pipeline if requested
-            processed_docs = []
-            if results.get('documents'):
-                # Store in database for pipeline processing
-                stored = await service._store_documents(results['documents'])
-                processed_docs = results['documents']
-            
-            processing_time = str(datetime.now() - start_time)
-            
-            return OpinionSearchResponse(
-                success=True,
-                total_results=results.get('total_results', 0),
-                documents_processed=len(processed_docs),
-                search_criteria={
-                    'query': request.query,
-                    'courts': request.court_ids,
-                    'date_range': {
-                        'after': request.date_filed_after,
-                        'before': request.date_filed_before
-                    }
-                },
-                processing_time=processing_time,
-                results=processed_docs
-            )
+        # Use UnifiedCollectionService which actually gets content
+        service = UnifiedCollectionService()
+        
+        # Map API request to collection parameters
+        # Handle multiple court IDs by processing first one (API limitation)
+        court_id = request.court_ids[0] if request.court_ids else None
+        
+        # Build custom query from request parameters
+        custom_query = request.query
+        if request.nature_of_suit:
+            # Add nature of suit to query
+            custom_query = f"{custom_query} nature_of_suit:({' OR '.join(request.nature_of_suit)})" if custom_query else f"nature_of_suit:({' OR '.join(request.nature_of_suit)})"
+        
+        # Collect documents using the working service
+        results = await service.collect_documents(
+            court_id=court_id,
+            judge_name=None,  # Use custom_query for judge searches
+            date_after=request.date_filed_after,
+            date_before=request.date_filed_before,
+            max_documents=request.max_results,
+            custom_query=custom_query,
+            run_pipeline=False,  # Don't run pipeline for API responses
+            extract_pdfs=True,   # Do extract PDFs if needed
+            store_to_db=True     # Store for future use
+        )
+        
+        # Extract documents with content
+        processed_docs = results.get('documents', [])
+        
+        # Ensure documents have proper structure for API response
+        api_documents = []
+        for doc in processed_docs:
+            api_doc = {
+                'case_number': doc.get('case_number', ''),
+                'case_name': doc.get('case_name', ''),
+                'document_type': doc.get('document_type', 'opinion'),
+                'content': doc.get('content', ''),
+                'metadata': doc.get('metadata', {})
+            }
+            # Add content length for debugging
+            api_doc['metadata']['content_length'] = len(api_doc['content'])
+            api_documents.append(api_doc)
+        
+        processing_time = str(datetime.now() - start_time)
+        
+        return OpinionSearchResponse(
+            success=results.get('success', False),
+            total_results=results.get('statistics', {}).get('total_fetched', 0),
+            documents_processed=len(api_documents),
+            search_criteria={
+                'query': request.query,
+                'courts': request.court_ids,
+                'date_range': {
+                    'after': request.date_filed_after,
+                    'before': request.date_filed_before
+                }
+            },
+            processing_time=processing_time,
+            results=api_documents
+        )
             
     except Exception as e:
         logger.error(f"Opinion search failed: {e}")
@@ -570,6 +610,125 @@ async def get_recap_status(request_id: int):
             error=str(e)
         )
 
+
+# Database Search Endpoints - Direct access to existing full-text documents
+@app.post("/database/search")
+async def search_database(
+    document_type: Optional[str] = "020lead",
+    judge_name: Optional[str] = None,
+    court_id: Optional[str] = None,
+    min_content_length: int = 5000,
+    limit: int = 10
+):
+    """
+    Search existing database for FULL, UNTRUNCATED court opinions
+    
+    Returns complete opinion text (10-40KB) with all metadata.
+    This does NOT make external API calls - only queries stored documents.
+    """
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    import re
+    
+    try:
+        # Connect to database
+        conn = psycopg2.connect(
+            host='db',
+            database='aletheia',
+            user='aletheia',
+            password='aletheia123'
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Build query
+        conditions = ["1=1"]
+        params = []
+        
+        if document_type and document_type != 'all':
+            conditions.append("document_type = %s")
+            params.append(document_type)
+        else:
+            conditions.append("document_type IN ('020lead', 'opinion', 'opinion_doctor')")
+        
+        if judge_name:
+            conditions.append("metadata->>'judge_name' ILIKE %s")
+            params.append(f'%{judge_name}%')
+        
+        if court_id:
+            conditions.append("metadata->>'court_id' = %s")
+            params.append(court_id)
+        
+        if min_content_length > 0:
+            conditions.append("LENGTH(content) >= %s")
+            params.append(min_content_length)
+        
+        where_clause = " AND ".join(conditions)
+        
+        # Get FULL content
+        query = f"""
+            SELECT 
+                id,
+                case_number,
+                document_type,
+                content,  -- FULL, UNTRUNCATED content
+                metadata,
+                created_at,
+                updated_at
+            FROM public.court_documents
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+        params.append(limit)
+        
+        cur.execute(query, params)
+        documents = cur.fetchall()
+        
+        # Process documents
+        results = []
+        for doc in documents:
+            # Extract plain text from HTML/XML
+            content = doc['content'] or ''
+            plain_text = re.sub(r'<[^>]+>', ' ', content)
+            plain_text = re.sub(r'\s+', ' ', plain_text).strip()
+            
+            results.append({
+                'id': doc['id'],
+                'case_number': doc['case_number'],
+                'document_type': doc['document_type'],
+                'content': {
+                    'raw': content,  # FULL HTML/XML
+                    'plain_text': plain_text,  # FULL plain text
+                    'length': len(content),
+                    'plain_text_length': len(plain_text)
+                },
+                'metadata': doc['metadata'] if isinstance(doc['metadata'], dict) else {},
+                'created_at': str(doc['created_at']),
+                'updated_at': str(doc['updated_at'])
+            })
+        
+        cur.close()
+        conn.close()
+        
+        return {
+            'success': True,
+            'total_results': len(results),
+            'documents': results,
+            'query_info': {
+                'document_type': document_type,
+                'judge_name': judge_name,
+                'court_id': court_id,
+                'min_content_length': min_content_length
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Database search failed: {e}")
+        return {
+            'success': False,
+            'error': str(e),
+            'documents': []
+        }
 
 # Documentation endpoint
 @app.get("/docs/flows")
