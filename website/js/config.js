@@ -4,8 +4,9 @@
 const CONFIG = window.DATA_COMPOSE_CONFIG || {
   webhooks: {
     chat: {
-      id: "c188c31c-1c45-4118-9ece-5b6057ab5177",
-      url: `${window.location.protocol}//${window.location.host}/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177`
+      // Webhook ID can be configured via environment variable N8N_WEBHOOK_ID
+      id: window.N8N_WEBHOOK_ID || "c188c31c-1c45-4118-9ece-5b6057ab5177",
+      url: `${window.location.protocol}//${window.location.host}/webhook/${window.N8N_WEBHOOK_ID || "c188c31c-1c45-4118-9ece-5b6057ab5177"}`
     },
     hierarchicalSummarization: {
       id: "4f9e5d3c-7b2a-4e1f-9c8d-6a5b4c3d2e1f",

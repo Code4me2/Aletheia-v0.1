@@ -26,7 +26,8 @@ export const config = {
   },
   auth: {
     secret: process.env.NEXTAUTH_SECRET,
-    url: process.env.NEXTAUTH_URL || 'http://localhost:8080/chat'
+    url: process.env.NEXTAUTH_URL || 'http://localhost:8080/chat',
+    basePath: process.env.NEXTAUTH_BASE_PATH || '/chat'
   },
   database: {
     url: process.env.DATABASE_URL

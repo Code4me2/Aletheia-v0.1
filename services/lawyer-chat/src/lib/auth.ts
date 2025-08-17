@@ -152,7 +152,7 @@ export const authOptions: AuthOptions = {
       options: {
         httpOnly: true,
         sameSite: 'lax',
-        path: '/chat',
+        path: config.auth.basePath,
         secure: config.environment.isProduction
       }
     },
@@ -160,7 +160,7 @@ export const authOptions: AuthOptions = {
       name: `${config.environment.isProduction ? '__Secure-' : ''}next-auth.callback-url`,
       options: {
         sameSite: 'lax',
-        path: '/chat',
+        path: config.auth.basePath,
         secure: config.environment.isProduction
       }
     },
@@ -169,7 +169,7 @@ export const authOptions: AuthOptions = {
       options: {
         httpOnly: true,
         sameSite: 'lax',
-        path: '/chat',
+        path: config.auth.basePath,
         secure: config.environment.isProduction
       }
     }

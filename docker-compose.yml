@@ -45,7 +45,7 @@ services:
     ports:
       - "${N8N_PORT}:5678"
     environment:
-      - N8N_HOST=0.0.0.0
+      - N8N_HOST=${SERVICE_HOST:-0.0.0.0}
       - N8N_PORT=5678
       - NODE_ENV=production
       - N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY}"  # Use environment variable
@@ -121,16 +121,17 @@ services:
     container_name: lawyer-chat
     environment:
       - NODE_ENV=production
-      - HOSTNAME=0.0.0.0
+      - HOSTNAME=${SERVICE_HOST:-0.0.0.0}
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/lawyerchat
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=http://localhost:${WEB_PORT}/chat
       - NEXT_PUBLIC_NEXTAUTH_URL=http://localhost:${WEB_PORT}/chat
+      - NEXTAUTH_BASE_PATH=${NEXTAUTH_BASE_PATH:-/chat}
       - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
       - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
       - NEXT_PUBLIC_AI_PORTAL_URL=${NEXT_PUBLIC_AI_PORTAL_URL}
       - NEXT_PUBLIC_N8N_URL=${NEXT_PUBLIC_N8N_URL}
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/${N8N_WEBHOOK_ID}
       - N8N_API_KEY=${N8N_API_KEY}
       - N8N_API_SECRET=${N8N_API_SECRET}
       # Email config
@@ -151,7 +152,7 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:3000/chat/api/csrf"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/chat/api/csrf"]
       interval: 30s
       timeout: 10s
       retries: 3
