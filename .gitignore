@@ -125,3 +125,45 @@ services/lawyer-chat/test-formatting.js
 
 # Backup files from port implementation
 *.backup-*
+
+# Authentication/Credentials
+cookies.txt
+**/credentials/*.json
+test-registration.json
+
+# Court processor data files
+court-processor/downloaded_pdfs/
+court-processor/gilstrap_retrieval_*.json
+court-processor/pipeline_results_*.json
+court-processor/orchestrator_history.json
+court-processor/reports/
+
+# Court data - expanded
+court-data/logs/
+court-data/recap_downloads/
+
+# Backup files - expanded pattern
+*.backup
+docker-compose.yml.backup-*
+
+# Fixed/Simple Dockerfile variations (temporary)
+Dockerfile.*.fixed
+Dockerfile.*.simple
+
+# Test/debug scripts (temporary)
+check-*.js
+trace-*.js
+verify-*.js
+test-*.js
+test-*.sh
+test-*.html
+
+# n8n local files
+n8n/local-files/
+
+# Workflow backup directories
+workflow_json.backup.*/
+workflow_Autoload_process.md/
+
+# Test data downloads
+test-data/

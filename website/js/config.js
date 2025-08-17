@@ -26,7 +26,7 @@ CONFIG.WEBHOOK_URL = CONFIG.webhooks.chat.url;
 
 // Service URLs configuration
 CONFIG.services = {
-  aiPortal: '/portal',
+  aiPortal: '/portal/',
   n8n: '/n8n',
   chat: '/chat',
   api: '/api',

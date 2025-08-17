@@ -71,7 +71,7 @@
                         <small>AI Legal Assistant</small>
                     </div>
                 </a>
-                <a href="/portal" class="app-menu-item">
+                <a id="ai-portal-link" href="#" class="app-menu-item">
                     <i class="fas fa-building"></i>
                     <div>
                         <span>AI Portal</span>
@@ -584,5 +584,18 @@
     <!-- Application JavaScript -->
     <script src="js/app.js"></script>
     <script src="js/haystack-performance.js"></script>
+    
+    <!-- Set AI Portal link dynamically -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const aiPortalLink = document.getElementById('ai-portal-link');
+            if (aiPortalLink) {
+                // Use the port from the injected configuration
+                const aiPortalPort = window.AI_PORTAL_PORT || 8102;
+                aiPortalLink.href = `http://localhost:${aiPortalPort}/`;
+                aiPortalLink.target = '_blank';
+            }
+        });
+    </script>
 </body>
 </html>

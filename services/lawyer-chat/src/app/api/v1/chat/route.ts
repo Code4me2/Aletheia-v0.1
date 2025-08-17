@@ -101,7 +101,8 @@ export async function POST(request: NextRequest) {
         logger.warn('n8n workflow is not active. Using fallback response');
         
         // Create a fallback streaming response
-        const fallbackText = "I'm currently unable to connect to the AI service. Please ensure the n8n workflow is activated. \n\nTo fix this:\n1. Open n8n at http://localhost:5678\n2. Find the workflow with webhook ID: c188c31c-1c45-4118-9ece-5b6057ab5177\n3. Activate it using the toggle in the top-right\n\nFor testing, I can still demonstrate the UI features.";
+        const n8nUrl = process.env.NEXT_PUBLIC_N8N_URL || "http://localhost:8100";
+        const fallbackText = `I'm currently unable to connect to the AI service. Please ensure the n8n workflow is activated. \n\nTo fix this:\n1. Open n8n at ${n8nUrl}\n2. Find the workflow with webhook ID: c188c31c-1c45-4118-9ece-5b6057ab5177\n3. Activate it using the toggle in the top-right\n\nFor testing, I can still demonstrate the UI features.`;
         
         const encoder = new TextEncoder();
         const stream = new ReadableStream({

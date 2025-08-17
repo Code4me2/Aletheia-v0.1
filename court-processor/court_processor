@@ -24,7 +24,7 @@ if env_path.exists():
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from services.enhanced_ingestion_service import EnhancedIngestionService
+# from services.enhanced_ingestion_service import EnhancedIngestionService  # Replaced by UnifiedCollectionService
 from services.database import get_db_connection
 from eleven_stage_pipeline_robust_complete import RobustElevenStagePipeline
 import json
@@ -622,7 +622,9 @@ def fix(judge_attribution, docket_linking, filter_court, filter_judge, limit):
         return
     
     async def run_fix():
-        service = EnhancedIngestionService()
+        # Import the comprehensive judge extractor for attribution fixes
+        from comprehensive_judge_extractor import ComprehensiveJudgeExtractor
+        import json
         
         with Progress(
             SpinnerColumn(),
@@ -641,9 +643,11 @@ def fix(judge_attribution, docket_linking, filter_court, filter_judge, limit):
                 cur = conn.cursor()
                 
                 query = """
-                    SELECT case_number, metadata
+                    SELECT id, case_number, metadata, content
                     FROM public.court_documents
                     WHERE metadata->>'judge_name' IS NULL
+                       OR metadata->>'judge_name' = ''
+                       OR metadata->>'judge_name' = 'Unknown'
                 """
                 params = []
                 
@@ -660,29 +664,69 @@ def fix(judge_attribution, docket_linking, filter_court, filter_judge, limit):
                 cur.execute(query, params)
                 documents = cur.fetchall()
                 
+                console.print(f"Found {len(documents)} documents needing judge attribution fixes\n")
+                
+                # Initialize judge extractor
+                judge_extractor = ComprehensiveJudgeExtractor()
+                
                 fixed_count = 0
-                for case_num, metadata in documents:
-                    # Use comprehensive judge extraction
-                    # This is a simplified version - in production would use full traversal
-                    if metadata and metadata.get('docket_number'):
-                        # Try pattern extraction as example
-                        import re
-                        match = re.search(r'-([A-Z]{2,3})(?:-\d+)?$', metadata['docket_number'])
-                        if match:
-                            initials = match.group(1)
-                            # Map common initials
-                            judge_map = {'JRG': 'Rodney Gilstrap', 'RSP': 'Roy S. Payne'}
-                            if initials in judge_map:
-                                fixed_count += 1
+                for doc_id, case_num, metadata, content in documents:
+                    try:
+                        # Extract judge from multiple sources
+                        judge_info = judge_extractor.extract_judge(
+                            search_result=metadata,
+                            opinion_data=metadata,
+                            docket_data=metadata,
+                            content=content or ""
+                        )
+                        
+                        if judge_info and judge_info['name'] and judge_info['name'] != 'Unknown':
+                            # Update the metadata with judge information
+                            updated_metadata = metadata.copy() if metadata else {}
+                            updated_metadata['judge_name'] = judge_info['name']
+                            updated_metadata['judge_confidence'] = judge_info['confidence']
+                            updated_metadata['judge_source'] = judge_info['source']
+                            
+                            # Update database
+                            update_query = """
+                                UPDATE public.court_documents 
+                                SET metadata = %s,
+                                    updated_at = CURRENT_TIMESTAMP
+                                WHERE id = %s
+                            """
+                            cur.execute(update_query, (json.dumps(updated_metadata), doc_id))
+                            fixed_count += 1
+                            
+                            console.print(f"  ✓ Fixed: {case_num} → Judge: {judge_info['name']} (confidence: {judge_info['confidence']:.2f})")
+                    except Exception as e:
+                        console.print(f"  ✗ Error fixing {case_num}: {str(e)}")
                     
                     progress.update(task, advance=1)
                 
-                console.print(f"\n[green]✅ Fixed judge attribution for {fixed_count} documents[/green]")
+                # Commit changes
+                conn.commit()
+                
+                console.print(f"\n[green]✅ Fixed judge attribution for {fixed_count}/{len(documents)} documents[/green]")
+                
+                # Show statistics
+                if fixed_count > 0:
+                    cur.execute("""
+                        SELECT 
+                            COUNT(*) as total,
+                            COUNT(CASE WHEN metadata->>'judge_name' IS NOT NULL 
+                                      AND metadata->>'judge_name' != '' 
+                                      AND metadata->>'judge_name' != 'Unknown' THEN 1 END) as with_judges
+                        FROM public.court_documents
+                        WHERE 1=1
+                    """ + (" AND metadata->>'court_id' = %s" if filter_court else ""), 
+                    [filter_court] if filter_court else [])
+                    
+                    total, with_judges = cur.fetchone()
+                    attribution_rate = (with_judges / total * 100) if total > 0 else 0
+                    console.print(f"\n[bold]Overall Judge Attribution Rate:[/bold] {attribution_rate:.1f}% ({with_judges}/{total})")
                 
                 cur.close()
                 conn.close()
-        
-        await service.close()
     
     asyncio.run(run_fix())
 
@@ -884,44 +928,78 @@ def judge(judge_name, court, years, limit):
             return
     
     async def run_collection():
-        service = EnhancedIngestionService()
+        # Use unified collection service for consistency and better retrieval
+        from services.unified_collection_service import UnifiedCollectionService
         
-        # Reduce retries for faster response
-        service.retry_client.config.max_attempts = 3
-        service.retry_client.config.max_delay = 10.0
+        console.print(f"[dim]Using enhanced retrieval with content extraction[/dim]\n")
         
-        console.print(f"[dim]Note: Documents still processing (202) will be retried up to 3 times[/dim]\n")
-        
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TimeElapsedColumn(),
-            console=console
-        ) as progress:
-            
-            task = progress.add_task(f"Searching for {judge_name}...", total=limit)
-            
-            try:
-                results = await service.ingest_by_judge(
-                    judge_name=judge_name,
+        # Check if rich is available for progress bar
+        if not RICH_AVAILABLE:
+            console.print("Rich library not available. Using simple output.")
+            async with UnifiedCollectionService() as service:
+                results = await service.collect_documents(
                     court_id=court,
+                    judge_name=judge_name,
                     date_after=date_after,
                     date_before=date_before,
-                    limit=limit
+                    max_documents=limit,
+                    run_pipeline=False,
+                    extract_pdfs=True,
+                    store_to_db=True
                 )
                 
-                stats = results['stats']
-                console.print(f"\n[green]✅ Collection Complete[/green]")
-                console.print(f"  Documents collected: {stats['documents_fetched']}")
-                console.print(f"  Documents with judge data: {stats['judges_found']}")
-                console.print(f"  Judge attribution rate: {results['judge_attribution_rate']:.1f}%")
+                if results['success']:
+                    console.print(f"\n✅ Collection Complete")
+                    console.print(f"  Documents collected: {len(results['documents'])}")
+                    console.print(f"  With content: {results['statistics']['with_content']}")
+                    console.print(f"  With judges: {results['statistics']['with_judges']}")
+                else:
+                    console.print(f"\n❌ Collection Failed")
+                    for error in results.get('errors', []):
+                        console.print(f"  Error: {error}")
+        else:
+            # Use Progress with proper imports at function level
+            from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+            
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TextColumn("{task.completed}/{task.total}"),
+                TimeElapsedColumn(),
+                console=console
+            ) as progress:
                 
-            except Exception as e:
-                console.print(f"[red]Error: {str(e)}[/red]")
-            finally:
-                await service.close()
+                task = progress.add_task(f"Collecting {judge_name} documents...", total=limit)
+                
+                try:
+                    async with UnifiedCollectionService() as service:
+                        results = await service.collect_documents(
+                            court_id=court,
+                            judge_name=judge_name,
+                            date_after=date_after,
+                            date_before=date_before,
+                            max_documents=limit,
+                            run_pipeline=False,
+                            extract_pdfs=True,
+                            store_to_db=True
+                        )
+                    
+                    progress.update(task, completed=limit)
+                    
+                    if results['success']:
+                        console.print(f"\n[green]✅ Collection Complete[/green]")
+                        console.print(f"  Documents collected: {len(results['documents'])}")
+                        console.print(f"  With content: {results['statistics']['with_content']}")
+                        console.print(f"  With judges: {results['statistics']['with_judges']}")
+                        console.print(f"  Average content: {sum(len(d.get('content', '')) for d in results['documents']) // max(1, len(results['documents'])):,} chars")
+                    else:
+                        console.print(f"\n[red]❌ Collection Failed[/red]")
+                        for error in results.get('errors', []):
+                            console.print(f"  [red]Error: {error}[/red]")
+                    
+                except Exception as e:
+                    console.print(f"[red]Error: {str(e)}[/red]")
     
     asyncio.run(run_collection())
 

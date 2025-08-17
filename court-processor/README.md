@@ -1,98 +1,234 @@
-# Court Processor Pipeline
+# Court Processor - Judiciary Insights Platform
 
-An 11-stage document processing pipeline for US court documents, optimized for intellectual property cases. Part of the Aletheia legal data platform.
+A unified CLI for analyzing judicial behavior, court patterns, and legal trends. Replaces 45+ scattered scripts with a single human-centered interface focused on judiciary insights.
+
+## 🎯 Purpose
+
+Enable data-driven analysis of:
+- **Judge Attribution**: Understanding WHO made decisions (>95% attribution target)
+- **Temporal Patterns**: Tracking judicial behavior over time
+- **Case Tracking**: Following cases through their lifecycle
+- **Court Jurisdiction**: Regional and jurisdictional patterns
+
+## ⚡ Key Features
+
+- **Unified CLI**: Single entry point replacing 45+ scripts
+- **Human-Centered Commands**: Organized by user goals, not technical implementation
+- **Data Quality Focus**: Clear visibility into judge attribution and metadata completeness
+- **Progress Feedback**: Know what's happening during long operations
+- **11-Stage Pipeline**: Production-ready processing with 78% metadata completeness
 
 ## 🚀 Quick Start
 
+### Using Docker (Recommended)
 ```bash
-# Run pipeline with default settings (10 documents)
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py
+# Check data quality status
+docker exec aletheia-court-processor-1 ./court_processor data status
 
-# Process 50 documents with PDF extraction
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py 50 --extract-pdfs
+# Analyze a specific judge
+docker exec aletheia-court-processor-1 ./court_processor analyze judge "Rodney Gilstrap"
 
-# Process only unprocessed documents
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py 20 --unprocessed
+# Collect documents from a court
+docker exec aletheia-court-processor-1 ./court_processor collect court txed --years 2020-2025 --limit 100
 
-# Force reprocess all documents
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py --force
+# Run enhancement pipeline
+docker exec aletheia-court-processor-1 ./court_processor pipeline run --limit 50 --no-strict
+```
+
+### Local Usage (Development)
+```bash
+# Make executable
+chmod +x court_processor
+
+# Set database connection
+export DATABASE_URL="postgresql://user:pass@localhost:5432/dbname"
+
+# Run commands
+./court_processor data status
+./court_processor analyze judge "Rodney Gilstrap" --court txed
+```
+
+## 📋 Command Structure
+
+The CLI is organized around user goals:
+
+### 1. Analyze - Get Judiciary Insights
+```bash
+# Analyze a judge's patterns
+docker exec aletheia-court-processor-1 ./court_processor analyze judge "Rodney Gilstrap" [options]
+  --court COURT_ID        # Filter by court (e.g., txed)
+  --years YYYY-YYYY       # Year range (e.g., 2020-2025)
+  --focus TYPE            # Case type focus (e.g., patent)
+  --export FORMAT         # Export format (json|csv|summary)
+```
+
+### 2. Data - Export, List & Fix
+```bash
+# Export full court opinions with content
+docker exec aletheia-court-processor-1 ./court_processor data export [options]
+  --type TYPE            # Document type (opinion|opinion_doctor|020lead|docket)
+  --judge "Name"         # Filter by judge name
+  --court COURT_ID       # Filter by court
+  --min-content-length N # Minimum content size (filters placeholders)
+  --format FORMAT        # json|jsonl|csv
+  --full-content         # Include full opinion text
+  --content-format TYPE  # raw|text|both
+  --compact              # API-ready compact JSON
+  --pretty               # Human-readable formatting
+
+# List documents
+docker exec aletheia-court-processor-1 ./court_processor data list [options]
+  --status STATUS        # with-content|without-content|all
+  --type TYPE            # Document type filter
+  --limit N              # Number to show
+
+# Check data quality status
+docker exec aletheia-court-processor-1 ./court_processor data status
+
+# Fix data quality issues
+docker exec aletheia-court-processor-1 ./court_processor data fix [options]
+  --judge-attribution     # Fix missing judge data
+  --docket-linking       # Fix missing docket numbers
+  --filter-court COURT   # Only fix specific court
+  --limit N              # Maximum documents to fix
+```
+
+### 3. Collect - Gather Documents
+```bash
+# Collect from a court
+docker exec aletheia-court-processor-1 ./court_processor collect court COURT_ID [options]
+
+# Collect by judge
+docker exec aletheia-court-processor-1 ./court_processor collect judge "Judge Name" [options]
+  --court COURT_ID       # Filter by court
+  --years YYYY-YYYY      # Year range
+  --limit N              # Maximum documents
+```
+
+### 4. Pipeline - Process Documents
+```bash
+# Run enhancement pipeline
+docker exec aletheia-court-processor-1 ./court_processor pipeline run [options]
+  --limit N              # Number of documents (default: 10)
+  --force                # Force reprocess
+  --unprocessed          # Only new documents
+  --extract-pdfs         # Extract PDF content
+  --no-strict            # Process with warnings
 ```
 
 ## 📊 Current Status
 
-**Production Ready** with recent improvements to citation extraction, judge identification, and PDF integration.
+### Data Quality (As of Testing)
+- **Total Documents**: 2,245
+- **Judge Attribution**: 12.0% ❌ (need >95%)
+- **Docket Numbers**: 4.1% ❌ (need >90%)
+- **Court IDs**: 12.7% ❌ (need 100%)
+- **Text Content**: 93.1% ⚠️ (need >95%)
 
-### Performance Summary
-- **Court Opinions**: ✅ Excellent (78% completeness)
-- **RECAP Dockets**: ✅ Fixed (100% court resolution)
-- **Citation Extraction**: ✅ Fixed (now shows total count)
-- **Judge Identification**: ✅ Improved (removed photo dependency)
-- **PDF Extraction**: ✅ NEW - Integrated and working
-- **Storage**: ✅ 100% reliability
+### Pipeline Performance
+- **11-Stage Pipeline**: Production ready with 78% metadata completeness
+- **Court Resolution**: 100% success rate
+- **Citation Extraction**: 100% success rate
+- **Judge Enhancement**: 10-70% (varies by document type)
+- **PDF Extraction**: Available with `--extract-pdfs` flag
 
-### Recent Fixes (July 2025)
-- ✅ Fixed citation extraction rate display (was showing 5400%)
-- ✅ Fixed judge extraction (removed judge-pics dependency)
-- ✅ Fixed RECAP court resolution (now uses court_id field)
-- ✅ Added force reprocessing option
-- ✅ Added unprocessed-only filtering
-- ✅ Integrated PDF content extraction
+### Recent Improvements (August 2025)
+- ✅ **Unified CLI**: Replaced 45+ scripts with single human-centered interface
+- ✅ **Enhanced Ingestion**: Comprehensive judge extraction from multiple sources
+- ✅ **Progress Feedback**: Clear status during long operations
+- ✅ **Data Quality Tools**: Built-in commands to check and fix issues
+- ✅ **Reduced Retries**: Faster response for 202 processing documents
 
-See [PIPELINE_CAPABILITIES.md](./PIPELINE_CAPABILITIES.md) for detailed metrics.
+## 🔍 Example Workflows
 
-## 🎯 Key Features
+### Complete Judge Analysis
+```bash
+# 1. Check if we have data for the judge
+docker exec aletheia-court-processor-1 ./court_processor analyze judge "Rodney Gilstrap"
 
-- **Dual API System**: Separate endpoints for opinion search (broad) and RECAP dockets (specific)
-- **11-Stage Enhancement Pipeline**: Court resolution, citation extraction, judge identification, and more
-- **PDF Content Extraction**: Automatic extraction from PDFs when text is missing
-- **IP Court Focus**: Optimized for patent, trademark, and copyright cases
-- **Multiple Data Sources**: CourtListener API, RECAP Archive, PDF documents
-- **Async Processing**: Efficient batch processing with comprehensive error handling
-- **Quality Metrics**: Real-time reporting of processing completeness and quality
+# 2. If data quality is low, collect more
+docker exec aletheia-court-processor-1 ./court_processor collect judge "Rodney Gilstrap" --court txed --years 2020-2025
 
-## 🌐 API Endpoints
+# 3. Process through enhancement pipeline
+docker exec aletheia-court-processor-1 ./court_processor pipeline run --limit 100 --no-strict
 
-The court processor provides a unified RESTful API running on port 8090:
+# 4. Analyze with complete data
+docker exec aletheia-court-processor-1 ./court_processor analyze judge "Rodney Gilstrap" --export json
+```
 
-### Opinion Search API
-- `POST /search/opinions` - Broad search for published opinions
-- Free access to complete CourtListener database
-- Supports keyword search, date ranges, court filters
+### Fix Data Quality Issues
+```bash
+# 1. Check current status
+docker exec aletheia-court-processor-1 ./court_processor data status
 
-### RECAP Docket API  
-- `POST /recap/docket` - Retrieve specific dockets by number
-- Checks free RECAP archive first, then PACER if needed
-- Supports document downloads and webhook notifications
+# 2. Fix judge attribution if < 95%
+docker exec aletheia-court-processor-1 ./court_processor data fix --judge-attribution
 
-### Processing Pipeline API
-- `POST /process/batch` - Process documents through 11-stage pipeline
-- `POST /process/single` - Process individual documents
-- `GET /pipeline/status` - Check pipeline status and metrics
+# 3. Verify improvement
+docker exec aletheia-court-processor-1 ./court_processor data status
+```
 
-See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for complete API reference.
+## 📚 Practical Examples
+
+### Export Full Court Opinions
+```bash
+# Export real court opinions (50KB+ of legal text)
+docker exec aletheia-court-processor-1 ./court_processor data export \
+  --type 020lead \
+  --min-content-length 50000 \
+  --limit 5 \
+  --full-content \
+  --content-format text \
+  --compact \
+  --output patent_opinions.json
+
+# Human-readable export with formatting
+docker exec aletheia-court-processor-1 ./court_processor data export \
+  --type 020lead \
+  --min-content-length 30000 \
+  --limit 3 \
+  --pretty
+```
+
+### Search and Analyze
+```bash
+# Search for patent infringement cases
+docker exec aletheia-court-processor-1 ./court_processor search opinions "patent infringement" --limit 10
+
+# Analyze Judge Gilstrap's patent cases
+docker exec aletheia-court-processor-1 ./court_processor analyze judge "Rodney Gilstrap" --focus patent
+```
+
+### Data Quality Management
+```bash
+# List documents with actual content
+docker exec aletheia-court-processor-1 ./court_processor data list --status with-content --limit 10
+
+# Export Judge Gilstrap's opinions for analysis
+docker exec aletheia-court-processor-1 ./court_processor data export \
+  --judge "Gilstrap" \
+  --min-content-length 30000 \
+  --format csv \
+  --output gilstrap_analysis.csv
+```
 
 ## 📁 Project Structure
 
 ```
 court-processor/
-├── api/
-│   ├── unified_api.py                       # Main API server (port 8090)
-│   └── webhook_server.py                    # RECAP webhook handler
-├── eleven_stage_pipeline_robust_complete.py # Main 11-stage pipeline
-├── court_processor_orchestrator.py          # Workflow orchestration
-├── scripts/
-│   ├── run_pipeline.py                      # Main runner script
-│   └── utilities/                           # Helper scripts
-├── services/                                # Service modules
-│   ├── courtlistener_service.py            # API client
-│   ├── document_ingestion_service.py       # Document fetching
-│   ├── unified_document_processor.py       # Unified processing
-│   ├── recap_docket_service.py             # RECAP docket handling
-│   └── recap/                              # RECAP integration
-├── integrate_pdf_to_pipeline.py            # PDF extraction module
-├── pdf_processor.py                        # PDF processing utilities
-├── docs/                                   # Archived documentation
-└── archive/                                # Historical implementations
+├── court_processor                          # NEW: Unified CLI entry point
+├── cp                                       # NEW: Shorthand wrapper
+├── eleven_stage_pipeline_robust_complete.py # Production pipeline
+├── services/                                
+│   ├── enhanced_ingestion_service.py       # NEW: Enhanced data collection
+│   ├── courtlistener_service.py           # API client
+│   └── database.py                         # Database connections
+├── comprehensive_judge_extractor.py        # NEW: Multi-source judge extraction
+├── scripts/                                # Legacy scripts (being replaced)
+│   └── utilities/                          # 45+ individual scripts
+└── archived/                               # Old implementations
+    ├── cli_implementations_2025/           # Previous CLI attempts
+    └── broken_components/                  # Unified processor (broken)
 ```
 
 ## 🔧 Configuration
@@ -100,84 +236,42 @@ court-processor/
 Environment variables (in parent `.env`):
 ```env
 COURTLISTENER_API_TOKEN=your-token-here
-PACER_USERNAME=your-username  # Optional - see PACER_INTEGRATION_STATUS.md
-PACER_PASSWORD=your-password  # Optional - see PACER_INTEGRATION_STATUS.md
+DATABASE_URL=postgresql://user:pass@host:5432/dbname  # For local development
 ```
 
-## 💻 Usage Examples
+## 🚧 Known Issues & Solutions
 
-### Basic Pipeline Run
-```bash
-# Process 10 documents (default)
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py
+### Issue: 202 Processing Delays
+- **Symptom**: CourtListener returns 202 for documents still processing
+- **Solution**: Enhanced retry logic with exponential backoff (automatically handled)
 
-# Process 50 documents
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py 50
-```
+### Issue: Low Judge Attribution (12%)
+- **Symptom**: Most documents missing judge information
+- **Solution**: Use `data fix --judge-attribution` or collect with comprehensive extraction
 
-### Advanced Options
-```bash
-# Extract PDFs when content is missing
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py 20 --extract-pdfs
-
-# Only process new documents
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py --unprocessed
-
-# Force reprocess (ignore hash checks)
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py --force
-
-# Combine options
-docker exec aletheia-court-processor-1 python scripts/run_pipeline.py 100 --extract-pdfs --unprocessed
-```
-
-## 📈 Pipeline Stages
-
-1. **Document Retrieval** - Fetch from database + optional PDF extraction
-2. **Court Resolution** - Identify and validate courts
-3. **Citation Extraction** - Find legal citations using eyecite
-4. **Citation Validation** - Verify citation format
-5. **Reporter Normalization** - Standardize citations
-6. **Judge Enhancement** - Extract judge information
-7. **Document Structure** - Analyze organization
-8. **Keyword Extraction** - Find legal terms
-9. **Metadata Assembly** - Combine enhancements
-10. **Storage** - Save to PostgreSQL
-11. **Verification** - Quality metrics
-
-## 🚧 Known Limitations
-
-- **PACER Direct Access**: Credential issue (but RECAP has 14M+ documents)
-- **Judge Extraction**: Limited success rate (patterns need improvement)
-- **RECAP Dockets**: Metadata only (no document text)
-
-## 🔄 Recent Updates (July 2025)
-
-- **Unified API**: Consolidated all endpoints into single API service on port 8090
-- **Separated Data Flows**: Clear distinction between opinion search (broad) and RECAP dockets (specific)
-- **PDF Integration**: Automatic content extraction from court PDFs
-- **Fixed Citation Display**: Shows total count instead of incorrect percentage
-- **Fixed Judge Extraction**: Removed photo database dependency
-- **Fixed RECAP Processing**: Now properly resolves courts for dockets
-- **Added Processing Options**: Force reprocess and unprocessed-only flags
-- **Improved Error Handling**: Better validation and error reporting
+### Issue: Database Connection
+- **Symptom**: "could not translate host name 'db'" error
+- **Solution**: Use Docker commands or set DATABASE_URL for local development
 
 ## 📖 Documentation
 
 ### Current Documentation
-- [PIPELINE_CAPABILITIES.md](./PIPELINE_CAPABILITIES.md) - Detailed capabilities and metrics
-- [PACER_INTEGRATION_STATUS.md](./PACER_INTEGRATION_STATUS.md) - PACER/RECAP API status
-- [RECAP_VS_OPINIONS.md](./RECAP_VS_OPINIONS.md) - Document type differences
+- [UNIFIED_CLI_README.md](./UNIFIED_CLI_README.md) - Detailed CLI usage guide
+- [CLI_HUMAN_USABILITY_PLAN.md](./CLI_HUMAN_USABILITY_PLAN.md) - Design rationale
+- [COMPREHENSIVE_SYSTEM_UNDERSTANDING.md](./COMPREHENSIVE_SYSTEM_UNDERSTANDING.md) - System architecture
+- [API_FIELD_MAPPING_CRITICAL.md](./API_FIELD_MAPPING_CRITICAL.md) - API traversal details
 
-### Archived Documentation
-All historical documentation has been moved to the `docs/` directory for reference.
+### Legacy Documentation
+- Moved to `docs/` directory for historical reference
+- See `archived/` for old implementations
 
 ## 🤝 Contributing
 
-This is part of the larger Aletheia project. Focus areas for contribution:
-- Improve judge name extraction patterns
-- Add patent/trademark number extraction
-- Enhance document structure analysis
-- Add more IP-specific metadata extraction
+Focus areas for contribution:
+- Improve judge extraction patterns
+- Add more analysis commands
+- Enhance progress feedback
+- Create export templates
 
 ## 📝 License
 

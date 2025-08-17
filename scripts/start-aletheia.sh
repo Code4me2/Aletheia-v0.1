@@ -107,7 +107,7 @@ if [ ! -f .env ]; then
 fi
 
 # Parse command line arguments
-INCLUDE_HAYSTACK=false
+INCLUDE_HAYSTACK=true  # Changed to true by default
 SKIP_WORKFLOW_IMPORT=false
 FORCE_RECREATE=false
 
@@ -115,6 +115,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --with-haystack)
             INCLUDE_HAYSTACK=true
+            shift
+            ;;
+        --without-haystack)
+            INCLUDE_HAYSTACK=false
             shift
             ;;
         --skip-workflow-import)
@@ -129,14 +133,14 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --with-haystack         Include Haystack/Elasticsearch services"
+            echo "  --without-haystack      Skip Haystack/Elasticsearch services (default: included)"
             echo "  --skip-workflow-import  Skip automatic n8n workflow import"
             echo "  --force-recreate       Force recreate containers"
             echo "  --help                 Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                     # Start core services only"
-            echo "  $0 --with-haystack     # Start all services including Haystack"
+            echo "  $0                        # Start all services including Haystack"
+            echo "  $0 --without-haystack     # Start core services only"
             exit 0
             ;;
         *)
@@ -176,11 +180,12 @@ wait_for_service "PostgreSQL" "docker-compose exec -T db pg_isready -U aletheia_
 # Wait for n8n
 wait_for_service "n8n" "curl -s http://localhost:5678/healthz"
 
-# Wait for web interface
-wait_for_service "Web Interface" "curl -s http://localhost:8080"
+# Wait for web interface (using WEB_PORT from .env, default 8090)
+WEB_PORT=$(grep "^WEB_PORT=" .env | cut -d'=' -f2 || echo "8090")
+wait_for_service "Web Interface" "curl -s http://localhost:${WEB_PORT}"
 
 # Wait for lawyer-chat
-wait_for_service "Lawyer Chat" "curl -s http://localhost:8080/chat/api/csrf"
+wait_for_service "Lawyer Chat" "curl -s http://localhost:${WEB_PORT}/chat/api/csrf"
 
 if [ "$INCLUDE_HAYSTACK" = true ]; then
     # Wait for Elasticsearch
@@ -251,9 +256,9 @@ echo -e "${GREEN}║     ✓ Aletheia v0.1 is now running!   ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${BLUE}🌐 Access Points:${NC}"
-echo -e "   Main Interface:    ${GREEN}http://localhost:8080${NC}"
-echo -e "   n8n Workflows:     ${GREEN}http://localhost:8080/n8n/${NC}"
-echo -e "   Lawyer Chat:       ${GREEN}http://localhost:8080/chat${NC}"
+echo -e "   Main Interface:    ${GREEN}http://localhost:${WEB_PORT}${NC}"
+echo -e "   n8n Workflows:     ${GREEN}http://localhost:${WEB_PORT}/n8n/${NC}"
+echo -e "   Lawyer Chat:       ${GREEN}http://localhost:${WEB_PORT}/chat${NC}"
 echo -e "   AI Portal:         ${GREEN}http://localhost:8085${NC}"
 
 if [ "$INCLUDE_HAYSTACK" = true ]; then
@@ -265,12 +270,12 @@ fi
 echo ""
 echo -e "${BLUE}📋 Next Steps:${NC}"
 if [ "$SKIP_WORKFLOW_IMPORT" = false ] && [ "$WORKFLOW_EXISTS" -eq 0 ]; then
-    echo -e "   1. Check n8n workflows at http://localhost:8080/n8n/"
+    echo -e "   1. Check n8n workflows at http://localhost:${WEB_PORT}/n8n/"
     echo -e "   2. Ensure the Basic_workflow is active"
     echo -e "   3. Test the AI Chat interface"
 else
-    echo -e "   1. Test the AI Chat interface at http://localhost:8080"
-    echo -e "   2. Try the Lawyer Chat at http://localhost:8080/chat"
+    echo -e "   1. Test the AI Chat interface at http://localhost:${WEB_PORT}"
+    echo -e "   2. Try the Lawyer Chat at http://localhost:${WEB_PORT}/chat"
 fi
 
 echo ""

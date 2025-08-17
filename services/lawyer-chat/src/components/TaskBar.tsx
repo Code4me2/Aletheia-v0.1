@@ -194,11 +194,11 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
                   {/* Logo and Title on the left */}
                   <div className="flex items-center gap-2">
                     <a
-                      href="http://localhost:8085"
+                      href={process.env.NEXT_PUBLIC_AI_PORTAL_URL || "http://localhost:8102"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="transition-transform hover:scale-110"
-                      title="Open Court Processor"
+                      title="Open AI Portal"
                     >
                       <img 
                         src="/chat/logo.png" 
@@ -575,7 +575,7 @@ function TaskBarContent({ onChatSelect, onNewChat }: TaskBarProps) {
                       </div>
                       <div className="p-2 space-y-1">
                         <a
-                          href="http://localhost:8080"
+                          href={process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:8080"}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setShowUserMenu(false)}

@@ -378,42 +378,6 @@ def get_service_health():
         'timestamp': datetime.now().isoformat()
     })
 
-@app.route('/api/docker/logs/all', methods=['GET'])
-def get_all_logs():
-    """Get logs for all services with structured parsing"""
-    lines = request.args.get('lines', '50')
-    
-    all_logs = {}
-    for service in DOCKER_SERVICES:
-        cmd = f"cd /workspace && docker compose logs --tail={lines} {service} 2>&1"
-        result = run_docker_command(cmd)
-        
-        if result['success']:
-            logs = result['output']
-            # Parse logs to extract timestamp, level, and message
-            parsed_logs = parse_log_lines(logs, service)
-            all_logs[service] = {
-                'raw': logs,
-                'parsed': parsed_logs,
-                'has_error': any(log.get('level') == 'ERROR' for log in parsed_logs),
-                'has_warning': any(log.get('level') == 'WARNING' for log in parsed_logs),
-                'line_count': len(parsed_logs)
-            }
-        else:
-            all_logs[service] = {
-                'raw': '',
-                'parsed': [],
-                'error': result['error'],
-                'has_error': False,
-                'has_warning': False,
-                'line_count': 0
-            }
-    
-    return jsonify({
-        'services': all_logs,
-        'timestamp': datetime.now().isoformat()
-    })
-
 def parse_log_lines(logs, service):
     """Parse log lines to extract timestamp, level, and message"""
     lines = logs.strip().split('\n')

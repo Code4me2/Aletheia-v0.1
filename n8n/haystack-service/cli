@@ -16,8 +16,8 @@ from typing import Dict, List, Optional
 
 # Service configuration
 SERVICE_NAME = "haystack"
-API_PORT = 8000
-ES_PORT = 9200
+API_PORT = int(os.environ.get('HAYSTACK_PORT', 8500))
+ES_PORT = int(os.environ.get('ELASTICSEARCH_PORT', 8202))
 API_URL = f"http://localhost:{API_PORT}"
 ES_URL = f"http://localhost:{ES_PORT}"
 INDEX_NAME = "legal-documents-rag"
