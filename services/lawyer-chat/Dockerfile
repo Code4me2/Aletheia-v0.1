@@ -46,6 +46,9 @@ RUN npx prisma generate --schema=./prisma/schema.prisma || \
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED 1
+# Set NODE_ENV for build to match runtime expectations
+ARG NODE_ENV=development
+ENV NODE_ENV=${NODE_ENV}
 RUN npm run build
 
 # Runner stage
