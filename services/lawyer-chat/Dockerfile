@@ -52,7 +52,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+# NODE_ENV is now set via docker-compose.yml to allow flexibility
+# ENV NODE_ENV production  # Removed to allow runtime configuration
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install runtime dependencies

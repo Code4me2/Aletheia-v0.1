@@ -29,6 +29,12 @@ docker-compose build lawyer-chat
 docker-compose up -d
 ```
 
+**Important NODE_ENV Configuration:**
+- NODE_ENV is now controlled via docker-compose.yml (not hardcoded in Dockerfile)
+- Development: Uses `NODE_ENV=development` (default) - cookies work over HTTP
+- Production: Must set `NODE_ENV=production` - requires HTTPS for secure cookies
+- Change in .env file or docker-compose.yml takes effect after container restart
+
 ### 4. Access the application
 - **Lawyer-Chat Interface**: http://localhost:8080/chat
 - **Health Check**: http://localhost:8080/chat/api/csrf
