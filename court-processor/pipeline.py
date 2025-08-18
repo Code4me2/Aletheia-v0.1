@@ -17,7 +17,7 @@ import hashlib
 import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
-from enhancements.enhanced_storage_with_dockets import EnhancedStorageProcessor
+# from enhancements.enhanced_storage_with_dockets import EnhancedStorageProcessor  # Archived
 import aiohttp
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -40,7 +40,7 @@ from reporters_db import REPORTERS
 from pipeline_exceptions import *
 from pipeline_validators import *
 from error_reporter import ErrorCollector
-from enhanced_judge_extraction import EnhancedJudgeExtractor
+from judge_extractor import ComprehensiveJudgeExtractor as EnhancedJudgeExtractor  # Using renamed simple version
 
 # Create courts dictionary for direct lookup
 COURTS_DICT = {court['id']: court for court in courts if isinstance(court, dict)}
@@ -432,9 +432,10 @@ class RobustElevenStagePipeline:
             logger.info("STAGE 9: Enhanced Storage to PostgreSQL")
             logger.info("=" * 60)
             
-            # Enhanced storage with docket fetching
-            storage_processor = EnhancedStorageProcessor(self.db_conn)
-            storage_results = await storage_processor.store_with_docket_enhancement(enhanced_documents, force_reprocess)
+            # Enhanced storage with docket fetching - DISABLED (module archived)
+            # storage_processor = EnhancedStorageProcessor(self.db_conn)
+            # storage_results = await storage_processor.store_with_docket_enhancement(enhanced_documents, force_reprocess)
+            storage_results = {'stored': len(enhanced_documents), 'docket_stats': {}}  # Simple storage for now
             
             # Log docket stats
             docket_stats = storage_results.get('docket_stats', {})

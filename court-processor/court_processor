@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # from services.enhanced_ingestion_service import EnhancedIngestionService  # Replaced by UnifiedCollectionService
 from services.database import get_db_connection
-from eleven_stage_pipeline_robust_complete import RobustElevenStagePipeline
+from pipeline import RobustElevenStagePipeline
 import json
 try:
     from rich.console import Console

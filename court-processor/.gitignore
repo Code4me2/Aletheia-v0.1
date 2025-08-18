@@ -44,3 +44,16 @@ orchestrator_history.json
 
 # Docker
 docker-compose.override.yml
+# Test data and downloads
+downloaded_pdfs/
+test_data/courtlistener_free/
+test_data/recap_real/
+test_data/ip_cases/
+*.log
+*.pyc
+__pycache__/
+*.json.backup
+*_backup*
+orchestrator_history.json
+pipeline_results_*.json
+gilstrap_retrieval_*.json
