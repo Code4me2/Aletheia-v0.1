@@ -36,8 +36,13 @@ check_endpoint() {
   local name=$1
   local url=$2
   local expected_status=${3:-200}
+  local follow_redirects=${4:-false}
   
-  status=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+  if [ "$follow_redirects" = "true" ]; then
+    status=$(curl -sL -o /dev/null -w "%{http_code}" "$url" || echo "000")
+  else
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+  fi
   
   if [ "$status" = "$expected_status" ]; then
     echo -e "${GREEN}✓ $name is healthy (HTTP $status)${NC}"
@@ -52,7 +57,7 @@ check_endpoint() {
 # Check services
 check_endpoint "Web UI" "${BASE_URL}/"
 check_endpoint "n8n Service" "${BASE_URL}/n8n/healthz"
-check_endpoint "Lawyer Chat" "${BASE_URL}/chat/api/csrf"
+check_endpoint "Lawyer Chat" "${BASE_URL}/chat/api/csrf" 200 true
 check_endpoint "AI Portal" "${BASE_URL}:8085/" 200 || true  # Optional service
 
 # Database check (only for local/staging)

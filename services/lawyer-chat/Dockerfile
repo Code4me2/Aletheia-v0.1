@@ -46,13 +46,17 @@ RUN npx prisma generate --schema=./prisma/schema.prisma || \
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED 1
+# Set NODE_ENV for build to match runtime expectations
+ARG NODE_ENV=development
+ENV NODE_ENV=${NODE_ENV}
 RUN npm run build
 
 # Runner stage
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+# NODE_ENV is now set via docker-compose.yml to allow flexibility
+# ENV NODE_ENV production  # Removed to allow runtime configuration
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install runtime dependencies

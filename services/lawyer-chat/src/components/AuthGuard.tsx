@@ -18,6 +18,8 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
     
     if (!session) {
       // Redirect to sign-in page with callback URL
+      // Note: basePath is /chat, so the route is relative to that
+      // Use /chat instead of / to stay within the lawyer-chat app
       router.push('/auth/signin?callbackUrl=/chat');
     }
   }, [session, status, router]);

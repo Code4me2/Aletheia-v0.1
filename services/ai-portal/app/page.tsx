@@ -157,7 +157,7 @@ export default function Home() {
             </a>
             
             <a
-              href="http://localhost:8080/chat"
+              href={`${process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:8080'}/chat`}
               aria-label="Open Aletheia chat"
               className={`group relative px-8 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:min-w-[200px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
               style={{ transitionDelay: '1300ms' }}

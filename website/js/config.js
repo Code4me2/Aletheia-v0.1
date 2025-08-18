@@ -4,8 +4,9 @@
 const CONFIG = window.DATA_COMPOSE_CONFIG || {
   webhooks: {
     chat: {
-      id: "c188c31c-1c45-4118-9ece-5b6057ab5177",
-      url: `${window.location.protocol}//${window.location.host}/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177`
+      // Webhook ID can be configured via environment variable N8N_WEBHOOK_ID
+      id: window.N8N_WEBHOOK_ID || "c188c31c-1c45-4118-9ece-5b6057ab5177",
+      url: `${window.location.protocol}//${window.location.host}/webhook/${window.N8N_WEBHOOK_ID || "c188c31c-1c45-4118-9ece-5b6057ab5177"}`
     },
     hierarchicalSummarization: {
       id: "4f9e5d3c-7b2a-4e1f-9c8d-6a5b4c3d2e1f",
@@ -23,3 +24,18 @@ const CONFIG = window.DATA_COMPOSE_CONFIG || {
 // Legacy support - maintain backward compatibility
 CONFIG.WEBHOOK_ID = CONFIG.webhooks.chat.id;
 CONFIG.WEBHOOK_URL = CONFIG.webhooks.chat.url;
+
+// Service URLs configuration
+CONFIG.services = {
+  aiPortal: '/portal/',
+  n8n: '/n8n',
+  chat: '/chat',
+  api: '/api',
+  // Direct service access (for development)
+  ...(window.location.hostname === 'localhost' ? {
+    aiPortalDirect: `:${window.AI_PORTAL_PORT || '8102'}`,
+    n8nDirect: `:${window.N8N_PORT || '8100'}`,
+    haystackDirect: `http://localhost:${window.HAYSTACK_PORT || '8500'}`,
+    elasticsearchDirect: `http://localhost:${window.ELASTICSEARCH_PORT || '8202'}`
+  } : {})
+};

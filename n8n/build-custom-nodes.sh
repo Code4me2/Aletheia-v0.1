@@ -4,12 +4,14 @@ set -e
 echo "Building n8n custom nodes..."
 
 # Base directory for custom nodes
-CUSTOM_NODES_DIR="/home/manesha/AI_Legal/Aletheia-v0.1/n8n/custom-nodes"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CUSTOM_NODES_DIR="$SCRIPT_DIR/custom-nodes"
 
 # List of nodes that need building (excluding deepseek which already has dist)
 NODES=(
     "n8n-nodes-bitnet"
     "n8n-nodes-citationchecker"
+    "n8n-nodes-citation-gen"
     "n8n-nodes-haystack"
     "n8n-nodes-hierarchicalSummarization"
     "n8n-nodes-yake"

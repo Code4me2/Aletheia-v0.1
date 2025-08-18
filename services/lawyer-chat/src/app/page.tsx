@@ -295,11 +295,11 @@ function LawyerChatContent() {
               {!isTaskBarExpanded && (
                 <div className="flex items-center gap-2">
                   <a
-                    href="http://localhost:8085"
+                    href={process.env.NEXT_PUBLIC_AI_PORTAL_URL || "http://localhost:8102"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="transition-transform hover:scale-110"
-                    title="Open Court Processor"
+                    title="Open AI Portal"
                   >
                     <img 
                       src="/chat/logo.png" 

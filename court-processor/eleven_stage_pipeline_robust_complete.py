@@ -17,6 +17,7 @@ import hashlib
 import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
+from enhancements.enhanced_storage_with_dockets import EnhancedStorageProcessor
 import aiohttp
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -126,11 +127,170 @@ class RobustElevenStagePipeline:
         
         return 'unknown'
     
+    async def process_documents_in_memory(self,
+                                          documents: List[Dict[str, Any]],
+                                          validate_strict: bool = True) -> Dict[str, Any]:
+        """
+        Process documents in memory through stages 2-11 (skips database fetch)
+        
+        This method is designed for documents that are already in memory,
+        such as those just fetched from the CourtListener API.
+        
+        Args:
+            documents: List of document dictionaries with 'content', 'metadata', etc.
+            validate_strict: If True, skip documents with validation errors
+            
+        Returns:
+            Enhanced documents with pipeline processing applied
+        """
+        start_time = datetime.now()
+        run_id = f"run_memory_{start_time.isoformat()}"
+        self.error_collector = ErrorCollector(run_id)
+        stages_completed = []
+        
+        try:
+            logger.info("=" * 60)
+            logger.info("In-Memory Pipeline Processing")
+            logger.info("=" * 60)
+            logger.info(f"Processing {len(documents)} documents in memory")
+            
+            self.stats['documents_processed'] = len(documents)
+            
+            # Skip Stage 1 (Document Retrieval) since documents are already provided
+            stages_completed.append("Document Input")
+            
+            if not documents:
+                logger.warning("No documents provided for processing")
+                return {
+                    'documents': [],
+                    'statistics': self.stats,
+                    'stages_completed': stages_completed,
+                    'errors': []
+                }
+            
+            # Run stages 2-8 using the existing stage methods (matching actual pipeline stages)
+            # Stage 2: Court Resolution Enhancement
+            try:
+                logger.info("STAGE 2: Court Resolution Enhancement")
+                for doc in documents:
+                    court_info = self._enhance_court_info_validated(doc)
+                    doc['court_enhancement'] = court_info
+                    
+                    if court_info.get('resolved'):
+                        self.stats['courts_resolved'] = self.stats.get('courts_resolved', 0) + 1
+                    else:
+                        self.stats['courts_unresolved'] = self.stats.get('courts_unresolved', 0) + 1
+                        
+                stages_completed.append("Court Resolution Enhancement")
+            except Exception as e:
+                logger.error(f"Court resolution failed: {str(e)}")
+                self.error_collector.add_error(e, "Court Resolution")
+            
+            # Stage 3: Citation Extraction and Analysis
+            try:
+                logger.info("STAGE 3: Citation Extraction and Analysis")
+                for doc in documents:
+                    citations_data = self._extract_citations_validated(doc)
+                    doc['citations_extracted'] = citations_data
+                    self.stats['citations_extracted'] = self.stats.get('citations_extracted', 0) + citations_data.get('count', 0)
+                    self.stats['citations_validated'] = self.stats.get('citations_validated', 0) + citations_data.get('valid_count', 0)
+                stages_completed.append("Citation Extraction")
+            except Exception as e:
+                logger.error(f"Citation extraction failed: {str(e)}")
+                self.error_collector.add_error(e, "Citation Extraction")
+            
+            # Stage 4: Reporter Normalization
+            try:
+                logger.info("STAGE 4: Reporter Normalization")
+                for doc in documents:
+                    if doc.get('citations_extracted', {}).get('count', 0) > 0:
+                        reporters_data = self._normalize_reporters_validated(
+                            doc['citations_extracted']['citations']
+                        )
+                        doc['reporters_normalized'] = reporters_data
+                        self.stats['reporters_normalized'] = self.stats.get('reporters_normalized', 0) + reporters_data.get('normalized_count', 0)
+                    else:
+                        doc['reporters_normalized'] = {'count': 0, 'normalized_reporters': []}
+                stages_completed.append("Reporter Normalization")
+            except Exception as e:
+                logger.error(f"Reporter normalization failed: {str(e)}")
+                self.error_collector.add_error(e, "Reporter Normalization")
+            
+            # Stage 5: Judge Information Enhancement
+            try:
+                logger.info("STAGE 5: Judge Information Enhancement")
+                for doc in documents:
+                    judge_info = self._enhance_judge_info_validated(doc)
+                    doc['judge_enhancement'] = judge_info
+                    
+                    if judge_info.get('enhanced'):
+                        self.stats['judges_enhanced'] = self.stats.get('judges_enhanced', 0) + 1
+                    if judge_info.get('extracted_from_content'):
+                        self.stats['judges_extracted_from_content'] = self.stats.get('judges_extracted_from_content', 0) + 1
+                stages_completed.append("Judge Enhancement")
+            except Exception as e:
+                logger.error(f"Judge enhancement failed: {str(e)}")
+                self.error_collector.add_error(e, "Judge Enhancement")
+            
+            # Stage 6: Document Structure Analysis
+            try:
+                logger.info("STAGE 6: Document Structure Analysis")
+                for doc in documents:
+                    structure = self._analyze_structure(doc)
+                    doc['structure_analysis'] = structure
+                stages_completed.append("Document Structure Analysis")
+            except Exception as e:
+                logger.error(f"Structure analysis failed: {str(e)}")
+                self.error_collector.add_error(e, "Document Structure Analysis")
+            
+            # Stage 7: Legal Keyword Extraction
+            try:
+                logger.info("STAGE 7: Legal Keyword Extraction")
+                for doc in documents:
+                    keyword_extraction = self._extract_legal_keywords(doc)
+                    doc['keyword_extraction'] = keyword_extraction
+                    self.stats['keywords_extracted'] = self.stats.get('keywords_extracted', 0) + len(keyword_extraction.get('keywords', []))
+                stages_completed.append("Keyword Extraction")
+            except Exception as e:
+                logger.error(f"Keyword extraction failed: {str(e)}")
+                self.error_collector.add_error(e, "Keyword Extraction")
+            
+            # Stage 8: Comprehensive Metadata Assembly
+            try:
+                logger.info("STAGE 8: Comprehensive Metadata Assembly")
+                for doc in documents:
+                    metadata = self._assemble_metadata_validated(doc)
+                    doc['comprehensive_metadata'] = metadata
+                stages_completed.append("Metadata Assembly")
+            except Exception as e:
+                logger.error(f"Metadata assembly failed: {str(e)}")
+                self.error_collector.add_error(e, "Metadata Assembly")
+            
+            # Return enhanced documents
+            processing_time = (datetime.now() - start_time).total_seconds()
+            
+            return {
+                'documents': documents,
+                'statistics': self.stats,
+                'stages_completed': stages_completed,
+                'processing_time': processing_time,
+                'errors': self.error_collector.errors if self.error_collector else []
+            }
+            
+        except Exception as e:
+            logger.error(f"In-memory pipeline failed: {str(e)}")
+            return {
+                'documents': documents,  # Return original documents
+                'statistics': self.stats,
+                'stages_completed': stages_completed,
+                'errors': [str(e)]
+            }
+    
     async def process_batch(self, 
                           limit: int = 10,
                           source_table: str = 'public.court_documents',
                           validate_strict: bool = True,
-                          extract_pdfs: bool = False,
+                          extract_pdfs: bool = True,
                           force_reprocess: bool = False,
                           only_unprocessed: bool = False) -> Dict[str, Any]:
         """
@@ -272,7 +432,16 @@ class RobustElevenStagePipeline:
             logger.info("STAGE 9: Enhanced Storage to PostgreSQL")
             logger.info("=" * 60)
             
-            storage_results = await self._store_enhanced_documents_validated(enhanced_documents, force_reprocess)
+            # Enhanced storage with docket fetching
+            storage_processor = EnhancedStorageProcessor(self.db_conn)
+            storage_results = await storage_processor.store_with_docket_enhancement(enhanced_documents, force_reprocess)
+            
+            # Log docket stats
+            docket_stats = storage_results.get('docket_stats', {})
+            if docket_stats.get('dockets_fetched', 0) > 0:
+                logger.info(f"✅ Fetched {docket_stats['dockets_fetched']} dockets")
+                logger.info(f"✅ Found {docket_stats['judges_from_dockets']} judges from dockets")
+                logger.info(f"✅ Updated {docket_stats['judges_updated']} judge records")
             stages_completed.append("Enhanced Storage")
             self.stats['documents_stored'] = storage_results.get('total_processed', 0)
             
@@ -493,10 +662,8 @@ class RobustElevenStagePipeline:
                         cursor.execute("""
                             SELECT cd.id, cd.case_number, cd.document_type, cd.content, cd.metadata, cd.created_at
                             FROM public.court_documents cd
-                            LEFT JOIN court_data.opinions_unified ou ON cd.id = ou.cl_id
-                            WHERE cd.content IS NOT NULL 
-                              AND LENGTH(cd.content) > 100
-                              AND ou.cl_id IS NULL
+                            LEFT JOIN court_data.opinions_unified ou ON cd.metadata->>'cl_opinion_id' = ou.cl_id::text
+                            WHERE ou.cl_id IS NULL
                             ORDER BY cd.created_at DESC
                             LIMIT %s
                         """, (limit,))
@@ -504,7 +671,6 @@ class RobustElevenStagePipeline:
                         cursor.execute("""
                             SELECT id, case_number, document_type, content, metadata, created_at
                             FROM public.court_documents
-                            WHERE content IS NOT NULL AND LENGTH(content) > 100
                             ORDER BY created_at DESC
                             LIMIT %s
                         """, (limit,))
@@ -1337,8 +1503,7 @@ class RobustElevenStagePipeline:
                 
                 haystack_doc = {
                     'content': doc.get('content', ''),
-                    'metadata': clean_metadata,
-                    'document_id': str(doc.get('id', ''))
+                    'meta': clean_metadata
                 }
                 haystack_docs.append(haystack_doc)
             
@@ -1638,14 +1803,27 @@ class RobustElevenStagePipeline:
         This method checks each document for content and attempts to extract
         text from PDFs when content is missing or insufficient.
         """
-        # Use the existing PDF processor from document ingestion
-        from services.document_ingestion_service import DocumentIngestionService
+        # Import here to avoid circular dependency
+        try:
+            from archive.old_implementations.integrate_pdf_to_pipeline import PDFContentExtractor
+        except ImportError:
+            logger.warning("PDF extraction module not available")
+            PDFContentExtractor = None
         
         logger.info("\nChecking documents for PDF extraction needs...")
         
-        # For now, just return documents as-is
-        # PDF extraction happens during ingestion phase
-        enriched_docs = documents
-        logger.info("PDF extraction is handled during document ingestion phase")
+        # Use the PDF content extractor if available
+        if not PDFContentExtractor:
+            logger.warning("Skipping PDF extraction - module not available")
+            return documents
+            
+        async with PDFContentExtractor() as extractor:
+            enriched_docs = await extractor.enrich_documents_with_pdf_content(documents)
+            
+            # Log statistics
+            stats = extractor.get_statistics()
+            if stats['pdfs_found'] > 0:
+                logger.info(f"PDF Extraction: Found {stats['pdfs_found']} PDFs, extracted {stats['pdfs_extracted']}")
+                logger.info(f"Total characters extracted from PDFs: {stats['total_chars_extracted']:,}")
         
         return enriched_docs

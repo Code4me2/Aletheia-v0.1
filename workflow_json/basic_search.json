@@ -21,7 +21,7 @@
         "topK": "={{ $json.topK || 5 }}",
         "filters": "={{ $json.filters || '{}' }}"
       },
-      "type": "n8n-nodes-haystack.HaystackSearch",
+      "type": "haystackSearch",
       "typeVersion": 1,
       "position": [
         220,

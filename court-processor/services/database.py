@@ -12,8 +12,8 @@ def get_db_connection(cursor_factory=None):
     """
     Get database connection using environment variable or defaults
     """
-    # Get DATABASE_URL from environment or use default
-    database_url = os.getenv('DATABASE_URL', 'postgresql://aletheia:aletheia123@db:5432/aletheia')
+    # Get DATABASE_URL from environment or use default for local development
+    database_url = os.getenv('DATABASE_URL', 'postgresql://aletheia:aletheia123@localhost:5432/aletheia')
     
     try:
         if cursor_factory:

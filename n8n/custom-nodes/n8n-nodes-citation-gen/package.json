@@ -1,0 +1,69 @@
+{
+  "name": "n8n-nodes-citation-gen",
+  "version": "0.1.0",
+  "description": "n8n node for generating citations from hierarchical document processing",
+  "keywords": [
+    "n8n-community-node-package",
+    "citation",
+    "generation",
+    "recursive",
+    "ai",
+    "document-processing"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/n8n-nodes-citation-gen#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/n8n-nodes-citation-gen.git"
+  },
+  "engines": {
+    "node": ">=18.10"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes --write",
+    "lint": "eslint nodes package.json",
+    "lintfix": "eslint nodes package.json --fix",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes package.json",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "mocha test/unit/**/*.test.js",
+    "test:integration": "mocha test/integration/**/*.test.js --timeout 10000",
+    "test:verify": "node test/verify-node.js",
+    "test:quick": "node test/quick-test.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [],
+    "nodes": [
+      "dist/nodes/CitationGen/CitationGen.node.js"
+    ]
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/parser": "^7.15.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.1",
+    "gulp": "^5.0.0",
+    "mocha": "^10.8.2",
+    "prettier": "^3.3.2",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/yourusername/n8n-nodes-citation-gen/issues"
+  }
+}

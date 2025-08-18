@@ -21,7 +21,7 @@ export default function DataComposePage() {
   }
 
   if (!session) {
-    redirect('/auth/signin');
+    redirect('/auth/signin?callbackUrl=/data-compose');
   }
 
   return (

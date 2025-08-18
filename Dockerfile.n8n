@@ -1,4 +1,4 @@
-FROM n8nio/n8n:1.101.1
+FROM n8nio/n8n:1.99.1
 
 USER root
 
@@ -18,6 +18,8 @@ COPY ./n8n/custom-nodes/n8n-nodes-citationchecker /usr/local/lib/node_modules/n8
 COPY ./n8n/custom-nodes/n8n-nodes-deepseek /usr/local/lib/node_modules/n8n-nodes-deepseek
 COPY ./n8n/custom-nodes/n8n-nodes-yake /usr/local/lib/node_modules/n8n-nodes-yake
 COPY ./n8n/custom-nodes/n8n-nodes-bitnet /usr/local/lib/node_modules/n8n-nodes-bitnet
+COPY ./n8n/custom-nodes/n8n-nodes-unstructured /usr/local/lib/node_modules/n8n-nodes-unstructured
+COPY ./n8n/custom-nodes/n8n-nodes-citation-gen /usr/local/lib/node_modules/n8n-nodes-citation-gen
 
 # Remove preinstall script from deepseek that requires pnpm
 RUN sed -i '/"preinstall":/d' /usr/local/lib/node_modules/n8n-nodes-deepseek/package.json
@@ -28,20 +30,35 @@ RUN cd /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization && npm in
     cd /usr/local/lib/node_modules/n8n-nodes-citationchecker && npm install --production --no-save && \
     cd /usr/local/lib/node_modules/n8n-nodes-deepseek && npm install --production --no-save && \
     cd /usr/local/lib/node_modules/n8n-nodes-yake && npm install --production --no-save && \
-    cd /usr/local/lib/node_modules/n8n-nodes-bitnet && npm install --production --no-save
+    cd /usr/local/lib/node_modules/n8n-nodes-bitnet && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-unstructured && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-citation-gen && npm install --production --no-save
 
 # Clean up build dependencies
 RUN apk del .build-deps
 
-# Set proper ownership
-RUN chown -R node:node /data
+# Create the custom directory structure for n8n
+# n8n v1.100.1 expects custom nodes in the user folder
+RUN mkdir -p /data/.n8n/custom
 
-# Copy init script
-COPY ./n8n/init-workflows.sh /init-workflows.sh
-RUN chmod +x /init-workflows.sh
+# Copy the complete node packages with correct structure
+RUN cp -r /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-haystack /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-citationchecker /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-deepseek /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-yake /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-bitnet /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-unstructured /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-citation-gen /data/.n8n/custom/
+
+# Set proper ownership for all n8n directories
+RUN chown -R node:node /data
 
 USER node
 
 ENV N8N_USER_FOLDER=/data
+ENV NODE_PATH=/usr/local/lib/node_modules:/usr/lib/node_modules
+ENV N8N_CUSTOM_EXTENSIONS=/data/.n8n/custom
 
-ENTRYPOINT ["/bin/sh", "/init-workflows.sh"]
+# Use the standard n8n entrypoint
+ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]

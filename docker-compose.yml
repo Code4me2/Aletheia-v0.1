@@ -2,10 +2,12 @@ services:
   web:
     image: nginx:latest
     ports:
-      - "${WEB_HOST:-127.0.0.1}:${WEB_PORT:-8080}:80"
+      - "${WEB_HOST}:${WEB_PORT}:80"
+      - "${WEB_HOST}:${REVERSE_PROXY_PORT}:8082"
     volumes:
       - ./website:/usr/share/nginx/html
-      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     networks:
       - frontend
       - backend
@@ -19,6 +21,8 @@ services:
   
   db:
     image: postgres:latest
+    ports:
+      - "${POSTGRES_PORT}:5432"
     environment:
       POSTGRES_PASSWORD: "${DB_PASSWORD}"  # Use environment variable
       POSTGRES_USER: "${DB_USER}"          # Use environment variable
@@ -39,9 +43,9 @@ services:
       context: .
       dockerfile: Dockerfile.n8n
     ports:
-      - "${N8N_PORT:-5678}:5678"
+      - "${N8N_PORT}:5678"
     environment:
-      - N8N_HOST=0.0.0.0
+      - N8N_HOST=${SERVICE_HOST:-0.0.0.0}
       - N8N_PORT=5678
       - NODE_ENV=production
       - N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY}"  # Use environment variable
@@ -52,16 +56,14 @@ services:
       - EXECUTIONS_TIMEOUT=600  # 10 minutes
       - EXECUTIONS_TIMEOUT_MAX=3600  # 1 hour
       - N8N_CUSTOM_EXTENSIONS=/home/node/.n8n/custom
-      - N8N_USER_FOLDER=/home/node
     volumes:
       - n8n_data:/data
       - ./n8n/local-files:/files
-      - ./workflow_json:/workflows:ro
     networks:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "sh", "-c", "netstat -ln | grep 5678"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -74,7 +76,6 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       PYTHONPATH: /app
       COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
-      COURTLISTENER_API_KEY: ${COURTLISTENER_API_TOKEN}
       PACER_USERNAME: ${PACER_USERNAME}
       PACER_PASSWORD: ${PACER_PASSWORD}
       RECAP_WEBHOOK_URL: http://recap-webhook:5000/webhook/recap-fetch
@@ -95,13 +96,12 @@ services:
       dockerfile: Dockerfile
     environment:
       COURTLISTENER_API_TOKEN: ${COURTLISTENER_API_TOKEN}
-      COURTLISTENER_API_KEY: ${COURTLISTENER_API_TOKEN}
       RECAP_DOWNLOAD_DIR: /data/recap_downloads
       RECAP_WEBHOOK_SECRET: ${RECAP_WEBHOOK_SECRET}
       FLASK_ENV: production
       PYTHONPATH: /app/court-processor
     ports:
-      - "${RECAP_WEBHOOK_PORT:-5001}:5000"
+      - "${RECAP_WEBHOOK_PORT}:5000"
     volumes:
       - ./court-data/recap_downloads:/data/recap_downloads
       - ./court-processor:/app/court-processor
@@ -118,16 +118,22 @@ services:
     build: 
       context: ./services/lawyer-chat
       dockerfile: Dockerfile
+      args:
+        NODE_ENV: ${NODE_ENV:-development}
     container_name: lawyer-chat
     environment:
-      - NODE_ENV=production
-      - HOSTNAME=0.0.0.0
+      - NODE_ENV=${NODE_ENV:-development}
+      - HOSTNAME=${SERVICE_HOST:-0.0.0.0}
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/lawyerchat
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=http://localhost:8080/chat
-      - NEXT_PUBLIC_NEXTAUTH_URL=http://localhost:8080/chat
+      - NEXTAUTH_URL=http://localhost:${WEB_PORT}/chat
+      - NEXT_PUBLIC_NEXTAUTH_URL=http://localhost:${WEB_PORT}/chat
+      - NEXTAUTH_BASE_PATH=${NEXTAUTH_BASE_PATH:-/chat}
       - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/c188c31c-1c45-4118-9ece-5b6057ab5177
+      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+      - NEXT_PUBLIC_AI_PORTAL_URL=${NEXT_PUBLIC_AI_PORTAL_URL}
+      - NEXT_PUBLIC_N8N_URL=${NEXT_PUBLIC_N8N_URL}
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/${N8N_WEBHOOK_ID}
       - N8N_API_KEY=${N8N_API_KEY}
       - N8N_API_SECRET=${N8N_API_SECRET}
       # Email config
@@ -148,7 +154,7 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:3000/chat/api/csrf"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/chat/api/csrf"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -159,6 +165,10 @@ services:
       dockerfile: Dockerfile
     container_name: ai-portal-app
     restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+      - NEXT_PUBLIC_AI_PORTAL_URL=${NEXT_PUBLIC_AI_PORTAL_URL}
+      - NEXT_PUBLIC_N8N_URL=${NEXT_PUBLIC_N8N_URL}
     networks:
       - frontend
 
@@ -167,7 +177,9 @@ services:
     container_name: ai-portal-nginx
     restart: unless-stopped
     ports:
-      - "${AI_PORTAL_PORT:-8085}:80"
+      - "${AI_PORTAL_PORT}:80"
+    environment:
+      - WEB_PORT=${WEB_PORT}
     volumes:
       - ./services/ai-portal/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -180,7 +192,7 @@ services:
     container_name: redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
