@@ -1,12 +1,30 @@
 # Court Processor CLI & API Guide
 
-## Critical: Docker Access Required
+## Overview
 
-⚠️ **IMPORTANT**: All commands MUST be run through Docker. Direct Python execution will fail with module import errors.
+Two main interfaces for accessing court documents:
+1. **Simplified API** (Port 8104) - Direct database access for full-text opinions
+2. **CLI via Docker** - Command-line interface for data processing
 
-## Quick Start
+## API Access (Recommended for Full-Text Retrieval)
 
-The court-processor service runs inside a Docker container and must be accessed via `docker exec`.
+### Quick Start
+```bash
+# Start the API
+python simplified_api.py
+
+# Get document text directly
+curl http://localhost:8104/text/420
+
+# Bulk retrieve by judge
+curl http://localhost:8104/bulk/judge/Gilstrap
+```
+
+See `API_CURRENT_STATE.md` for full API documentation.
+
+## CLI Access (Docker Required)
+
+⚠️ **IMPORTANT**: CLI commands MUST be run through Docker. Direct Python execution will fail with module import errors.
 
 ## Primary Interface: CLI (Docker)
 

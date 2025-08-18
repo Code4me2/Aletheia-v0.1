@@ -20,7 +20,22 @@ Enable data-driven analysis of:
 
 ## 🚀 Quick Start
 
-### Using Docker (Recommended)
+### API Access (Simplified - Port 8104)
+```bash
+# Start the simplified API
+python simplified_api.py
+
+# Get full text of a document
+curl http://localhost:8104/text/420
+
+# Bulk retrieve all documents by judge
+curl http://localhost:8104/bulk/judge/Gilstrap
+
+# Search with filters
+curl "http://localhost:8104/search?judge=Gilstrap&limit=10"
+```
+
+### CLI via Docker (Full Processing)
 ```bash
 # Check data quality status
 docker exec aletheia-court-processor-1 ./court_processor data status
@@ -35,7 +50,7 @@ docker exec aletheia-court-processor-1 ./court_processor collect court txed --ye
 docker exec aletheia-court-processor-1 ./court_processor pipeline run --limit 50 --no-strict
 ```
 
-### Local Usage (Development)
+### Local CLI Usage (Development)
 ```bash
 # Make executable
 chmod +x court_processor
