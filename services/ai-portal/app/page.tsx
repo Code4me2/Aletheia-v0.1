@@ -60,7 +60,7 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-dark-900 flex flex-col overflow-hidden relative">
+    <main className="min-h-screen bg-dark-900 flex flex-col overflow-auto relative">
       {/* Dynamic Background */}
       <div className="fixed inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-conic from-accent-royal-blue/20 via-transparent to-accent-denim-blue/20 blur-3xl animate-spin-slow" />
@@ -87,7 +87,7 @@ export default function Home() {
         </div>
       </header>
       
-      <div className="flex-1 flex items-center justify-center px-4 relative z-10">
+      <div className="flex flex-col items-center justify-start px-4 relative z-10 mt-8">
         <div className="text-center max-w-5xl relative">
           {/* Floating Particles */}
           <div className="absolute inset-0 -z-10">
@@ -96,25 +96,25 @@ export default function Home() {
             <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-accent-soft-gold rounded-full animate-float blur-sm" style={{ animationDelay: '4s' }} />
           </div>
 
-          <h1 className={`text-5xl md:text-7xl font-bold mb-16 transition-all duration-1000 delay-300 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          <h1 className={`text-5xl md:text-7xl font-bold mb-12 transition-all duration-1000 delay-300 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <span className="text-gradient">RJLF AI Portal</span>
           </h1>
           
-          <div className="flex flex-col lg:flex-row gap-6 justify-center items-center max-w-5xl mx-auto">
+          <div className="flex flex-col lg:flex-row gap-6 justify-center items-stretch max-w-5xl mx-auto">
             <button
               onClick={() => setShowPolicy(true)}
               aria-label="View AI Security Policy"
               aria-haspopup="dialog"
-              className={`group relative px-8 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:min-w-[200px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
+              className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
               style={{ transitionDelay: '700ms' }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-rjlf-blue via-accent-royal-blue to-white opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
               <div className="absolute inset-0 bg-gradient-to-r from-white via-accent-royal-blue to-rjlf-blue opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
-              <span className="relative flex items-center justify-center gap-3 text-white font-semibold text-lg">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <span className="relative flex flex-col items-center justify-center gap-2 text-white font-semibold text-base lg:text-sm xl:text-base whitespace-nowrap">
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
-                AI Policy
+                <span>AI Policy</span>
               </span>
               <div className="absolute inset-0 border-2 border-white/20 rounded-xl group-hover:scale-105 transition-transform duration-300" />
             </button>
@@ -123,16 +123,33 @@ export default function Home() {
               onClick={() => setShowBestPractices(true)}
               aria-label="View AI Best Practices"
               aria-haspopup="dialog"
-              className={`group relative px-8 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:min-w-[200px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
+              className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
               style={{ transitionDelay: '900ms' }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-accent-soft-gold via-accent-gold to-white opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
               <div className="absolute inset-0 bg-gradient-to-r from-white via-accent-gold to-accent-soft-gold opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
-              <span className="relative flex items-center justify-center gap-3 text-white font-semibold text-lg">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <span className="relative flex flex-col items-center justify-center gap-2 text-white font-semibold text-base lg:text-sm xl:text-base whitespace-nowrap">
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                Best Practices
+                <span>Best Practices</span>
+              </span>
+              <div className="absolute inset-0 border-2 border-white/20 rounded-xl group-hover:scale-105 transition-transform duration-300" />
+            </button>
+            
+            <button
+              onClick={() => window.open('/doc-review', '_blank')}
+              aria-label="Open Document Review"
+              className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
+              style={{ transitionDelay: '1000ms' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-300 via-purple-400 to-white opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white via-purple-400 to-purple-300 opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
+              <span className="relative flex flex-col items-center justify-center gap-2 text-white font-semibold text-base lg:text-sm xl:text-base whitespace-nowrap">
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Doc Review</span>
               </span>
               <div className="absolute inset-0 border-2 border-white/20 rounded-xl group-hover:scale-105 transition-transform duration-300" />
             </button>
@@ -142,36 +159,103 @@ export default function Home() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Open Claude AI in a new tab"
-              className={`group relative px-8 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:min-w-[200px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
-              style={{ transitionDelay: '1100ms' }}
+              className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
+              style={{ transitionDelay: '1200ms', backgroundColor: '#F9F7F4' }}
             >
-              <div className="absolute inset-0 glass" />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <span className="relative flex items-center justify-center gap-3 text-white font-semibold text-lg">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M17.5 3C19.433 3 21 4.567 21 6.5V17.5C21 19.433 19.433 21 17.5 21H6.5C4.567 21 3 19.433 3 17.5V6.5C3 4.567 4.567 3 6.5 3H17.5ZM17.5 4.5H6.5C5.396 4.5 4.5 5.396 4.5 6.5V17.5C4.5 18.604 5.396 19.5 6.5 19.5H17.5C18.604 19.5 19.5 18.604 19.5 17.5V6.5C19.5 5.396 18.604 4.5 17.5 4.5ZM15.178 8.75L12 15.5L8.822 8.75H10.5L12 11.75L13.5 8.75H15.178Z"/>
-                </svg>
-                Claude
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              <span className="relative flex items-center justify-center min-h-[52px]">
+                <Image
+                  src="/Claude_AI_logo.png"
+                  alt="Claude AI"
+                  width={100}
+                  height={32}
+                  className="w-auto h-auto max-h-8 object-contain"
+                  style={{ maxWidth: '100px' }}
+                />
               </span>
-              <div className="absolute inset-0 border border-accent-soft-gold/50 rounded-xl group-hover:border-accent-gold transition-colors duration-300" />
+              <div className="absolute inset-0 border border-amber-800/20 rounded-xl group-hover:border-amber-700/40 transition-colors duration-300" />
             </a>
             
             <a
               href={`${process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:8080'}/chat`}
               aria-label="Open Aletheia chat"
-              className={`group relative px-8 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:min-w-[200px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
-              style={{ transitionDelay: '1300ms' }}
+              className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
+              style={{ transitionDelay: '1400ms' }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-gray-500 via-gray-600 to-gray-700 opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
               <div className="absolute inset-0 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-500 opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
-              <span className="relative flex items-center justify-center gap-3 text-white font-semibold text-lg">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <span className="relative flex flex-col items-center justify-center gap-2 text-white font-semibold text-base lg:text-sm xl:text-base whitespace-nowrap">
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                Aletheia-v0.1
+                <span>Aletheia-v0.1</span>
               </span>
               <div className="absolute inset-0 border-2 border-white/20 rounded-xl group-hover:scale-105 transition-transform duration-300" />
             </a>
+          </div>
+        </div>
+        
+        {/* Current Offerings Section */}
+        <div className={`w-full max-w-5xl mt-24 mb-16 px-4 transition-all duration-1000 delay-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">
+            <span className="text-gradient">Current Offerings:</span>
+          </h2>
+          <div className="glass rounded-2xl p-8 md:p-12">
+            <div className="space-y-6 text-gray-200">
+              <div className="flex items-start gap-4">
+                <div className="w-2 h-2 bg-accent-royal-blue rounded-full mt-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">AI Policy</h3>
+                  <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
+                    <li>How to avoid malpractice</li>
+                    <li>Expectations of usage</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-2 h-2 bg-accent-gold rounded-full mt-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Best Practices</h3>
+                  <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
+                    <li>When to use</li>
+                    <li>Best practices when prompting</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-2 h-2 bg-purple-300 rounded-full mt-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Doc Review</h3>
+                  <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
+                    <li>Tavrn large scale doc review for eDiscovery</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-2 h-2 bg-amber-600 rounded-full mt-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Claude</h3>
+                  <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
+                    <li>For frontier capabilities with public information</li>
+                    <li>Less diligence on hallucinations</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-2 h-2 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Altheia</h3>
+                  <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
+                    <li>Chat with judge transcripts and opinions</li>
+                    <li>Citation-first generation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
