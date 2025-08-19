@@ -138,10 +138,27 @@ export default function Home() {
             </button>
             
             <button
+              onClick={() => window.open('https://legal.thomsonreuters.com/en/products/westlaw', '_blank')}
+              aria-label="Open Co-Counsel"
+              className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
+              style={{ transitionDelay: '1000ms' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-orange-500 to-white opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white via-orange-500 to-orange-400 opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
+              <span className="relative flex flex-col items-center justify-center gap-2 text-white font-semibold text-base lg:text-sm xl:text-base whitespace-nowrap">
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span>Co-Counsel</span>
+              </span>
+              <div className="absolute inset-0 border-2 border-white/20 rounded-xl group-hover:scale-105 transition-transform duration-300" />
+            </button>
+            
+            <button
               onClick={() => window.open('/doc-review', '_blank')}
               aria-label="Open Document Review"
               className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
-              style={{ transitionDelay: '1000ms' }}
+              style={{ transitionDelay: '1200ms' }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-300 via-purple-400 to-white opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
               <div className="absolute inset-0 bg-gradient-to-r from-white via-purple-400 to-purple-300 opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
@@ -160,7 +177,7 @@ export default function Home() {
               rel="noopener noreferrer"
               aria-label="Open Claude AI in a new tab"
               className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
-              style={{ transitionDelay: '1200ms', backgroundColor: '#F9F7F4' }}
+              style={{ transitionDelay: '1400ms', backgroundColor: '#F9F7F4' }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               <span className="relative flex items-center justify-center min-h-[52px]">
@@ -180,7 +197,7 @@ export default function Home() {
               href={`${process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:8080'}/chat`}
               aria-label="Open Aletheia chat"
               className={`group relative px-6 py-5 overflow-hidden rounded-xl transition-all duration-500 transform w-full lg:w-auto lg:flex-1 lg:max-w-[220px] hover:scale-105 active:scale-100 ${mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'}`}
-              style={{ transitionDelay: '1400ms' }}
+              style={{ transitionDelay: '1600ms' }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-gray-500 via-gray-600 to-gray-700 opacity-90 group-hover:opacity-100 transition-all duration-700 ease-in-out" />
               <div className="absolute inset-0 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-500 opacity-0 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
@@ -220,6 +237,17 @@ export default function Home() {
                   <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
                     <li>When to use</li>
                     <li>Best practices when prompting</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Co-Counsel</h3>
+                  <ul className="text-gray-300 leading-relaxed ml-4 list-disc">
+                    <li>Westlaw's AI tools</li>
+                    <li>Work within Westlaw's data ecosystem</li>
                   </ul>
                 </div>
               </div>
