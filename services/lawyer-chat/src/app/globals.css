@@ -727,3 +727,9 @@ body.dark .dark\:text-white * {
   opacity: 0.15;
   margin: 2rem 0;
 }
+
+/* Vertical text for document cabinet button */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}

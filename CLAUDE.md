@@ -8,7 +8,10 @@ Aletheia-v0.1 is a unified AI-powered platform that combines:
 1. **Data Compose**: Web application integrating with n8n for workflow automation
 2. **AI Portal**: Next.js application providing AI services for RJLF
 3. **Lawyer Chat**: Full-featured chat application with legal AI capabilities
+   - **NEW (Aug 2025)**: Document Context feature for court opinion selection
+   - Modularized components for better maintainability
 4. **Court Processor**: Automated court document processing system
+   - Uses `simplified_api.py` for document access (port 8104)
 
 ## Architecture
 
@@ -203,11 +206,68 @@ docker-compose build
 docker-compose up -d
 ```
 
+## Recent Changes (August 2025)
+
+### Lawyer Chat Document Context Feature (WORKING - August 2025)
+
+#### How It Works:
+1. **Document Selection**: Click "Document Context" button (top-right corner)
+2. **Browse Cases**: Expand Gilstrap or Albright dropdowns to see available court opinions
+3. **Select Documents**: Click on cases to select them (full text is fetched)
+4. **Send Query**: Your message + selected document text is sent to n8n as a single message
+
+#### Implementation Details:
+- **DocumentCabinet** (`src/components/DocumentCabinet.tsx`): Sliding panel UI
+  - Fetches documents from court-processor API on port 8104
+  - Supports multiple document selection
+  - Shows case numbers and preview text
+- **Integration**: Document text is appended to user message before sending to n8n
+  - Format: `[User Message]\n\n---LEGAL DOCUMENT CONTEXT---\n[Document Text]\n---END CONTEXT---`
+  - This allows n8n workflows that expect a single message parameter to work
+
+#### Build Requirements:
+- Environment variables needed at BUILD TIME:
+  - `NEXT_PUBLIC_ENABLE_DOCUMENT_SELECTION=true`
+  - `NEXT_PUBLIC_COURT_API_URL=http://localhost:8104`
+  - `COURT_API_BASE_URL=http://court-processor:8104`
+- Port 8104 must be exposed in docker-compose.yml for browser access
+
+### Court Processor Integration
+
+#### API Access:
+- **Internal (Docker)**: `http://court-processor:8104`
+- **External (Host)**: `http://localhost:8104` (port exposed in docker-compose.yml)
+- **API Type**: `simplified_api.py` (primary API for lawyer-chat integration)
+- **Status**: ✅ Auto-starts with container
+
+#### Recent Fixes Applied:
+1. **Fixed DB Port Configuration**: 
+   - Updated `simplified_api.py` to use correct default port (5432 instead of 8200)
+   - Added smart detection for Docker environment (uses 'db' host in Docker, 'localhost' locally)
+2. **Added Environment Variables to docker-compose.yml**:
+   - DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD now properly configured
+3. **Updated entrypoint.sh**:
+   - Now automatically starts simplified_api on container startup
+   - Logs available at `/data/logs/simplified-api.log`
+
+#### API is now working correctly:
+- Automatically starts when court-processor container starts
+- Connects to PostgreSQL at `db:5432` 
+- Returns actual court opinion documents with full text
+- No manual intervention required
+
 ## Troubleshooting
 
 1. **n8n not starting**: Check for crash state in volume, may need to recreate
-2. **Port conflicts**: Ensure ports 8080, 5678, 3001, 8085, 9200, 8000 are free
+2. **Port conflicts**: Ensure ports 8080, 5678, 8104, 8085 are free
 3. **Database issues**: Verify PostgreSQL credentials in `.env`
 4. **Custom nodes not appearing**: Restart n8n after adding nodes
+5. **DocumentCabinet issues**: 
+   - Ensure port 8104 is exposed in docker-compose.yml
+   - Check if n8n workflow is active (webhook must be enabled)
+   - Verify court-processor is running: `docker logs aletheia_development-court-processor-1`
+6. **Message fails when documents selected**:
+   - This is fixed - document text is now appended to message for n8n compatibility
+   - Verify container is running: `docker ps | grep court-processor`
 
 For detailed component documentation, see individual README files in each service directory.

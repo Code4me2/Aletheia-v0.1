@@ -32,6 +32,16 @@ RUN apk add --no-cache \
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 
+# Accept build arguments for Next.js public env vars
+ARG NEXT_PUBLIC_ENABLE_DOCUMENT_SELECTION
+ARG NEXT_PUBLIC_COURT_API_URL
+ARG NEXT_PUBLIC_MAX_DOCUMENT_SELECTIONS
+
+# Set them as environment variables for the build
+ENV NEXT_PUBLIC_ENABLE_DOCUMENT_SELECTION=${NEXT_PUBLIC_ENABLE_DOCUMENT_SELECTION}
+ENV NEXT_PUBLIC_COURT_API_URL=${NEXT_PUBLIC_COURT_API_URL}
+ENV NEXT_PUBLIC_MAX_DOCUMENT_SELECTIONS=${NEXT_PUBLIC_MAX_DOCUMENT_SELECTIONS}
+
 WORKDIR /app
 
 # Copy dependencies from deps stage
@@ -46,9 +56,7 @@ RUN npx prisma generate --schema=./prisma/schema.prisma || \
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED 1
-# Set NODE_ENV for build to match runtime expectations
-ARG NODE_ENV=development
-ENV NODE_ENV=${NODE_ENV}
+# Don't set NODE_ENV during build - let Next.js use its defaults
 RUN npm run build
 
 # Runner stage

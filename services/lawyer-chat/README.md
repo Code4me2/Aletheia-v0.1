@@ -2,6 +2,21 @@
 
 A comprehensive AI-powered legal assistant interface integrated into the Aletheia-v0.1 platform, providing secure chat functionality with n8n webhook integration, document processing, and advanced legal research capabilities.
 
+## 🎯 Recent Updates (August 2025)
+
+### New Document Context Feature
+- **DocumentCabinet**: Court opinion selection panel accessible via button in top-right corner
+- **Integration with Court Processor**: Fetches real court opinions from database
+- **Judges Supported**: Gilstrap and Albright (expandable)
+- **Document Selection**: Click to select multiple documents for chat context
+
+### UI Refactoring
+The application has been significantly refactored for better maintainability:
+- Main page reduced from 900+ lines to modular components
+- New component structure in `src/components/`
+- Custom hooks for state and API management
+- API routes versioned under `/api/v1/`
+
 ## Quick Start
 
 ### Prerequisites
@@ -490,6 +505,61 @@ This project is part of the Aletheia-v0.1 platform. See the main project LICENSE
 - Database ORM by [Prisma](https://www.prisma.io/)
 - UI components styled with [Tailwind CSS](https://tailwindcss.com/)
 - AI integration through [n8n](https://n8n.io/) and [DeepSeek](https://www.deepseek.com/)
+
+## Technical Details for Developers
+
+### New Component Structure (August 2025)
+
+#### Components
+- **DocumentCabinet** (`src/components/DocumentCabinet.tsx`)
+  - Main entry point for document selection
+  - Sliding panel UI with toggle button
+  - Manages selected documents state
+  
+- **DocumentSelector** (`src/components/document-selector/DocumentSelector.tsx`)
+  - Document list and filtering interface
+  - Handles API calls to court-processor
+  
+- **ChatWithDocuments** (`src/components/chat/ChatWithDocuments.tsx`)
+  - Alternative chat interface with document context
+  - Standalone component for document-aware conversations
+
+#### Custom Hooks
+- **useChatAPI** (`src/hooks/useChatAPI.ts`): Centralized API logic
+- **useChatState** (`src/hooks/useChatState.ts`): State management
+- **useDocumentSelection** (`src/hooks/useDocumentSelection.ts`): Document selection logic
+
+#### API Integration
+- **court-api.ts** (`src/lib/court-api.ts`)
+  - Client for court-processor simplified API
+  - Endpoints: `/search`, `/text/{id}`, `/documents/{id}`, `/bulk/judge/{name}`
+  - Base URL: `http://court-processor:8104` (internal Docker network)
+
+#### Utilities
+- **utils.ts** (`src/lib/utils.ts`)
+  - Contains `cn()` function for className merging (using clsx + tailwind-merge)
+  - Required dependency: `clsx` and `tailwind-merge`
+
+### Court Processor Integration
+
+The DocumentCabinet connects to the court-processor service via its simplified API:
+
+```javascript
+// Default configuration in court-api.ts
+baseUrl: process.env.COURT_API_BASE_URL || 'http://court-processor:8104'
+clientUrl: process.env.NEXT_PUBLIC_COURT_API_URL || 'http://localhost:8104'
+```
+
+**Important**: The court-processor must have its `simplified_api.py` running on port 8104.
+
+### Build Configuration
+
+The following environment variables must be set at BUILD TIME for Next.js:
+- `NEXT_PUBLIC_ENABLE_DOCUMENT_SELECTION`: Enable/disable the feature
+- `NEXT_PUBLIC_COURT_API_URL`: Public URL for court API
+- `COURT_API_BASE_URL`: Internal Docker URL for court API
+
+These are configured as build args in `docker-compose.yml`.
 
 ## Support
 

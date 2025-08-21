@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import DarkModeToggle from '@/components/DarkModeToggle';
 import TaskBar from '@/components/TaskBar';
 import CitationPanel from '@/components/CitationPanel';
+import { DocumentCabinet } from '@/components/DocumentCabinet';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import AuthGuard from '@/components/AuthGuard';
 import MessageList from '@/components/MessageList';
@@ -17,8 +18,10 @@ import { getRandomMockCitation } from '@/utils/mockCitations';
 import { useCsrfStore } from '@/store/csrf';
 import { PDFGenerator, generateChatText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
 import type { Citation } from '@/types';
+import type { CourtDocument } from '@/types/court-documents';
 
 function LawyerChatContent() {
+  const [selectedDocuments, setSelectedDocuments] = useState<CourtDocument[]>([]);
   const { data: session } = useSession();
   const {
     messages,
@@ -199,11 +202,30 @@ function LawyerChatContent() {
     const messageToSend = inputText;
     setInputText(''); // Clear immediately before sending
     
-    await sendMessage(messageToSend, selectedTools, messages, isCreatingChat);
+    await sendMessage(messageToSend, selectedTools, messages, isCreatingChat, selectedDocuments);
   };
 
-  const handleCitationClick = () => {
-    // Get a mock citation for now
+  const handleCitationClick = (docId?: number) => {
+    // If we have selected documents and a specific doc ID, use that
+    if (docId && selectedDocuments.length > 0) {
+      const doc = selectedDocuments.find(d => d.id === docId);
+      if (doc) {
+        const citation: Citation = {
+          id: doc.id.toString(),
+          title: doc.case || `Document ${doc.id}`,
+          source: `Judge ${doc.judge}`,
+          court: doc.court,
+          caseNumber: doc.case,
+          content: doc.text || '',
+          excerpt: doc.preview
+        };
+        setSelectedCitation(citation);
+        setShowCitationPanel(true);
+        return;
+      }
+    }
+    
+    // Otherwise use mock citation for testing
     const mockCitation = getRandomMockCitation();
     setSelectedCitation(mockCitation);
     setShowCitationPanel(true);
@@ -245,13 +267,18 @@ function LawyerChatContent() {
     downloadText(text, filename);
   };
 
-
   return (
     <div className="flex h-screen">
       {/* Universal TaskBar - Always visible for all users */}
       <TaskBar 
         onChatSelect={selectChat}
         onNewChat={handleNewChat}
+      />
+
+      {/* Document Cabinet - Sliding panel from right */}
+      <DocumentCabinet 
+        onDocumentsSelected={setSelectedDocuments}
+        isDarkMode={isDarkMode}
       />
 
       {/* Main Content Container - Adjust margin for taskbar only */}

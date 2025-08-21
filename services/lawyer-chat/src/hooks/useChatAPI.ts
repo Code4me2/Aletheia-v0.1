@@ -128,7 +128,7 @@ export function useChatAPI({
     }
   };
 
-  const sendMessage = async (inputText: string, selectedTools: string[], messages: Message[], isCreatingChat: boolean) => {
+  const sendMessage = async (inputText: string, selectedTools: string[], messages: Message[], isCreatingChat: boolean, documentContext?: any[]) => {
     if (!inputText.trim() || isCreatingChat) return;
 
     let chatIdToUse = currentChatId;
@@ -199,7 +199,8 @@ export function useChatAPI({
         tools: selectedTools,
         sessionKey: chatIdToUse || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         sessionId: session?.user?.email || 'anonymous',
-        userId: session?.user?.email
+        userId: session?.user?.email,
+        documentContext: documentContext // Include document context if provided
       });
 
       if (!response.ok) {

@@ -26,9 +26,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
+# Use 'db' as default host for Docker environments, 'localhost' for local development
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'port': os.getenv('DB_PORT', '8200'),
+    'host': os.getenv('DB_HOST', 'db' if os.path.exists('/.dockerenv') else 'localhost'),
+    'port': os.getenv('DB_PORT', '5432'),  # PostgreSQL default port
     'database': os.getenv('DB_NAME', 'aletheia'),
     'user': os.getenv('DB_USER', 'aletheia'),
     'password': os.getenv('DB_PASSWORD', 'aletheia123')
@@ -78,6 +79,117 @@ def extract_plain_text(html_content: str) -> str:
     text = re.sub(r'\n\s*\n', '\n\n', text)
     
     return text.strip()
+
+def extract_document_type(text: str, limit: int = 500) -> str:
+    """
+    Extract document type from the beginning of document text
+    
+    Args:
+        text: Plain text content of the document
+        limit: Number of characters to search within
+        
+    Returns:
+        Formatted document type string
+    """
+    if not text:
+        return "Opinion"
+    
+    # Get first N characters for analysis
+    text_start = text[:limit].upper()
+    
+    # Document type patterns (ordered by specificity)
+    patterns = [
+        (r'MEMORANDUM\s+OPINION\s+AND\s+ORDER', 'Memorandum Opinion and Order'),
+        (r'CLAIM\s+CONSTRUCTION\s+(ORDER|OPINION)', 'Claim Construction Order'),
+        (r'SUMMARY\s+JUDGMENT', 'Summary Judgment Order'),
+        (r'MOTION\s+TO\s+DISMISS', 'Motion to Dismiss Order'),
+        (r'FINDINGS\s+OF\s+FACT\s+AND\s+CONCLUSIONS\s+OF\s+LAW', 'Findings and Conclusions'),
+        (r'MEMORANDUM\s+AND\s+ORDER', 'Memorandum and Order'),
+        (r'MEMORANDUM\s+OPINION', 'Memorandum Opinion'),
+        (r'ORDER\s+AND\s+OPINION', 'Order and Opinion'),
+        (r'FINAL\s+JUDGMENT', 'Final Judgment'),
+        (r'JUDGMENT', 'Judgment'),
+        (r'ORDER', 'Order'),
+        (r'OPINION', 'Opinion'),
+    ]
+    
+    for pattern, doc_type in patterns:
+        if re.search(pattern, text_start):
+            return doc_type
+    
+    return "Opinion"  # Default fallback
+
+def format_legal_title(
+    case_name: Optional[str] = None,
+    document_type: Optional[str] = None,
+    judge_name: Optional[str] = None,
+    date_filed: Optional[str] = None,
+    court_id: Optional[str] = None,
+    short_form: bool = False
+) -> str:
+    """
+    Format a legal document title following citation standards
+    
+    Args:
+        case_name: Full case name (e.g., "Core Wireless v. LG Electronics")
+        document_type: Type of document (e.g., "Memorandum Opinion and Order")
+        judge_name: Judge's name
+        date_filed: Filing date in YYYY-MM-DD format
+        court_id: Court identifier
+        short_form: If True, return abbreviated format
+        
+    Returns:
+        Formatted legal citation title
+    """
+    if not case_name:
+        return "Untitled Document"
+    
+    # Shorten case name if needed (remove extra parties after first v.)
+    if short_form and ' v. ' in case_name:
+        parts = case_name.split(' v. ')
+        if len(parts) >= 2:
+            # Take first plaintiff and first defendant
+            plaintiff = parts[0].split(',')[0].strip()
+            defendant = parts[1].split(',')[0].strip()
+            case_name = f"{plaintiff} v. {defendant}"
+    
+    # Build title components
+    title_parts = [case_name]
+    
+    if document_type:
+        title_parts.append(f" - {document_type}")
+    
+    # Add judge and/or court
+    if judge_name or court_id:
+        attribution = []
+        if judge_name:
+            # Extract last name if full name provided
+            if ' ' in judge_name:
+                judge_name = judge_name.split()[-1]
+            attribution.append(judge_name)
+        elif court_id:
+            # Format court ID nicely
+            court_map = {
+                'txed': 'E.D. Tex.',
+                'txwd': 'W.D. Tex.',
+                'txnd': 'N.D. Tex.',
+                'txsd': 'S.D. Tex.',
+            }
+            attribution.append(court_map.get(court_id, court_id.upper()))
+        
+        if attribution:
+            title_parts.append(f", {' '.join(attribution)}")
+    
+    # Add date if available
+    if date_filed:
+        if short_form:
+            # Extract year only for short form
+            year = date_filed[:4] if len(date_filed) >= 4 else date_filed
+            title_parts.append(f" ({year})")
+        else:
+            title_parts.append(f" ({date_filed})")
+    
+    return ''.join(title_parts)
 
 # ============= SIMPLIFIED ENDPOINTS =============
 
@@ -171,17 +283,53 @@ async def get_document_simple(document_id: int):
         # Extract text
         text = extract_plain_text(doc['content'])
         
-        # FLAT, SIMPLE structure
+        # Extract document type from text
+        document_type_from_text = extract_document_type(text)
+        
+        # Get case name (prefer metadata.case_name, fallback to case_number)
+        case_name = metadata.get('case_name') or doc['case_number'] or f"Document-{doc['id']}"
+        
+        # Format the enhanced title
+        formatted_title = format_legal_title(
+            case_name=case_name,
+            document_type=document_type_from_text,
+            judge_name=metadata.get('judge_name'),
+            date_filed=metadata.get('date_filed'),
+            court_id=metadata.get('court_id')
+        )
+        
+        # Format short title for UI
+        formatted_title_short = format_legal_title(
+            case_name=case_name,
+            document_type=document_type_from_text,
+            judge_name=metadata.get('judge_name'),
+            date_filed=metadata.get('date_filed'),
+            court_id=metadata.get('court_id'),
+            short_form=True
+        )
+        
+        # FLAT, SIMPLE structure with backwards compatibility
         return {
             "id": doc['id'],
-            "case_number": doc['case_number'],
+            "case_number": doc['case_number'],  # Keep for backwards compatibility
             "type": doc['document_type'],
             "text": text,  # Direct access to full text
             "text_length": len(text),
             "judge": metadata.get('judge_name', 'Unknown'),
             "court": metadata.get('court_id', 'Unknown'),
             "date_filed": metadata.get('date_filed'),
-            "created": str(doc['created_at'])
+            "created": str(doc['created_at']),
+            # NEW: Enhanced title fields
+            "formatted_title": formatted_title,
+            "formatted_title_short": formatted_title_short,
+            "document_type_extracted": document_type_from_text,
+            "citation_components": {
+                "case_name": case_name,
+                "document_type": document_type_from_text,
+                "judge": metadata.get('judge_name'),
+                "date_filed": metadata.get('date_filed'),
+                "court": metadata.get('court_id')
+            }
         }
         
     except HTTPException:

@@ -11,6 +11,10 @@ import type { ChatResponse } from '@/types';
 
 const logger = createLogger('chat-api');
 
+// Increase body size limit to handle document context (default is 1MB)
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds timeout
+
 export async function POST(request: NextRequest) {
   try {
     // Check if user is authenticated (required)
@@ -59,10 +63,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Prepare message with document context appended if provided
+    let enhancedMessage = messageValidation.sanitized!;
+    
+    if (body.documentContext && body.documentContext.length > 0) {
+      // Format document context as part of the message
+      const contextText = body.documentContext.map(doc => {
+        const caseInfo = doc.case || `Document ${doc.id}`;
+        const judge = doc.judge || 'Unknown Judge';
+        return `\n\n[DOCUMENT CONTEXT - ${caseInfo} - Judge ${judge}]\n${doc.text || doc.preview || 'No text available'}\n[END DOCUMENT ${doc.id}]`;
+      }).join('\n');
+      
+      enhancedMessage = `${messageValidation.sanitized!}\n\n---LEGAL DOCUMENT CONTEXT---${contextText}\n---END CONTEXT---`;
+    }
+
     // Prepare payload for n8n webhook with sanitized data
     const payload = {
       action: 'public_chat',
-      message: messageValidation.sanitized!,
+      message: enhancedMessage,  // Message now includes document context
       tools: body.tools.slice(0, 5), // Max 5 tools (already validated by schema)
       tool: 'default', // Keep for backward compatibility
       sessionKey: body.sessionKey || body.sessionId || session.user?.email || 'anonymous',
