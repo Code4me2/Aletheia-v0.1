@@ -71,8 +71,19 @@ def extract_plain_text(html_content: str) -> str:
     text = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
     
-    # Remove HTML tags
+    # Remove HTML comments
+    text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+    
+    # Remove all HTML/XML tags more aggressively
     text = re.sub(r'<[^>]+>', ' ', text)
+    
+    # Decode HTML entities
+    text = text.replace('&nbsp;', ' ')
+    text = text.replace('&amp;', '&')
+    text = text.replace('&lt;', '<')
+    text = text.replace('&gt;', '>')
+    text = text.replace('&quot;', '"')
+    text = text.replace('&#39;', "'")
     
     # Clean up whitespace
     text = re.sub(r'\s+', ' ', text)
@@ -144,6 +155,15 @@ def format_legal_title(
     if not case_name:
         return "Untitled Document"
     
+    # Clean any residual HTML from case_name
+    if '<' in case_name and '>' in case_name:
+        # Remove any HTML tags that might have slipped through
+        case_name = re.sub(r'<[^>]+>', '', case_name).strip()
+        # Also remove any text that looks like it's from HTML content
+        if case_name.startswith('After a jury trial') or 'Fed. R. Civ. P.' in case_name:
+            # This is content, not a case name - return generic
+            case_name = "Court Document"
+    
     # Shorten case name if needed (remove extra parties after first v.)
     if short_form and ' v. ' in case_name:
         parts = case_name.split(' v. ')
@@ -159,8 +179,8 @@ def format_legal_title(
     if document_type:
         title_parts.append(f" - {document_type}")
     
-    # Add judge and/or court
-    if judge_name or court_id:
+    # Add judge and/or court (but not for short form - UI already shows judge context)
+    if not short_form and (judge_name or court_id):
         attribution = []
         if judge_name:
             # Extract last name if full name provided
@@ -406,14 +426,42 @@ async def search_simple(
             metadata = doc['metadata'] if isinstance(doc['metadata'], dict) else json.loads(doc['metadata'] or '{}')
             text = extract_plain_text(doc['content'])
             
+            # Extract document type from text
+            document_type_from_text = extract_document_type(text)
+            
+            # Get case name
+            case_name = metadata.get('case_name') or doc['case_number'] or f"DOC-{doc['id']}"
+            
+            # Format enhanced titles
+            formatted_title = format_legal_title(
+                case_name=case_name,
+                document_type=document_type_from_text,
+                judge_name=metadata.get('judge_name'),
+                date_filed=metadata.get('date_filed'),
+                court_id=metadata.get('court_id')
+            )
+            
+            formatted_title_short = format_legal_title(
+                case_name=case_name,
+                document_type=document_type_from_text,
+                judge_name=metadata.get('judge_name'),
+                date_filed=metadata.get('date_filed'),
+                court_id=metadata.get('court_id'),
+                short_form=True
+            )
+            
             results.append({
                 "id": doc['id'],
-                "case": doc['case_number'] or f"DOC-{doc['id']}",
+                "case": doc['case_number'] or f"DOC-{doc['id']}",  # Keep for backwards compatibility
                 "type": doc['document_type'],
                 "judge": metadata.get('judge_name', 'Unknown'),
                 "text": text,  # Full text directly available
                 "text_length": len(text),
-                "preview": text[:500] + "..." if len(text) > 500 else text
+                "preview": text[:500] + "..." if len(text) > 500 else text,
+                # NEW: Enhanced title fields
+                "formatted_title": formatted_title,
+                "formatted_title_short": formatted_title_short,
+                "document_type_extracted": document_type_from_text
             })
         
         return {
@@ -461,17 +509,32 @@ async def list_documents(
         cur.close()
         conn.close()
         
-        # Ultra-simple list format
+        # Ultra-simple list format with enhanced titles
         results = []
         for doc in documents:
             metadata = doc['metadata'] if isinstance(doc['metadata'], dict) else json.loads(doc['metadata'] or '{}')
             
+            # Get case name
+            case_name = metadata.get('case_name') or doc['case_number'] or f"DOC-{doc['id']}"
+            
+            # For list view, we can't extract doc type without content, so use generic
+            formatted_title_short = format_legal_title(
+                case_name=case_name,
+                document_type=None,  # We don't have content in list view
+                judge_name=metadata.get('judge_name'),
+                date_filed=metadata.get('date_filed'),
+                court_id=metadata.get('court_id'),
+                short_form=True
+            )
+            
             results.append({
                 "id": doc['id'],
-                "case": doc['case_number'] or f"DOC-{doc['id']}",
+                "case": doc['case_number'] or f"DOC-{doc['id']}",  # Keep for backwards compatibility
                 "judge": metadata.get('judge_name', 'Unknown'),
                 "size": doc['size'],
-                "text_url": f"/text/{doc['id']}"  # Direct link to text
+                "text_url": f"/text/{doc['id']}",  # Direct link to text
+                # NEW: Enhanced title field
+                "formatted_title_short": formatted_title_short
             })
         
         return results

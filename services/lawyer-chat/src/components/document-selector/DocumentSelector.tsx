@@ -153,14 +153,18 @@ export function DocumentSelector({
                 <FileText className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
                 
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">
-                    {doc.case || `Document ${doc.id}`}
+                  <div className="font-medium text-gray-900">
+                    {/* Use formatted_title_short if available, otherwise fall back to case */}
+                    {(doc as any).formatted_title_short || doc.case || `Document ${doc.id}`}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    Judge {doc.judge} • {doc.court || 'Federal Court'}
-                  </div>
+                  {/* Show document type if extracted */}
+                  {(doc as any).document_type_extracted && (
+                    <div className="text-sm text-blue-600 mt-1">
+                      {(doc as any).document_type_extracted}
+                    </div>
+                  )}
                   <div className="text-xs text-gray-500 mt-1">
-                    {formatSize(doc.text_length)} • Type: {doc.type}
+                    {formatSize(doc.text_length)} • ID: {doc.id}
                   </div>
                   {doc.preview && (
                     <div className="text-xs text-gray-500 mt-2 line-clamp-2">

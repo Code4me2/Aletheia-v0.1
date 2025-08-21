@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, FileText, X, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, X, Loader2, AlertCircle } from 'lucide-react';
 import { courtAPI } from '@/lib/court-api';
 import { CourtDocument } from '@/types/court-documents';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ interface JudgeData {
   documents: CourtDocument[];
   isExpanded: boolean;
   isLoading: boolean;
+  error?: string;
 }
 
 export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: DocumentCabinetProps) {
@@ -48,10 +49,20 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
           ? { ...j, documents: response.documents, isLoading: false }
           : j
       ));
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to load documents for ${judgeName}:`, error);
+      // Show user-friendly error message
+      const errorMessage = error?.message?.includes('Court API not configured')
+        ? 'Document selection is not available. Please contact your administrator.'
+        : `Failed to load documents for ${judgeName}`;
+      
       setJudges(prev => prev.map(j => 
-        j.name === judgeName ? { ...j, isLoading: false } : j
+        j.name === judgeName ? { 
+          ...j, 
+          isLoading: false,
+          documents: [],
+          error: errorMessage
+        } : j
       ));
     }
   }, []);
@@ -90,8 +101,8 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
         newSelected.add(doc.id);
         setSelectedDocIds(newSelected);
         
-        // Update parent with selected documents
-        const selectedDocs = await Promise.all(
+        // Update parent with selected documents - use allSettled to handle partial failures
+        const results = await Promise.allSettled(
           Array.from(newSelected).map(async (id) => {
             // Find the document in our judges data
             for (const judge of judges) {
@@ -108,11 +119,24 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                 return foundDoc;
               }
             }
-            return null;
+            throw new Error(`Document ${id} not found`);
           })
         );
         
-        onDocumentsSelected(selectedDocs.filter(d => d !== null) as CourtDocument[]);
+        // Extract successful results
+        const selectedDocs = results
+          .filter((result): result is PromiseFulfilledResult<CourtDocument> => 
+            result.status === 'fulfilled' && result.value !== null
+          )
+          .map(result => result.value);
+        
+        // Log any failures for debugging
+        const failedDocs = results.filter(r => r.status === 'rejected');
+        if (failedDocs.length > 0) {
+          console.warn(`Failed to load ${failedDocs.length} document(s):`, failedDocs);
+        }
+        
+        onDocumentsSelected(selectedDocs);
       } catch (error) {
         console.error('Failed to fetch document text:', error);
       } finally {
@@ -125,8 +149,14 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
     }
   }, [selectedDocIds, judges, onDocumentsSelected]);
 
-  // Format case name for display
+  // Format case name for display - use enhanced titles if available
   const formatCaseName = (doc: CourtDocument) => {
+    // Use the enhanced short title if available
+    if ((doc as any).formatted_title_short) {
+      return (doc as any).formatted_title_short;
+    }
+    
+    // Fallback to old logic for backwards compatibility
     if (doc.case) {
       // Extract case name from full case string (e.g., "CIVIL ACTION NO. 2:17-CV-00141-JRG" -> show case number)
       const match = doc.case.match(/NO\.\s*([\w:-]+)/i);
@@ -234,6 +264,13 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                       <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                       <p className="text-sm mt-2 opacity-60">Loading opinions...</p>
                     </div>
+                  ) : judge.error ? (
+                    <div className="p-4 text-center">
+                      <div className="text-red-500 mb-2">
+                        <AlertCircle className="w-5 h-5 mx-auto" />
+                      </div>
+                      <p className="text-sm text-red-500">{judge.error}</p>
+                    </div>
                   ) : judge.documents.length === 0 ? (
                     <div className="p-4 text-center text-sm opacity-60">
                       No opinions available
@@ -273,13 +310,19 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                               <div className="font-medium text-sm">
                                 {formatCaseName(doc)}
                               </div>
+                              {/* Show document type if extracted */}
+                              {(doc as any).document_type_extracted && (
+                                <div className="text-xs text-blue-500 mt-0.5">
+                                  {(doc as any).document_type_extracted}
+                                </div>
+                              )}
                               {doc.preview && (
                                 <div className="text-xs opacity-60 mt-1 line-clamp-2">
                                   {doc.preview}
                                 </div>
                               )}
                               <div className="text-xs opacity-40 mt-1">
-                                {(doc.text_length / 1024).toFixed(1)} KB
+                                {(doc.text_length / 1024).toFixed(1)} KB • ID: {doc.id}
                               </div>
                             </div>
                             {loadingDocuments.has(doc.id) && (
