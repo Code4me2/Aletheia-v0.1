@@ -5,7 +5,7 @@ export interface CourtDocument {
   type: string;
   judge: string;
   court?: string;          // Optional - not always provided by API
-  date_filed?: string;
+  date_filed?: string;     // Filing date in YYYY-MM-DD format
   text?: string;
   text_length: number;
   preview?: string;

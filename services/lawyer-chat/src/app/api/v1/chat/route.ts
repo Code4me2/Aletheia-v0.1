@@ -7,13 +7,14 @@ import { createLogger } from '@/utils/logger';
 import { getErrorMessage } from '@/utils/errors';
 import { ChatRequestSchema } from '@/schemas/api';
 import { STREAM, API, CHAT, UI } from '@/config/constants';
+import { formatDocumentContext } from '@/utils/documentFormatter';
 import type { ChatResponse } from '@/types';
 
 const logger = createLogger('chat-api');
 
 // Increase body size limit to handle document context (default is 1MB)
 export const runtime = 'nodejs';
-export const maxDuration = 60; // 60 seconds timeout
+export const maxDuration = 300; // 5 minutes timeout for complex queries with documents
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,14 +68,9 @@ export async function POST(request: NextRequest) {
     let enhancedMessage = messageValidation.sanitized!;
     
     if (body.documentContext && body.documentContext.length > 0) {
-      // Format document context as part of the message
-      const contextText = body.documentContext.map(doc => {
-        const caseInfo = doc.case || `Document ${doc.id}`;
-        const judge = doc.judge || 'Unknown Judge';
-        return `\n\n[DOCUMENT CONTEXT - ${caseInfo} - Judge ${judge}]\n${doc.text || doc.preview || 'No text available'}\n[END DOCUMENT ${doc.id}]`;
-      }).join('\n');
-      
-      enhancedMessage = `${messageValidation.sanitized!}\n\n---LEGAL DOCUMENT CONTEXT---${contextText}\n---END CONTEXT---`;
+      // Use the structured document formatter for better AI parsing
+      const formattedContext = formatDocumentContext(body.documentContext);
+      enhancedMessage = `${messageValidation.sanitized!}\n\n${formattedContext}`;
     }
 
     // Prepare payload for n8n webhook with sanitized data
@@ -95,16 +91,47 @@ export async function POST(request: NextRequest) {
     // Get authentication headers
     const authHeaders = getAuthHeaders(payload);
     
-    // Forward request to n8n webhook with authentication
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...authHeaders
-      },
-      body: JSON.stringify(payload)
-    });
+    // Create AbortController for timeout management
+    const controller = new AbortController();
+    // Use longer timeout for requests with document context
+    const timeoutDuration = body.documentContext && body.documentContext.length > 0 
+      ? 300000  // 5 minutes with documents
+      : 120000; // 2 minutes without
+    
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      logger.warn('Request aborted due to timeout', { timeoutDuration });
+    }, timeoutDuration);
+    
+    let response: Response;
+    try {
+      // Forward request to n8n webhook with authentication and timeout
+      response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...authHeaders
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        logger.error('Request timed out', null, { timeoutDuration });
+        return new Response(JSON.stringify({ 
+          error: 'Request timed out',
+          message: 'The request took too long to process. Please try again with a simpler query.'
+        }), {
+          status: 408,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       logger.error('Webhook response error', null, { 
@@ -118,13 +145,29 @@ export async function POST(request: NextRequest) {
       if (response.status === 404 && errorText.includes('workflow must be active')) {
         logger.warn('n8n workflow is not active. Using fallback response');
         
-        // Create a fallback streaming response
+        // Create a fallback streaming response with progress indicators
         const n8nUrl = process.env.NEXT_PUBLIC_N8N_URL || "http://localhost:8100";
         const fallbackText = `I'm currently unable to connect to the AI service. Please ensure the n8n workflow is activated. \n\nTo fix this:\n1. Open n8n at ${n8nUrl}\n2. Find the workflow with webhook ID: c188c31c-1c45-4118-9ece-5b6057ab5177\n3. Activate it using the toggle in the top-right\n\nFor testing, I can still demonstrate the UI features.`;
         
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           async start(controller) {
+            // Send initial progress status
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'status',
+              stage: 'initializing',
+              message: 'Connecting to AI service...'
+            })}\n\n`));
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'progress',
+              stage: 'processing_query',
+              message: 'Processing your request...',
+              percent: 50
+            })}\n\n`));
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             // Stream the fallback message
             const chunkSize = STREAM.CHUNK_SIZE_CHARS;
             for (let i = 0; i < fallbackText.length; i += chunkSize) {
@@ -211,12 +254,20 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Create a streaming response for smooth character-by-character display
+    // Create a streaming response for smooth character-by-character display with progress
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const text = responseData.message || responseData.response || 'I received your message. Processing...';
         const sources = responseData.sources || responseData.references || [];
+        
+        // Send initial progress events
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'status',
+          stage: 'generating_response',
+          message: 'Generating response...'
+        })}\n\n`));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Send text in chunks for smooth streaming effect
         const chunkSize = STREAM.CHUNK_SIZE_CHARS;

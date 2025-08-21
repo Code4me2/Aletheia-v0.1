@@ -8,10 +8,29 @@ class CourtAPIClient {
     // Use server URL for SSR, client URL for browser
     this.baseUrl = process.env.COURT_API_BASE_URL || 'http://court-processor:8104';
     this.clientUrl = process.env.NEXT_PUBLIC_COURT_API_URL || 'http://localhost:8104';
+    
+    // Validate environment variables in production
+    if (typeof window !== 'undefined' && 
+        this.clientUrl === 'http://localhost:8104' && 
+        window.location.hostname !== 'localhost') {
+      console.error(
+        'Court API URL not configured. Document selection will not work.',
+        'Please rebuild the application with NEXT_PUBLIC_COURT_API_URL environment variable set.'
+      );
+    }
   }
 
   private getUrl(): string {
-    return typeof window === 'undefined' ? this.baseUrl : this.clientUrl;
+    // In browser, check if we're in production with localhost fallback
+    if (typeof window !== 'undefined') {
+      if (this.clientUrl === 'http://localhost:8104' && window.location.hostname !== 'localhost') {
+        throw new Error(
+          'Court API not configured. Please contact your administrator to enable document selection.'
+        );
+      }
+      return this.clientUrl;
+    }
+    return this.baseUrl;
   }
 
   async searchDocuments(params: {

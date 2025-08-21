@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import SafeMarkdown from '@/components/SafeMarkdown';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import AnalyticsDropdown from '@/components/AnalyticsDropdown';
+import { StreamProgressCompact } from '@/components/StreamProgress';
 import type { Message } from '@/types/chat';
 
 interface MessageListProps {
@@ -9,7 +10,7 @@ interface MessageListProps {
   isDarkMode: boolean;
   isLoading: boolean;
   assistantWidth: string;
-  onCitationClick: () => void;
+  onCitationClick: (citationKey?: string) => void;
 }
 
 export default function MessageList({ 
@@ -71,16 +72,32 @@ export default function MessageList({
                       minHeight: '1.5em' // Prevent layout shift during streaming
                     }}>
                       {message.text === '' && isLoading && message.id === messages[messages.length - 1].id ? (
-                        <div className={`loading-dots ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
+                        message.streamProgress ? (
+                          <StreamProgressCompact
+                            stage={message.streamProgress.stage as any}
+                            message={message.streamProgress.message}
+                            isDarkMode={isDarkMode}
+                          />
+                        ) : (
+                          <div className={`loading-dots ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </div>
+                        )
                       ) : (
                       <div dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
                         <SafeMarkdown 
                           content={message.text}
                           className="max-w-none markdown-content"
+                          citedDocumentIds={message.citedDocumentIds}
+                          onCitationClick={(citationKey) => {
+                            // Find the user message with document context
+                            const userMessageIndex = messages.findIndex(m => m.id === message.id - 1 && m.sender === 'user');
+                            if (userMessageIndex >= 0 && messages[userMessageIndex].documentContext) {
+                              onCitationClick(citationKey);
+                            }
+                          }}
                         />
                       </div>
                       )}
@@ -91,7 +108,7 @@ export default function MessageList({
                   {message.sender === 'assistant' && message.text && !(isLoading && message.id === messages[messages.length - 1].id) && (
                     <div className={`mt-3 w-full flex items-center gap-2`} key={`buttons-${message.id}`}>
                       <button
-                        onClick={onCitationClick}
+                        onClick={() => onCitationClick()}
                         className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 transform active:scale-95 ${
                           isDarkMode 
                             ? 'bg-[#25262b] text-[#d1d1d1] hover:bg-[#404147] active:bg-[#505157]' 

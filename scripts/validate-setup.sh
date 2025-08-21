@@ -108,8 +108,10 @@ echo "4. Container Status"
 echo "-------------------"
 
 if docker ps > /dev/null 2>&1; then
-    # Get list of expected services from docker-compose.yml
-    EXPECTED_SERVICES=(web db n8n redis lawyer-chat ai-portal court-processor)
+    # Get list of expected core services
+    # Note: Some services may be optional or not always running
+    EXPECTED_SERVICES=(web db court-processor)
+    OPTIONAL_SERVICES=(n8n redis lawyer-chat ai-portal recap-webhook)
     
     for service in "${EXPECTED_SERVICES[@]}"; do
         # Find container with this service name (use word boundary to avoid partial matches)
@@ -126,6 +128,25 @@ if docker ps > /dev/null 2>&1; then
             fi
         else
             echo -e "${YELLOW}⚠${NC}  $service: Not running"
+        fi
+    done
+    
+    # Check optional services
+    echo ""
+    echo "Optional Services:"
+    for service in "${OPTIONAL_SERVICES[@]}"; do
+        container=$(docker ps --format "{{.Names}}" | grep -E "${PROJECT_NAME}-${service}-[0-9]" | head -1)
+        if [ ! -z "$container" ]; then
+            health=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo "none")
+            if [ "$health" = "healthy" ]; then
+                echo -e "${GREEN}✓${NC} $service: Running and healthy"
+            elif [ "$health" = "none" ] || [ -z "$health" ]; then
+                echo -e "${GREEN}✓${NC} $service: Running"
+            else
+                echo -e "${YELLOW}⚠${NC}  $service: Running but $health"
+            fi
+        else
+            echo "  $service: Not running (optional)"
         fi
     done
 else

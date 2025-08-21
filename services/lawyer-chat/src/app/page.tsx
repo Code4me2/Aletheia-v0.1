@@ -15,6 +15,7 @@ import { useSidebarStore } from '@/store/sidebar';
 import { useChatState } from '@/hooks/useChatState';
 import { useChatAPI } from '@/hooks/useChatAPI';
 import { getRandomMockCitation } from '@/utils/mockCitations';
+import { documentToCitation } from '@/utils/citationExtractor';
 import { useCsrfStore } from '@/store/csrf';
 import { PDFGenerator, generateChatText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
 import type { Citation } from '@/types';
@@ -205,27 +206,44 @@ function LawyerChatContent() {
     await sendMessage(messageToSend, selectedTools, messages, isCreatingChat, selectedDocuments);
   };
 
-  const handleCitationClick = (docId?: number) => {
-    // If we have selected documents and a specific doc ID, use that
-    if (docId && selectedDocuments.length > 0) {
-      const doc = selectedDocuments.find(d => d.id === docId);
-      if (doc) {
-        const citation: Citation = {
-          id: doc.id.toString(),
-          title: doc.case || `Document ${doc.id}`,
-          source: `Judge ${doc.judge}`,
-          court: doc.court,
-          caseNumber: doc.case,
-          content: doc.text || '',
-          excerpt: doc.preview
-        };
-        setSelectedCitation(citation);
-        setShowCitationPanel(true);
-        return;
+  const handleCitationClick = (citationKey?: string) => {
+    // If we have a citation key like "DOC1", find the corresponding document
+    if (citationKey && citationKey.startsWith('DOC')) {
+      // Find the most recent assistant message with citations
+      const assistantMessage = messages
+        .slice()
+        .reverse()
+        .find(m => m.sender === 'assistant' && m.citedDocumentIds?.includes(citationKey));
+      
+      if (assistantMessage) {
+        // Find the corresponding user message with document context
+        const userMessageIndex = messages.findIndex(m => m.id === assistantMessage.id - 1 && m.sender === 'user');
+        if (userMessageIndex >= 0 && messages[userMessageIndex].documentContext) {
+          const documents = messages[userMessageIndex].documentContext!;
+          
+          // Map citation key to document (DOC1 -> index 0, DOC2 -> index 1, etc.)
+          const docIndex = parseInt(citationKey.replace('DOC', '')) - 1;
+          if (docIndex >= 0 && docIndex < documents.length) {
+            const doc = documents[docIndex];
+            const citation: Citation = {
+              id: `${doc.id}-${citationKey}`,
+              title: doc.formatted_title_short || doc.case || `Document ${doc.id}`,
+              source: `Judge ${doc.judge}`,
+              court: doc.court,
+              date: doc.date_filed,
+              caseNumber: doc.case,
+              content: doc.text || doc.preview || 'No text available',
+              excerpt: doc.preview
+            };
+            setSelectedCitation(citation);
+            setShowCitationPanel(true);
+            return;
+          }
+        }
       }
     }
     
-    // Otherwise use mock citation for testing
+    // Fallback to mock citation for testing
     const mockCitation = getRandomMockCitation();
     setSelectedCitation(mockCitation);
     setShowCitationPanel(true);

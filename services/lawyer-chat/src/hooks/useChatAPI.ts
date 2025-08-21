@@ -3,6 +3,7 @@ import { api } from '@/utils/api';
 import { getApiEndpoint } from '@/lib/api-config';
 import { createLogger } from '@/utils/logger';
 import { cleanAIResponse, detectTruncatedResponse } from '@/utils/textFilters';
+import { extractCitationMarkers } from '@/utils/citationExtractor';
 import { mockAnalyticsData } from '@/utils/mockAnalytics';
 import { getErrorMessage } from '@/utils/errors';
 import { 
@@ -138,7 +139,8 @@ export function useChatAPI({
       id: Date.now(),
       sender: 'user',
       text: messageText,
-      timestamp: new Date()
+      timestamp: new Date(),
+      documentContext: documentContext // Store documents with user message
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -184,7 +186,8 @@ export function useChatAPI({
       text: '',
       references: [],
       analytics: undefined,
-      timestamp: new Date()
+      timestamp: new Date(),
+      citedDocumentIds: [] // Will be populated as citations are found
     };
     
     // Add mock analytics data if analytics tool is selected (for testing)
@@ -209,10 +212,10 @@ export function useChatAPI({
 
       // Handle streaming response
       if (response.headers.get('content-type')?.includes('text/event-stream')) {
-        await handleStreamingResponse(response, assistantId, chatIdToUse, hasAnalyticsTool);
+        await handleStreamingResponse(response, assistantId, chatIdToUse, hasAnalyticsTool, documentContext);
       } else {
         // Handle regular JSON response
-        await handleJsonResponse(response, assistantId, chatIdToUse, hasAnalyticsTool);
+        await handleJsonResponse(response, assistantId, chatIdToUse, hasAnalyticsTool, documentContext);
       }
     } catch (error) {
       logger.error('Error sending message', getErrorMessage(error));
@@ -238,7 +241,8 @@ export function useChatAPI({
     response: Response, 
     assistantId: number, 
     chatIdToUse: string | null,
-    hasAnalyticsTool: boolean
+    hasAnalyticsTool: boolean,
+    documentContext?: any[]
   ) => {
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
@@ -251,10 +255,13 @@ export function useChatAPI({
       let lastSaveTime = Date.now();
       let messageId: string | null = null;
       let saveInProgress = false;
+      let currentStage: string | null = null;
+      let startTime = Date.now();
       
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
         
         const chunk = decoder.decode(value);
         buffer += chunk;
@@ -269,9 +276,31 @@ export function useChatAPI({
           if (line.startsWith('data: ')) {
             try {
               const parsed = JSON.parse(line.slice(6));
-              const data = StreamChunkSchema.parse(parsed);
+              // Handle both old and new event types
+              const data = parsed.type ? parsed : StreamChunkSchema.parse(parsed);
               
-              if (data.type === 'text' && data.text) {
+              // Handle progress events (new)
+              if (data.type === 'status' || data.type === 'progress') {
+                currentStage = data.stage || currentStage;
+                const elapsedTime = Date.now() - startTime;
+                
+                // Update message with progress info
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === assistantId 
+                      ? { 
+                          ...msg, 
+                          streamProgress: {
+                            stage: data.stage,
+                            message: data.message,
+                            percent: data.percent,
+                            elapsedTime
+                          }
+                        }
+                      : msg
+                  )
+                );
+              } else if (data.type === 'text' && data.text) {
                 // Append chunk directly to accumulated text
                 accumulatedText += data.text;
                 
@@ -283,11 +312,17 @@ export function useChatAPI({
                   logger.warn('Detected truncated or restarting response');
                 }
                 
-                // Update message with cleaned text
+                // Extract citations if we have document context
+                let citedDocumentIds: string[] = [];
+                if (documentContext && documentContext.length > 0) {
+                  citedDocumentIds = extractCitationMarkers(cleanedText);
+                }
+                
+                // Update message with cleaned text and citations
                 setMessages(prev => 
                   prev.map(msg => 
                     msg.id === assistantId 
-                      ? { ...msg, text: cleanedText }
+                      ? { ...msg, text: cleanedText, citedDocumentIds }
                       : msg
                   )
                 );
@@ -386,6 +421,24 @@ export function useChatAPI({
           }
         }
       }
+      } catch (error) {
+        logger.error('Stream processing error', getErrorMessage(error));
+        // Update the assistant message with error state
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === assistantId 
+              ? { ...msg, text: msg.text || 'An error occurred while processing the response.' }
+              : msg
+          )
+        );
+      } finally {
+        // Clean up the reader
+        try {
+          await reader.cancel();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
     }
   };
 
@@ -393,7 +446,8 @@ export function useChatAPI({
     response: Response, 
     assistantId: number, 
     chatIdToUse: string | null,
-    hasAnalyticsTool: boolean
+    hasAnalyticsTool: boolean,
+    documentContext?: any[]
   ) => {
     const data = await response.json();
     

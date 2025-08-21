@@ -14,6 +14,8 @@ import { useSidebarStore } from '@/store/sidebar';
 interface SafeMarkdownProps {
   content: string;
   className?: string;
+  onCitationClick?: (citationKey: string) => void;
+  citedDocumentIds?: string[];
 }
 
 // Type definitions for component props
@@ -38,8 +40,25 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 };
 
 
-export default function SafeMarkdown({ content, className }: SafeMarkdownProps) {
+export default function SafeMarkdown({ content, className, onCitationClick, citedDocumentIds }: SafeMarkdownProps) {
   const { isDarkMode } = useSidebarStore();
+  
+  // Pre-process content to convert [DOC1] markers to clickable links
+  const processedContent = React.useMemo(() => {
+    if (!onCitationClick || !citedDocumentIds || citedDocumentIds.length === 0) {
+      return content;
+    }
+    
+    // Replace [DOC1], [DOC2] etc with markdown links
+    return content.replace(/\[DOC(\d+)\]/g, (match, num) => {
+      const citationKey = `DOC${num}`;
+      if (citedDocumentIds.includes(citationKey)) {
+        // Convert to a special link format that we'll handle below
+        return `[${match}](citation:${citationKey})`;
+      }
+      return match;
+    });
+  }, [content, citedDocumentIds, onCitationClick]);
   
   const components: Partial<Components> = {
     // ========== HEADERS - Scaled down to ~80% with consistent hierarchy ==========
@@ -139,21 +158,44 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
       }`}>{children}</pre>
     ),
     // ========== LINKS - Clean and accessible ==========
-    a: ({ children, href, ...props }: LinkProps) => (
-      <a 
-        {...props}
-        href={href}
-        className={`underline underline-offset-2 transition-colors ${
-          isDarkMode 
-            ? 'text-blue-400 hover:text-blue-300' 
-            : 'text-blue-600 hover:text-blue-800'
-        }`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {children}
-      </a>
-    ),
+    a: ({ children, href, ...props }: LinkProps) => {
+      // Check if this is a citation link
+      if (href?.startsWith('citation:')) {
+        const citationKey = href.replace('citation:', '');
+        return (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onCitationClick?.(citationKey);
+            }}
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+              isDarkMode 
+                ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-800/50' 
+                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            }`}
+          >
+            {children}
+          </button>
+        );
+      }
+      
+      // Regular link
+      return (
+        <a 
+          {...props}
+          href={href}
+          className={`underline underline-offset-2 transition-colors ${
+            isDarkMode 
+              ? 'text-blue-400 hover:text-blue-300' 
+              : 'text-blue-600 hover:text-blue-800'
+          }`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {children}
+        </a>
+      );
+    },
     // ========== TABLES - Clean and readable ==========
     table: ({ children, ...props }: ComponentProps) => (
       <div className="my-6 overflow-x-auto">
@@ -305,7 +347,7 @@ export default function SafeMarkdown({ content, className }: SafeMarkdownProps) 
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           components={components}
         >
-          {content || ''}
+          {processedContent || ''}
         </ReactMarkdown>
       </div>
     </ErrorBoundary>

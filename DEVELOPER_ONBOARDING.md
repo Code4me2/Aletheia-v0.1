@@ -8,6 +8,7 @@ Welcome to Aletheia! This guide will help you get started quickly and avoid comm
 - [ ] Copy `.env.example` to `.env` 
 - [ ] Run `docker-compose up -d`
 - [ ] Wait for health checks (all services should show "healthy")
+- [ ] Run validation: `./scripts/validate-setup.sh`
 - [ ] If services were rebuilt, reload nginx: `./scripts/dev-helper.sh reload-nginx`
 - [ ] Access the application at http://localhost:8080
 
@@ -88,42 +89,34 @@ Aletheia-v0.1/
 
 ## Key Commands
 
-### View Service Logs
+### Using the Helper Scripts
 ```bash
-# All services
-docker-compose logs -f
+# Validate your setup
+./scripts/validate-setup.sh
 
-# Specific service
-docker-compose logs -f lawyer-chat
-
-# Check for errors
-docker-compose logs 2>&1 | grep -i error
+# Common operations
+./scripts/dev-helper.sh status         # Show all service status
+./scripts/dev-helper.sh reload-nginx   # Fix 404 errors after rebuild
+./scripts/dev-helper.sh endpoints      # Test all service endpoints
+./scripts/dev-helper.sh ports          # Check port usage
+./scripts/dev-helper.sh logs [service] # View logs
+./scripts/dev-helper.sh restart [service] # Restart a service
+./scripts/dev-helper.sh backup-db      # Backup database
 ```
 
-### Service Management
+### Manual Commands (if needed)
 ```bash
-# Restart a service
-docker-compose restart lawyer-chat
+# View logs
+docker-compose logs -f [service-name]
+
+# Restart service
+docker-compose restart [service-name]
 
 # Rebuild and restart
-docker-compose up -d --build lawyer-chat
+docker-compose up -d --build [service-name]
 
-# Stop everything
-docker-compose down
-
-# Stop and remove volumes (CAUTION: deletes data)
-docker-compose down -v
-```
-
-### Health Checks
-```bash
-# Check all services status
+# Check health
 docker ps --format "table {{.Names}}\t{{.Status}}"
-
-# Test specific endpoints
-curl -I http://localhost:8080/health
-curl -I http://localhost:8080/chat
-curl -I http://localhost:8080/n8n/
 ```
 
 ## Development Workflow

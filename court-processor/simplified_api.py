@@ -455,13 +455,23 @@ async def search_simple(
                 "case": doc['case_number'] or f"DOC-{doc['id']}",  # Keep for backwards compatibility
                 "type": doc['document_type'],
                 "judge": metadata.get('judge_name', 'Unknown'),
+                "court": metadata.get('court_id', 'Unknown'),
+                "date_filed": metadata.get('date_filed'),
                 "text": text,  # Full text directly available
                 "text_length": len(text),
                 "preview": text[:500] + "..." if len(text) > 500 else text,
                 # NEW: Enhanced title fields
                 "formatted_title": formatted_title,
                 "formatted_title_short": formatted_title_short,
-                "document_type_extracted": document_type_from_text
+                "document_type_extracted": document_type_from_text,
+                # Include citation components for better formatting
+                "citation_components": {
+                    "case_name": case_name,
+                    "document_type": document_type_from_text,
+                    "judge": metadata.get('judge_name'),
+                    "date_filed": metadata.get('date_filed'),
+                    "court": metadata.get('court_id')
+                }
             })
         
         return {

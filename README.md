@@ -4,6 +4,8 @@ A sophisticated web application that integrates workflow automation (n8n) with A
 
 ## Quick Start
 
+> **New to the project?** See [DEVELOPER_ONBOARDING.md](DEVELOPER_ONBOARDING.md) for a comprehensive guide including common issues and solutions.
+
 ### Prerequisites
 
 - Docker & Docker Compose
@@ -53,6 +55,10 @@ docker-compose up -d
 ### 4. Verify services are healthy
 
 ```bash
+# Use our validation script
+./scripts/validate-setup.sh
+
+# Or check manually
 docker ps --format "table {{.Names}}\t{{.Status}}"
 # All services should show "(healthy)" status
 ```
@@ -1302,6 +1308,24 @@ python workflow_validator.py workflow.json
 ```
 
 ## Troubleshooting
+
+> **For comprehensive troubleshooting:** See [DEVELOPER_ONBOARDING.md](DEVELOPER_ONBOARDING.md#common-issues--solutions) for detailed solutions.
+
+### Quick Fixes
+
+```bash
+# Run validation to identify issues
+./scripts/validate-setup.sh
+
+# Common fix for 404 errors after rebuild
+./scripts/dev-helper.sh reload-nginx
+
+# Check service status
+./scripts/dev-helper.sh status
+
+# Test all endpoints
+./scripts/dev-helper.sh endpoints
+```
 
 ### Common Issues
 
