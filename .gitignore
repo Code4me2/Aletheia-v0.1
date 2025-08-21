@@ -7,6 +7,7 @@
 
 # Docker volumes and data
 **/data/
+!/data/db-backups/
 **/postgres_data/
 **/n8n_data/
 docker-compose.override.yml
