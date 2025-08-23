@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
       try {
         responseData = JSON.parse(responseText);
         // Extract execution ID from our patched n8n response
-        executionId = responseData.__executionId || responseData.executionId || response.headers.get('x-execution-id');
+        executionId = responseData.__executionId || (responseData as any).executionId || response.headers.get('x-execution-id');
         
         if (executionId) {
           logger.info('Found execution ID from webhook', { executionId });

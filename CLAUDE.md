@@ -1,6 +1,9 @@
 # Aletheia-v0.1 Project
 
-**IMPORTANT**: For device-specific setup and paths, see [DEVICE_SPECIFIC_SETUP.md](./DEVICE_SPECIFIC_SETUP.md)
+**IMPORTANT**: 
+- For simplification status, see [SIMPLIFICATION_STATUS.md](./SIMPLIFICATION_STATUS.md)
+- Use `/dev` CLI for all operations (type `./dev help` for commands)
+- For device-specific setup and paths, see [DEVICE_SPECIFIC_SETUP.md](./DEVICE_SPECIFIC_SETUP.md)
 
 ## Project Overview
 

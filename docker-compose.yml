@@ -59,6 +59,9 @@ services:
     volumes:
       - n8n_data:/data
       - ./n8n/local-files:/files
+      - ./n8n/patches:/patches:ro
+      - ./n8n/docker-entrypoint.sh:/docker-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
     networks:
       - backend
       - frontend
@@ -98,6 +101,11 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8104/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
   
   recap-webhook:
     build:
@@ -148,6 +156,7 @@ services:
       - N8N_WEBHOOK_URL=http://n8n:5678/webhook/${N8N_WEBHOOK_ID}
       - N8N_API_KEY=${N8N_API_KEY}
       - N8N_API_SECRET=${N8N_API_SECRET}
+      - N8N_AUTH_BYPASS=${N8N_AUTH_BYPASS:-false}
       # Court Processor API config
       - COURT_API_BASE_URL=${COURT_API_BASE_URL}
       - NEXT_PUBLIC_COURT_API_URL=${NEXT_PUBLIC_COURT_API_URL}
@@ -189,6 +198,11 @@ services:
       - NEXT_PUBLIC_N8N_URL=${NEXT_PUBLIC_N8N_URL}
     networks:
       - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   ai-portal-nginx:
     image: nginx:alpine
@@ -204,6 +218,11 @@ services:
       - ai-portal
     networks:
       - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   redis:
     image: redis:7-alpine

@@ -1,0 +1,35 @@
+# Development docker-compose for TypeScript build
+# Use with: docker-compose -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # Development server with hot reload
+  website-dev:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    command: >
+      sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - aletheia_frontend
+
+  # Production build preview
+  website-build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:80"  # Different port to avoid conflict
+    networks:
+      - aletheia_frontend
+
+networks:
+  aletheia_frontend:
+    external: true
