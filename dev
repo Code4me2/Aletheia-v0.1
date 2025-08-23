@@ -1,0 +1,176 @@
+#!/bin/bash
+
+# Aletheia Developer CLI - The ONE script you need
+# Simple, clear, no confusion
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+# Function to show usage
+show_help() {
+    echo -e "${BLUE}Aletheia Developer CLI${NC}"
+    echo ""
+    echo "Usage: ./dev [command] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  up              Start all services"
+    echo "  down            Stop all services"
+    echo "  restart [name]  Restart a specific service (or all if no name)"
+    echo "  logs [name]     Show logs (all services or specific one)"
+    echo "  status          Show status of all services"
+    echo "  shell [name]    Open shell in a container"
+    echo "  clean           Stop services and clean volumes (WARNING: deletes data)"
+    echo "  help            Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  ./dev up                  # Start everything"
+    echo "  ./dev logs n8n           # Show n8n logs"
+    echo "  ./dev restart lawyer-chat # Restart lawyer-chat service"
+    echo "  ./dev shell db           # Open PostgreSQL shell"
+}
+
+# Check if docker and docker-compose are installed
+check_requirements() {
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}Error: Docker is not installed${NC}"
+        exit 1
+    fi
+    
+    if ! command -v docker-compose &> /dev/null; then
+        echo -e "${RED}Error: docker-compose is not installed${NC}"
+        exit 1
+    fi
+}
+
+# Check if .env exists
+check_env() {
+    if [ ! -f .env ]; then
+        if [ -f .env.required ]; then
+            echo -e "${YELLOW}No .env file found. Creating from .env.required...${NC}"
+            cp .env.required .env
+            echo -e "${GREEN}Created .env file. Please edit it with your values.${NC}"
+            echo -e "${YELLOW}Run './dev up' when ready.${NC}"
+            exit 0
+        else
+            echo -e "${RED}No .env file found!${NC}"
+            echo "Please create one with at least these variables:"
+            echo "  DB_PASSWORD=<your_password>"
+            echo "  N8N_ENCRYPTION_KEY=<your_key>"
+            echo "  NEXTAUTH_SECRET=<your_secret>"
+            exit 1
+        fi
+    fi
+}
+
+# Main command handling
+case "$1" in
+    up|start)
+        check_requirements
+        check_env
+        echo -e "${BLUE}Starting Aletheia services...${NC}"
+        docker-compose up -d
+        echo ""
+        echo -e "${GREEN}✓ Services started successfully!${NC}"
+        echo ""
+        echo "Access points:"
+        echo "  • Main app:     http://localhost:8080"
+        echo "  • n8n:          http://localhost:8080/n8n"
+        echo "  • Lawyer Chat:  http://localhost:8080/chat"
+        echo "  • AI Portal:    http://localhost:8085"
+        echo ""
+        echo "Run './dev logs' to see output"
+        ;;
+        
+    down|stop)
+        check_requirements
+        echo -e "${BLUE}Stopping Aletheia services...${NC}"
+        docker-compose down
+        echo -e "${GREEN}✓ Services stopped${NC}"
+        ;;
+        
+    restart)
+        check_requirements
+        if [ -z "$2" ]; then
+            echo -e "${BLUE}Restarting all services...${NC}"
+            docker-compose restart
+        else
+            echo -e "${BLUE}Restarting $2...${NC}"
+            docker-compose restart "$2"
+        fi
+        echo -e "${GREEN}✓ Restart complete${NC}"
+        ;;
+        
+    logs|log)
+        check_requirements
+        if [ -z "$2" ]; then
+            docker-compose logs -f --tail=100
+        else
+            docker-compose logs -f --tail=100 "$2"
+        fi
+        ;;
+        
+    status|ps)
+        check_requirements
+        echo -e "${BLUE}Service Status:${NC}"
+        echo ""
+        docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+        ;;
+        
+    shell|exec)
+        check_requirements
+        if [ -z "$2" ]; then
+            echo -e "${RED}Please specify a service name${NC}"
+            echo "Example: ./dev shell db"
+            exit 1
+        fi
+        
+        case "$2" in
+            db|postgres)
+                echo -e "${BLUE}Opening PostgreSQL shell...${NC}"
+                docker-compose exec db psql -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}"
+                ;;
+            n8n)
+                echo -e "${BLUE}Opening n8n shell...${NC}"
+                docker-compose exec n8n /bin/sh
+                ;;
+            *)
+                echo -e "${BLUE}Opening shell in $2...${NC}"
+                docker-compose exec "$2" /bin/sh 2>/dev/null || docker-compose exec "$2" /bin/bash
+                ;;
+        esac
+        ;;
+        
+    clean)
+        echo -e "${YELLOW}WARNING: This will delete all data!${NC}"
+        echo -n "Are you sure? (y/N): "
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}Cleaning up...${NC}"
+            docker-compose down -v
+            echo -e "${GREEN}✓ Cleanup complete${NC}"
+        else
+            echo "Cancelled"
+        fi
+        ;;
+        
+    help|--help|-h|"")
+        show_help
+        ;;
+        
+    *)
+        echo -e "${RED}Unknown command: $1${NC}"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac
