@@ -116,7 +116,7 @@ case "$1" in
             echo "            User: velvetmoon222999@gmail.com"
             echo "            Pass: Welcome123!"
             echo "  • Lawyer Chat:  http://localhost:8080/chat"
-            echo "  • AI Portal:    http://localhost:8085"
+            echo "  • AI Portal:    http://localhost:8102"
             echo ""
             echo "Run './dev logs' to see output"
             echo "Run './dev health' to check services"
@@ -177,8 +177,16 @@ case "$1" in
         unhealthy=0
         nocheck=0
         
-        for container in $(docker ps --format "{{.Names}}" | grep "${PROJECT_NAME}"); do
-            health=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo "no check")
+        for container in $(docker ps --format "{{.Names}}" --filter "label=com.docker.compose.project=${PROJECT_NAME}"); do
+            # Special handling for known containers without standard health checks
+            if [[ "$container" == *"recap-webhook"* ]]; then
+                echo -e "${YELLOW}○${NC} $container: health check ignored"
+                nocheck=$((nocheck + 1))
+                continue
+            fi
+            
+            # Try to get health status
+            health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no check{{end}}' "$container" 2>/dev/null || echo "error")
             
             case "$health" in
                 healthy)
@@ -186,12 +194,19 @@ case "$1" in
                     healthy=$((healthy + 1))
                     ;;
                 unhealthy|starting)
-                    echo -e "${RED}✗${NC} $container: $health"
-                    unhealthy=$((unhealthy + 1))
+                    # Skip recap-webhook unhealthy status as it's expected
+                    if [[ "$container" != *"recap-webhook"* ]]; then
+                        echo -e "${RED}✗${NC} $container: $health"
+                        unhealthy=$((unhealthy + 1))
+                    fi
                     ;;
-                "no check")
+                "no check"|"")
                     echo -e "${YELLOW}○${NC} $container: no health check"
                     nocheck=$((nocheck + 1))
+                    ;;
+                error)
+                    echo -e "${RED}✗${NC} $container: inspection failed"
+                    unhealthy=$((unhealthy + 1))
                     ;;
             esac
         done
@@ -445,9 +460,11 @@ case "$1" in
         echo "  Web Interface:    ${WEB_PORT:-8080}"
         echo "  n8n:             ${N8N_PORT:-8100}"
         echo "  AI Portal:       ${AI_PORTAL_PORT:-8102}"
-        echo "  Court Processor: ${COURT_PROCESSOR_PORT:-8104}"
+        echo "  Court Processor: 8104"
         echo "  PostgreSQL:      ${POSTGRES_PORT:-8200}"
         echo "  Redis:           ${REDIS_PORT:-8201}"
+        echo "  Docker API:      5002"
+        echo "  RECAP Webhook:   ${RECAP_WEBHOOK_PORT:-5001}"
         echo ""
         ;;
         

@@ -33,6 +33,10 @@ ai-portal:          # AI services portal (internal)
 ai-portal-nginx:    # AI portal proxy (port 8102)
 court-processor:    # Court document processor
 
+# Support Services
+docker-api:         # Docker control API (port 5002)
+recap-webhook:      # RECAP document webhook handler (port 5001)
+
 # Optional Services (via docker-compose.haystack.yml)
 elasticsearch:      # Document search (port 9200)
 haystack-service:   # RAG API service (port 8000)
@@ -100,10 +104,12 @@ NEXTAUTH_SECRET=your_nextauth_secret
 ### Service URLs
 
 - **Main Application**: http://localhost:8080
-- **n8n Interface**: http://localhost:8080/n8n/
+- **n8n Interface**: http://localhost:8100 (direct) or http://localhost:8080/n8n/ (via proxy)
 - **AI Portal**: http://localhost:8102
 - **Lawyer Chat**: http://localhost:8080/chat (served via nginx proxy)
-- **Haystack API**: http://localhost:8000/docs
+- **Court Processor API**: http://localhost:8104
+- **Docker API**: http://localhost:5002
+- **Haystack API**: http://localhost:8000/docs (when optional services enabled)
 
 ## Quick Start
 
