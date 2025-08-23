@@ -16,26 +16,24 @@ After comprehensive review, the project has significant bloat that can be reduce
   ```
 - **Note**: Already documented in CLAUDE.md that node_modules aren't needed
 
-### 2. **Documentation Overload (31 MD files in root)**
+### 2. **Documentation Overload (✅ COMPLETED)**
 - **Problem**: 31 markdown files in root directory creating confusion
-- **Files to consolidate/remove**:
-  - CITATION_*.md (3 files) → Move to docs/citation/
-  - DOCKER_*.md (4 files) → Move to docs/docker/
-  - PORT_*.md (2 files) → Consolidate to single PORT_MAP.md
-  - *_GUIDE.md, *_PLAN.md files → Archive most
-- **Keep only**: README.md, CLAUDE.md, SIMPLIFICATION_STATUS.md, CONTRIBUTING.md
+- **Solution Applied**: Reorganized into clean structure
+  - Moved to `docs/citation/`: CITATION_*.md files
+  - Moved to `docs/docker/`: DOCKER_*.md files  
+  - Moved to `docs/guides/`: Developer guides and onboarding
+  - Moved to `docs/architecture/`: Technical documentation
+  - Moved to `docs/archive/`: Legacy and planning docs
+- **Result**: Root now has only 5 essential files
+- **Fixed**: Updated all documentation links and corrected port numbers
 
-### 3. **Environment Variables (94 lines)**
-- **Problem**: .env has 94 lines, most unused or defaults
-- **Actually needed** (~15 variables):
-  ```
-  DB_USER, DB_PASSWORD, DB_NAME
-  N8N_ENCRYPTION_KEY
-  NEXTAUTH_SECRET
-  WEB_PORT, N8N_PORT
-  N8N_WEBHOOK_ID
-  ```
-- **Solution**: Create .env.minimal with essentials, archive current
+### 3. **Environment Variables (✅ COMPLETED)**
+- **Problem**: .env had 94 lines with many unused variables
+- **Solution Applied**: Reduced to 47 essential variables
+- **Removed**: 34 unused variables (ports for non-existent services, unused auth, hardcoded values)
+- **Kept**: All required variables for docker-compose
+- **Result**: 50% reduction while maintaining full functionality
+- **Backup**: Original saved as .env.full
 
 ### 4. **Duplicate Docker Configurations**
 - **Found**: 16 Dockerfiles (many in node_modules)

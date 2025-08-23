@@ -9,7 +9,9 @@
 - **Test Consolidation**: 4 directories → 1 organized `tests/` directory
 - **Simple README**: 1673 lines → 24 lines (old saved as README.old.md)
 - **Documentation**: 31 MD files in root → 5 essential (rest in docs/)
-- **Environment**: 94 lines → 37 essential variables (backup in .env.full)
+- **Environment**: 94 lines → 47 essential variables (removed 34 unused, kept all required)
+  - Safely removed: unused ports, auth variables, hardcoded values
+  - Fixed documentation: AI Portal port 8085→8102, updated file paths
 
 ## 🔴 High Priority - Do Next
 
@@ -36,6 +38,20 @@ Create `PORT_MAPPING.md`:
 ### 6. Custom Nodes Documentation  
 - 8 nodes, each has README
 - Consolidate to single `n8n/CUSTOM_NODES.md`
+
+## 📊 Environment Variables Detail
+
+### Variables Safely Removed (34 total):
+- Unused service ports: GRAFANA_PORT, LOKI_PORT, ELASTICSEARCH_PORT, HAYSTACK_PORT
+- Unused auth: N8N_BASIC_AUTH_*, N8N_API_KEY, N8N_API_SECRET  
+- Hardcoded values: NEXTAUTH_URL, COURT_PROCESSOR_PORT, SERVICE_HOST
+- Not needed: API_GATEWAY_PORT, BITNET_PORT, DOCKER_API_PORT
+
+### Variables Required (47 kept):
+- **Essential**: DB credentials, N8N_ENCRYPTION_KEY, NEXTAUTH_SECRET, N8N_WEBHOOK_ID
+- **Ports**: WEB_PORT, N8N_PORT, AI_PORTAL_PORT, POSTGRES_PORT, REDIS_PORT
+- **URLs**: Service communication URLs (generated from ports)
+- **Optional**: SMTP_*, PACER_*, COURTLISTENER_*, can be empty if not using features
 
 ## 🟢 Working - Don't Break
 - `/dev` CLI - All commands tested and working

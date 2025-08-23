@@ -3,7 +3,7 @@
 **IMPORTANT**: 
 - For simplification status, see [SIMPLIFICATION_STATUS.md](./SIMPLIFICATION_STATUS.md)
 - Use `/dev` CLI for all operations (type `./dev help` for commands)
-- For device-specific setup and paths, see [DEVICE_SPECIFIC_SETUP.md](./DEVICE_SPECIFIC_SETUP.md)
+- For device-specific setup and paths, see [docs/guides/DEVICE_SPECIFIC_SETUP.md](./docs/guides/DEVICE_SPECIFIC_SETUP.md)
 
 ## Project Overview
 
@@ -30,7 +30,7 @@ redis:              # Cache and session storage
 # Application Services
 lawyer-chat:        # Legal chat application (accessible at /chat via nginx)
 ai-portal:          # AI services portal (internal)
-ai-portal-nginx:    # AI portal proxy (port 8085)
+ai-portal-nginx:    # AI portal proxy (port 8102)
 court-processor:    # Court document processor
 
 # Optional Services (via docker-compose.haystack.yml)
@@ -101,7 +101,7 @@ NEXTAUTH_SECRET=your_nextauth_secret
 
 - **Main Application**: http://localhost:8080
 - **n8n Interface**: http://localhost:8080/n8n/
-- **AI Portal**: http://localhost:8085
+- **AI Portal**: http://localhost:8102
 - **Lawyer Chat**: http://localhost:8080/chat (served via nginx proxy)
 - **Haystack API**: http://localhost:8000/docs
 
