@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/utils/errors';
 import { ChatRequestSchema } from '@/schemas/api';
 import { STREAM, API, CHAT, UI } from '@/config/constants';
 import { formatDocumentContext } from '@/utils/documentFormatter';
+import { N8nExecutionTracker } from '@/lib/n8n-execution-tracker';
 import type { ChatResponse } from '@/types';
 
 const logger = createLogger('chat-api');
@@ -103,6 +104,10 @@ export async function POST(request: NextRequest) {
       logger.warn('Request aborted due to timeout', { timeoutDuration });
     }, timeoutDuration);
     
+    // Prepare for execution tracking
+    let executionId: string | null = null;
+    const executionTracker = new N8nExecutionTracker();
+
     let response: Response;
     try {
       // Forward request to n8n webhook with authentication and timeout
@@ -222,7 +227,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle streaming response if needed
+    // Check response and extract execution ID
     const contentType = response.headers.get('content-type');
     logger.debug('Response content-type', { contentType });
     
@@ -239,7 +244,7 @@ export async function POST(request: NextRequest) {
     
     // For non-streaming responses, convert to streaming for smooth display
     const responseText = await response.text();
-    let responseData: ChatResponse;
+    let responseData: ChatResponse & { __executionId?: string };
     
     // Parse response based on content type
     if (contentType?.includes('text/html') || contentType?.includes('text/plain')) {
@@ -248,6 +253,12 @@ export async function POST(request: NextRequest) {
     } else {
       try {
         responseData = JSON.parse(responseText);
+        // Extract execution ID from our patched n8n response
+        executionId = responseData.__executionId || responseData.executionId || response.headers.get('x-execution-id');
+        
+        if (executionId) {
+          logger.info('Found execution ID from webhook', { executionId });
+        }
       } catch {
         // Fallback for any unparseable response
         responseData = { response: responseText.trim(), sources: [] };
@@ -261,12 +272,47 @@ export async function POST(request: NextRequest) {
         const text = responseData.message || responseData.response || 'I received your message. Processing...';
         const sources = responseData.sources || responseData.references || [];
         
-        // Send initial progress events
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-          type: 'status',
-          stage: 'generating_response',
-          message: 'Generating response...'
-        })}\n\n`));
+        // If we have an execution ID, try to track real progress
+        if (executionId) {
+          try {
+            // Start tracking execution progress in background
+            executionTracker.trackExecution(executionId, (status) => {
+              // Convert execution status to progress event
+              let stage = 'processing_query';
+              let message = 'Processing...';
+              
+              if (status.data?.resultData?.lastNodeExecuted) {
+                const nodeName = status.data.resultData.lastNodeExecuted;
+                if (nodeName.toLowerCase().includes('document')) {
+                  stage = 'searching_context';
+                  message = 'Searching documents...';
+                } else if (nodeName.toLowerCase().includes('ai') || nodeName.toLowerCase().includes('generate')) {
+                  stage = 'generating_response';
+                  message = 'Generating response...';
+                }
+              }
+              
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'progress',
+                stage,
+                message,
+                percent: status.progress || 0
+              })}\n\n`));
+            }).catch(err => {
+              logger.warn('Execution tracking failed', { executionId, error: err });
+            });
+          } catch (error) {
+            logger.warn('Could not start execution tracking', { executionId, error });
+          }
+        } else {
+          // Fallback to simulated progress
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'status',
+            stage: 'generating_response',
+            message: 'Generating response...'
+          })}\n\n`));
+        }
+        
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Send text in chunks for smooth streaming effect
