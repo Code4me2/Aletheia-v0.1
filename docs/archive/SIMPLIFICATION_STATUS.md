@@ -22,6 +22,36 @@ rm -rf n8n/custom-nodes/*/node_modules
 # Creates 780MB space saving instantly
 ```
 
+## 📁 Additional Docker Compose Files (Investigation Complete)
+
+### Found 4 supplementary compose files:
+
+1. **n8n/docker-compose.haystack.yml** - Elasticsearch + Haystack RAG
+   - Adds: Elasticsearch (port 9200), Haystack service (port 8000), Unstructured service (port 8880)
+   - Purpose: Document search and RAG capabilities
+   - Status: NOT RUNNING (optional feature)
+   - Usage: `docker-compose -f docker-compose.yml -f n8n/docker-compose.haystack.yml up -d`
+
+2. **n8n/docker-compose.doctor.yml** - FLP Document Processing
+   - Adds: FreeLawProject doctor service (port 5050)
+   - Purpose: Legal document conversion and extraction
+   - Status: NOT RUNNING (optional feature)
+   - Usage: `docker-compose -f docker-compose.yml -f n8n/docker-compose.doctor.yml up -d`
+
+3. **n8n/docker-compose.bitnet.yml** - BitNet AI Server
+   - Adds: Microsoft BitNet inference server (port 8081)
+   - Purpose: 1-bit LLM inference for efficiency
+   - Status: NOT RUNNING (optional feature)
+   - Note: Has custom n8n node already built
+
+4. **docker-compose.production.yml** - Production Overrides
+   - Purpose: Security hardening, monitoring stack (Prometheus, Grafana, Loki)
+   - Adds: Resource limits, read-only filesystems, monitoring services
+   - Status: NOT ACTIVE (development environment)
+   - Usage: `docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d`
+
+**Recommendation**: Keep all 4 files - they provide optional features and production config
+
 ## 🟡 Medium Priority
 
 ### 4. Port Documentation
