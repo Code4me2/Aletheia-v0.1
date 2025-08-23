@@ -8,22 +8,16 @@
 - **n8n Auth**: Documented credentials (velvetmoon222999@gmail.com / Welcome123!)
 - **Test Consolidation**: 4 directories → 1 organized `tests/` directory
 - **Simple README**: 1673 lines → 24 lines (old saved as README.old.md)
+- **Documentation**: 31 MD files in root → 5 essential (rest in docs/)
+- **Environment**: 94 lines → 37 essential variables (backup in .env.full)
 
 ## 🔴 High Priority - Do Next
 
-### 1. Environment Variables
+### 1. Remove node_modules from custom nodes (saves 780MB)
 ```bash
-# Current .env has 95 lines, only need ~10
-# Create minimal version:
-cat > .env.minimal << EOF
-DB_USER=aletheia
-DB_PASSWORD=$(./dev generate-password)
-DB_NAME=aletheia
-N8N_ENCRYPTION_KEY=$(./dev generate-password)
-NEXTAUTH_SECRET=$(./dev generate-password)
-WEB_PORT=8080
-N8N_PORT=8100
-EOF
+# These are NOT needed at runtime - n8n uses dist/ folders
+rm -rf n8n/custom-nodes/*/node_modules
+# Creates 780MB space saving instantly
 ```
 
 ## 🟡 Medium Priority
