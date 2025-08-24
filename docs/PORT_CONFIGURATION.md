@@ -75,7 +75,7 @@ When adding a new service:
 3. **Use standard internal port** where possible
 4. **Update this document**
 5. **Add to docker-compose.yml**
-6. **Update DEVELOPER_GUIDE.md**
+6. **Update README.md port section**
 
 ## Troubleshooting Port Conflicts
 
