@@ -329,11 +329,38 @@ case "$1" in
         fi
         
         # Check n8n
-        status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8100/" 2>/dev/null || echo "000")
+        status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${N8N_PORT:-8100}/" 2>/dev/null || echo "000")
         if [ "$status" = "200" ] || [ "$status" = "302" ]; then
             echo -e "${GREEN}✓${NC} n8n Interface (HTTP $status)"
         else
             echo -e "${RED}✗${NC} n8n Interface (HTTP $status)"
+            failed=$((failed + 1))
+        fi
+        
+        # Check Lawyer Chat
+        status=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/chat" 2>/dev/null || echo "000")
+        if [ "$status" = "200" ]; then
+            echo -e "${GREEN}✓${NC} Lawyer Chat (HTTP $status)"
+        else
+            echo -e "${RED}✗${NC} Lawyer Chat (HTTP $status)"
+            failed=$((failed + 1))
+        fi
+        
+        # Check AI Portal
+        status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${AI_PORTAL_PORT:-8102}/" 2>/dev/null || echo "000")
+        if [ "$status" = "200" ]; then
+            echo -e "${GREEN}✓${NC} AI Portal (HTTP $status)"
+        else
+            echo -e "${RED}✗${NC} AI Portal (HTTP $status)"
+            failed=$((failed + 1))
+        fi
+        
+        # Check Court Processor
+        status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8104/" 2>/dev/null || echo "000")
+        if [ "$status" = "200" ]; then
+            echo -e "${GREEN}✓${NC} Court Processor API (HTTP $status)"
+        else
+            echo -e "${RED}✗${NC} Court Processor API (HTTP $status)"
             failed=$((failed + 1))
         fi
         
