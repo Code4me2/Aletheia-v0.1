@@ -44,6 +44,14 @@ show_help() {
     echo "  validate        Validate setup and configuration"
     echo "  ports           Show port usage and availability"
     echo ""
+    echo -e "${CYAN}Documentation & Info:${NC}"
+    echo "  docs verify     Check documentation accuracy"
+    echo "  docs update     Update docs from running system (planned)"
+    echo "  db schema       Show database schema"
+    echo "  db shell        Open PostgreSQL shell"
+    echo "  env check       Verify environment configuration"
+    echo "  env list        List all environment variables"
+    echo ""
     echo -e "${CYAN}Setup & Maintenance:${NC}"
     echo "  setup           Initial setup wizard (generate secure .env)"
     echo "  backup          Backup database and configurations"
@@ -384,14 +392,15 @@ case "$1" in
         
     validate)
         echo -e "${BLUE}═══════════════════════════════════════${NC}"
-        echo -e "${BLUE}  Setup Validation${NC}"
+        echo -e "${BLUE}  Comprehensive System Validation${NC}"
         echo -e "${BLUE}═══════════════════════════════════════${NC}"
         echo ""
         
         issues=0
+        warnings=0
         
         # Docker checks
-        echo -e "${CYAN}Docker Environment:${NC}"
+        echo -e "${CYAN}1. Docker Environment:${NC}"
         if command -v docker &> /dev/null; then
             echo -e "${GREEN}✓${NC} Docker installed"
         else
@@ -400,20 +409,28 @@ case "$1" in
         fi
         
         if docker info &> /dev/null; then
-            echo -e "${GREEN}✓${NC} Docker running"
+            echo -e "${GREEN}✓${NC} Docker daemon running"
         else
-            echo -e "${RED}✗${NC} Docker not running"
+            echo -e "${RED}✗${NC} Docker daemon not running"
+            issues=$((issues + 1))
+        fi
+        
+        if command -v docker-compose &> /dev/null; then
+            echo -e "${GREEN}✓${NC} docker-compose installed"
+        else
+            echo -e "${RED}✗${NC} docker-compose not installed"
             issues=$((issues + 1))
         fi
         
         # File checks
         echo ""
-        echo -e "${CYAN}Required Files:${NC}"
+        echo -e "${CYAN}2. Configuration Files:${NC}"
         if [ -f .env ]; then
             echo -e "${GREEN}✓${NC} .env exists"
             source .env
             if [ "$DB_PASSWORD" = "aletheia123" ]; then
-                echo -e "${YELLOW}⚠${NC}  DB_PASSWORD is using default (should be changed)"
+                echo -e "${YELLOW}⚠${NC}  DB_PASSWORD is using default (security risk)"
+                warnings=$((warnings + 1))
             fi
         else
             echo -e "${RED}✗${NC} .env missing"
@@ -422,16 +439,88 @@ case "$1" in
         
         if [ -f docker-compose.yml ]; then
             echo -e "${GREEN}✓${NC} docker-compose.yml exists"
+            # Validate docker-compose syntax
+            if docker-compose config > /dev/null 2>&1; then
+                echo -e "${GREEN}✓${NC} docker-compose.yml syntax valid"
+            else
+                echo -e "${RED}✗${NC} docker-compose.yml has syntax errors"
+                issues=$((issues + 1))
+            fi
         else
             echo -e "${RED}✗${NC} docker-compose.yml missing"
             issues=$((issues + 1))
         fi
         
+        # Port availability
         echo ""
-        if [ $issues -eq 0 ]; then
-            echo -e "${GREEN}✅ All validation checks passed!${NC}"
+        echo -e "${CYAN}3. Port Availability:${NC}"
+        ports_to_check="8080 8100 8102 8104 8200 8201"
+        port_issues=0
+        for port in $ports_to_check; do
+            if lsof -i :$port > /dev/null 2>&1; then
+                service_name=$(docker ps --format "table {{.Names}}\t{{.Ports}}" | grep $port | awk '{print $1}' | head -1)
+                if [ -n "$service_name" ]; then
+                    echo -e "${GREEN}✓${NC} Port $port in use by $service_name (expected)"
+                else
+                    echo -e "${YELLOW}⚠${NC}  Port $port in use by non-Docker process"
+                    port_issues=$((port_issues + 1))
+                fi
+            else
+                echo -e "${GREEN}✓${NC} Port $port available"
+            fi
+        done
+        
+        if [ $port_issues -gt 0 ]; then
+            warnings=$((warnings + port_issues))
+        fi
+        
+        # Service health
+        echo ""
+        echo -e "${CYAN}4. Service Health:${NC}"
+        if docker-compose ps 2>/dev/null | grep -q "Up"; then
+            healthy=$(docker ps --filter "health=healthy" --format "{{.Names}}" | wc -l | tr -d ' ')
+            unhealthy=$(docker ps --filter "health=unhealthy" --format "{{.Names}}" | wc -l | tr -d ' ')
+            total=$(docker ps --format "{{.Names}}" | wc -l | tr -d ' ')
+            
+            echo -e "${GREEN}✓${NC} $total services running"
+            if [ "$healthy" -gt 0 ]; then
+                echo -e "${GREEN}✓${NC} $healthy services healthy"
+            fi
+            if [ "$unhealthy" -gt 0 ]; then
+                echo -e "${YELLOW}⚠${NC}  $unhealthy services unhealthy"
+                warnings=$((warnings + unhealthy))
+            fi
         else
-            echo -e "${YELLOW}⚠ Found $issues issue(s) to address${NC}"
+            echo -e "${YELLOW}⚠${NC}  No services running"
+        fi
+        
+        # Documentation check
+        echo ""
+        echo -e "${CYAN}5. Documentation:${NC}"
+        if [ -f docs/SERVICE_DEPENDENCIES.md ] && [ -f docs/PORT_CONFIGURATION.md ] && [ -f docs/DATABASE.md ]; then
+            echo -e "${GREEN}✓${NC} Core documentation present"
+        else
+            echo -e "${YELLOW}⚠${NC}  Some documentation missing"
+            warnings=$((warnings + 1))
+        fi
+        
+        # Disk space
+        echo ""
+        echo -e "${CYAN}6. System Resources:${NC}"
+        available_space=$(df -h . | awk 'NR==2 {print $4}')
+        echo "  Disk space available: $available_space"
+        
+        # Summary
+        echo ""
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        if [ $issues -eq 0 ] && [ $warnings -eq 0 ]; then
+            echo -e "${GREEN}✅ All validation checks passed!${NC}"
+        elif [ $issues -eq 0 ]; then
+            echo -e "${YELLOW}⚠ System operational with $warnings warning(s)${NC}"
+        else
+            echo -e "${RED}❌ Found $issues critical issue(s) and $warnings warning(s)${NC}"
+            echo ""
+            echo "Run './dev setup' to fix configuration issues"
         fi
         ;;
         
@@ -573,6 +662,256 @@ EOF
         echo -e "${GREEN}✓ Generated .env with secure credentials${NC}"
         echo ""
         echo "Next: Run './dev up' to start services"
+        ;;
+        
+    docs)
+        case "$2" in
+            verify)
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo -e "${BLUE}  Documentation Verification${NC}"
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo ""
+                
+                errors=0
+                
+                # Check SERVICE_DEPENDENCIES.md
+                echo -e "${CYAN}Checking SERVICE_DEPENDENCIES.md...${NC}"
+                if [ -f docs/SERVICE_DEPENDENCIES.md ]; then
+                    deps_in_compose=$(grep -c "depends_on:" docker-compose.yml 2>/dev/null || echo "0")
+                    deps_in_docs=$(grep -c "→" docs/SERVICE_DEPENDENCIES.md 2>/dev/null || echo "0")
+                    if [ "$deps_in_compose" -gt 0 ] && [ "$deps_in_docs" -gt 0 ]; then
+                        echo -e "${GREEN}✓${NC} SERVICE_DEPENDENCIES.md exists"
+                    else
+                        echo -e "${YELLOW}⚠${NC}  SERVICE_DEPENDENCIES.md may need updating"
+                        errors=$((errors + 1))
+                    fi
+                else
+                    echo -e "${RED}✗${NC} SERVICE_DEPENDENCIES.md missing"
+                    errors=$((errors + 1))
+                fi
+                
+                # Check PORT_CONFIGURATION.md
+                echo -e "${CYAN}Checking PORT_CONFIGURATION.md...${NC}"
+                if [ -f docs/PORT_CONFIGURATION.md ]; then
+                    echo -e "${GREEN}✓${NC} PORT_CONFIGURATION.md exists"
+                    # Check if ports in .env match documentation
+                    if [ -f .env ]; then
+                        source .env
+                        if grep -q "8080" docs/PORT_CONFIGURATION.md && grep -q "8100" docs/PORT_CONFIGURATION.md; then
+                            echo -e "${GREEN}✓${NC} Port documentation appears current"
+                        else
+                            echo -e "${YELLOW}⚠${NC}  Port documentation may be outdated"
+                        fi
+                    fi
+                else
+                    echo -e "${RED}✗${NC} PORT_CONFIGURATION.md missing"
+                    errors=$((errors + 1))
+                fi
+                
+                # Check DATABASE.md
+                echo -e "${CYAN}Checking DATABASE.md...${NC}"
+                if [ -f docs/DATABASE.md ]; then
+                    echo -e "${GREEN}✓${NC} DATABASE.md exists"
+                    # Check if it mentions the actual tables
+                    if docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dt court_data.*" 2>/dev/null | grep -q "opinions_unified"; then
+                        if grep -q "opinions_unified" docs/DATABASE.md; then
+                            echo -e "${GREEN}✓${NC} Database documentation includes main tables"
+                        else
+                            echo -e "${YELLOW}⚠${NC}  Database documentation may be outdated"
+                            errors=$((errors + 1))
+                        fi
+                    fi
+                else
+                    echo -e "${RED}✗${NC} DATABASE.md missing"
+                    errors=$((errors + 1))
+                fi
+                
+                echo ""
+                if [ $errors -eq 0 ]; then
+                    echo -e "${GREEN}✅ All documentation verified!${NC}"
+                else
+                    echo -e "${YELLOW}⚠ Found $errors documentation issue(s)${NC}"
+                    echo "Run './dev docs update' to regenerate documentation"
+                fi
+                ;;
+                
+            update)
+                echo -e "${BLUE}Updating documentation from current system...${NC}"
+                echo -e "${YELLOW}This feature is planned but not yet implemented${NC}"
+                echo "Would generate:"
+                echo "  - SERVICE_DEPENDENCIES.md from docker-compose.yml"
+                echo "  - DATABASE.md from actual database schema"
+                echo "  - PORT_CONFIGURATION.md from running containers"
+                ;;
+                
+            *)
+                echo "Usage: ./dev docs [verify|update]"
+                echo "  verify - Check documentation accuracy"
+                echo "  update - Update docs from running system"
+                ;;
+        esac
+        ;;
+        
+    db)
+        case "$2" in
+            schema)
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo -e "${BLUE}  Database Schema${NC}"
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo ""
+                
+                if ! docker-compose ps | grep -q "db.*Up"; then
+                    echo -e "${RED}Database is not running. Start it with './dev up'${NC}"
+                    exit 1
+                fi
+                
+                echo -e "${CYAN}Schemas:${NC}"
+                docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dn" 2>/dev/null
+                
+                echo -e "${CYAN}Tables in court_data schema:${NC}"
+                docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dt court_data.*" 2>/dev/null
+                
+                if [ "$3" = "--detailed" ]; then
+                    echo ""
+                    echo -e "${CYAN}Table structures:${NC}"
+                    for table in opinions_unified judges cl_opinions cl_dockets; do
+                        echo ""
+                        echo -e "${YELLOW}Table: court_data.$table${NC}"
+                        docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\d court_data.$table" 2>/dev/null | head -20
+                    done
+                fi
+                ;;
+                
+            shell)
+                check_requirements
+                echo -e "${BLUE}Opening database shell...${NC}"
+                docker-compose exec db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}"
+                ;;
+                
+            backup)
+                check_requirements
+                echo -e "${BLUE}Creating database backup...${NC}"
+                timestamp=$(date +%Y%m%d_%H%M%S)
+                backup_dir="backups"
+                mkdir -p "$backup_dir"
+                
+                if docker-compose exec -T db pg_dump -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}" > "$backup_dir/db_backup_${timestamp}.sql" 2>/dev/null; then
+                    echo -e "${GREEN}✓${NC} Database backed up to $backup_dir/db_backup_${timestamp}.sql"
+                    size=$(du -h "$backup_dir/db_backup_${timestamp}.sql" | cut -f1)
+                    echo "  Size: $size"
+                else
+                    echo -e "${RED}✗${NC} Database backup failed"
+                    exit 1
+                fi
+                ;;
+                
+            restore)
+                if [ -z "$3" ]; then
+                    echo "Usage: ./dev db restore <backup_file>"
+                    echo "Available backups:"
+                    ls -la backups/*.sql 2>/dev/null || echo "No backups found"
+                    exit 1
+                fi
+                
+                if [ ! -f "$3" ]; then
+                    echo -e "${RED}Backup file not found: $3${NC}"
+                    exit 1
+                fi
+                
+                echo -e "${YELLOW}⚠ WARNING: This will replace the current database!${NC}"
+                read -p "Continue? (y/N): " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    echo -e "${BLUE}Restoring database...${NC}"
+                    docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" < "$3"
+                    echo -e "${GREEN}✓${NC} Database restored"
+                fi
+                ;;
+                
+            *)
+                echo "Usage: ./dev db [schema|shell|backup|restore]"
+                echo "  schema [--detailed] - Show database schema"
+                echo "  shell              - Open PostgreSQL shell"
+                echo "  backup             - Create database backup"
+                echo "  restore <file>     - Restore from backup"
+                ;;
+        esac
+        ;;
+        
+    env)
+        case "$2" in
+            check)
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo -e "${BLUE}  Environment Configuration Check${NC}"
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo ""
+                
+                if [ ! -f .env ]; then
+                    echo -e "${RED}✗ No .env file found${NC}"
+                    exit 1
+                fi
+                
+                source .env
+                
+                # Required variables
+                echo -e "${CYAN}Required Variables:${NC}"
+                required_vars="DB_USER DB_PASSWORD DB_NAME N8N_ENCRYPTION_KEY NEXTAUTH_SECRET"
+                missing=0
+                
+                for var in $required_vars; do
+                    if [ -z "${!var}" ]; then
+                        echo -e "${RED}✗${NC} $var is not set"
+                        missing=$((missing + 1))
+                    else
+                        if [[ "$var" == *"PASSWORD"* ]] || [[ "$var" == *"SECRET"* ]] || [[ "$var" == *"KEY"* ]]; then
+                            echo -e "${GREEN}✓${NC} $var is set (hidden)"
+                        else
+                            echo -e "${GREEN}✓${NC} $var = ${!var}"
+                        fi
+                    fi
+                done
+                
+                # Optional variables
+                echo ""
+                echo -e "${CYAN}Port Configuration:${NC}"
+                echo "  WEB_PORT = ${WEB_PORT:-8080}"
+                echo "  N8N_PORT = ${N8N_PORT:-8100}"
+                echo "  AI_PORTAL_PORT = ${AI_PORTAL_PORT:-8102}"
+                echo "  POSTGRES_PORT = ${POSTGRES_PORT:-8200}"
+                echo "  REDIS_PORT = ${REDIS_PORT:-8201}"
+                
+                # Check for default passwords
+                echo ""
+                echo -e "${CYAN}Security Check:${NC}"
+                if [ "$DB_PASSWORD" = "aletheia123" ]; then
+                    echo -e "${YELLOW}⚠${NC}  DB_PASSWORD is using default value"
+                else
+                    echo -e "${GREEN}✓${NC} DB_PASSWORD is customized"
+                fi
+                
+                echo ""
+                if [ $missing -eq 0 ]; then
+                    echo -e "${GREEN}✅ All required variables are set${NC}"
+                else
+                    echo -e "${RED}✗ Missing $missing required variable(s)${NC}"
+                fi
+                ;;
+                
+            list)
+                echo -e "${BLUE}Environment variables in use:${NC}"
+                if [ -f .env ]; then
+                    grep -E "^[A-Z]" .env | cut -d= -f1 | sort
+                else
+                    echo -e "${RED}No .env file found${NC}"
+                fi
+                ;;
+                
+            *)
+                echo "Usage: ./dev env [check|list]"
+                echo "  check - Verify all required variables are set"
+                echo "  list  - List all environment variables"
+                ;;
+        esac
         ;;
         
     help|--help|-h|"")
