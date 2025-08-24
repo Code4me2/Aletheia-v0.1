@@ -1,11 +1,25 @@
 # Data Compose Makefile
-# Provides convenient commands for development and operations
+# DEPRECATED: Use ./dev CLI instead (run: ./dev help)
+# This file is kept for backwards compatibility only
 
 .PHONY: help dev dev-services dev-website stop restart clean build test lint format setup health logs
 
 # Default target - show help
 help:
-	@echo "Data Compose Development Commands"
+	@echo "⚠️  DEPRECATION WARNING: Makefile commands are deprecated!"
+	@echo "=================================================="
+	@echo "Please use the ./dev CLI instead:"
+	@echo ""
+	@echo "  ./dev help     - Show all available commands"
+	@echo "  ./dev up       - Start all services"
+	@echo "  ./dev down     - Stop all services"
+	@echo "  ./dev status   - Check service status"
+	@echo "  ./dev test     - Run tests"
+	@echo ""
+	@echo "See DEVELOPER_GUIDE.md for details."
+	@echo "=================================================="
+	@echo ""
+	@echo "Legacy Makefile Commands (will be removed):"
 	@echo "================================="
 	@echo "Setup & Development:"
 	@echo "  make setup          - Initial project setup (install deps, init DBs)"

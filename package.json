@@ -8,6 +8,7 @@
     "court-processor"
   ],
   "scripts": {
+    "_deprecation-notice": "echo '⚠️  NPM scripts are deprecated. Use ./dev CLI instead. Run: ./dev help'",
     "dev": "docker-compose up -d && npm run dev:website",
     "dev:website": "npm -w website run dev",
     "dev:services": "docker-compose up -d",
