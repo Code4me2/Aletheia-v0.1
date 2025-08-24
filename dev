@@ -119,12 +119,11 @@ case "$1" in
             echo -e "${GREEN}✓ Services started successfully!${NC}"
             echo ""
             echo "Access points:"
-            echo "  • Main app:     http://localhost:8080"
-            echo "  • n8n:          http://localhost:8100"
-            echo "            User: velvetmoon222999@gmail.com"
-            echo "            Pass: Welcome123!"
-            echo "  • Lawyer Chat:  http://localhost:8080/chat"
-            echo "  • AI Portal:    http://localhost:8102"
+            echo "  • Main app:     http://localhost:${WEB_PORT:-8080}"
+            echo "  • n8n:          http://localhost:${N8N_PORT:-8100}"
+            echo "            Note: Check n8n/README.md for credentials"
+            echo "  • Lawyer Chat:  http://localhost:${WEB_PORT:-8080}/chat"
+            echo "  • AI Portal:    http://localhost:${AI_PORTAL_PORT:-8102}"
             echo ""
             echo "Run './dev logs' to see output"
             echo "Run './dev health' to check services"
@@ -364,7 +363,7 @@ case "$1" in
         fi
         
         # Check Court Processor
-        status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8104/" 2>/dev/null || echo "000")
+        status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${COURT_PROCESSOR_PORT:-8104}/" 2>/dev/null || echo "000")
         if [ "$status" = "200" ]; then
             echo -e "${GREEN}✓${NC} Court Processor API (HTTP $status)"
         else
@@ -428,8 +427,9 @@ case "$1" in
         if [ -f .env ]; then
             echo -e "${GREEN}✓${NC} .env exists"
             source .env
-            if [ "$DB_PASSWORD" = "aletheia123" ]; then
-                echo -e "${YELLOW}⚠${NC}  DB_PASSWORD is using default (security risk)"
+            # Check for common weak passwords
+            if [[ "$DB_PASSWORD" =~ ^(password|123456|admin|default|aletheia123|postgres)$ ]]; then
+                echo -e "${YELLOW}⚠${NC}  DB_PASSWORD appears to be a weak/default password (security risk)"
                 warnings=$((warnings + 1))
             fi
         else
@@ -454,7 +454,7 @@ case "$1" in
         # Port availability
         echo ""
         echo -e "${CYAN}3. Port Availability:${NC}"
-        ports_to_check="8080 8100 8102 8104 8200 8201"
+        ports_to_check="${WEB_PORT:-8080} ${N8N_PORT:-8100} ${AI_PORTAL_PORT:-8102} ${COURT_PROCESSOR_PORT:-8104} ${POSTGRES_PORT:-8200} ${REDIS_PORT:-8201}"
         port_issues=0
         for port in $ports_to_check; do
             if lsof -i :$port > /dev/null 2>&1; then
@@ -576,10 +576,10 @@ case "$1" in
         echo "  Web Interface:    ${WEB_PORT:-8080}"
         echo "  n8n:             ${N8N_PORT:-8100}"
         echo "  AI Portal:       ${AI_PORTAL_PORT:-8102}"
-        echo "  Court Processor: 8104"
+        echo "  Court Processor: ${COURT_PROCESSOR_PORT:-8104}"
         echo "  PostgreSQL:      ${POSTGRES_PORT:-8200}"
         echo "  Redis:           ${REDIS_PORT:-8201}"
-        echo "  Docker API:      5002"
+        echo "  Docker API:      ${DOCKER_API_PORT:-5002}"
         echo "  RECAP Webhook:   ${RECAP_WEBHOOK_PORT:-5001}"
         echo ""
         ;;
@@ -883,10 +883,11 @@ EOF
                 # Check for default passwords
                 echo ""
                 echo -e "${CYAN}Security Check:${NC}"
-                if [ "$DB_PASSWORD" = "aletheia123" ]; then
-                    echo -e "${YELLOW}⚠${NC}  DB_PASSWORD is using default value"
+                # Check for weak passwords
+                if [[ "$DB_PASSWORD" =~ ^(password|123456|admin|default|aletheia123|postgres)$ ]]; then
+                    echo -e "${YELLOW}⚠${NC}  DB_PASSWORD appears to be weak/default"
                 else
-                    echo -e "${GREEN}✓${NC} DB_PASSWORD is customized"
+                    echo -e "${GREEN}✓${NC} DB_PASSWORD appears strong"
                 fi
                 
                 echo ""
