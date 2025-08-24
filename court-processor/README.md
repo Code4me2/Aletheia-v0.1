@@ -1,22 +1,13 @@
-# Court Processor - Judiciary Insights Platform
+# Court Processor
 
-A unified CLI for analyzing judicial behavior, court patterns, and legal trends. Replaces 45+ scattered scripts with a single human-centered interface focused on judiciary insights.
+Automated court document processing system with API and CLI interfaces.
 
-## 🎯 Purpose
+## Features
 
-Enable data-driven analysis of:
-- **Judge Attribution**: Understanding WHO made decisions (>95% attribution target)
-- **Temporal Patterns**: Tracking judicial behavior over time
-- **Case Tracking**: Following cases through their lifecycle
-- **Court Jurisdiction**: Regional and jurisdictional patterns
-
-## ⚡ Key Features
-
-- **Unified CLI**: Single entry point replacing 45+ scripts
-- **Human-Centered Commands**: Organized by user goals, not technical implementation
-- **Data Quality Focus**: Clear visibility into judge attribution and metadata completeness
-- **Progress Feedback**: Know what's happening during long operations
-- **11-Stage Pipeline**: Production-ready processing with 78% metadata completeness
+- **Simplified API** (Port 8104): Direct database access for full-text opinions
+- **11-Stage Processing Pipeline**: OCR, judge extraction, metadata enrichment
+- **Judge Attribution**: >78% attribution rate
+- **PACER/RECAP Integration**: Court document fetching
 
 ## 🚀 Quick Start
 

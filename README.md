@@ -143,7 +143,7 @@ Aletheia/
    
    # n8n
    N8N_ENCRYPTION_KEY=your_secure_encryption_key_here
-   N8N_PORT=5678
+   N8N_PORT=8100
    
    # Services
    AI_PORTAL_PORT=8085
@@ -191,9 +191,11 @@ All nodes are pre-built and ready to use:
 - **DeepSeek**: AI text generation via Ollama
 - **Haystack**: Document search (3 operations)
 - **CitationChecker**: Legal citation verification
+- **CitationGen**: Citation generation
 - **HierarchicalSummarization**: Document hierarchy processing
 - **BitNet**: BitNet AI integration
 - **YAKE**: Keyword extraction
+- **Unstructured**: Document processing
 
 **Note**: Node `node_modules` directories are not required for runtime and can be removed to save ~675MB.
 
