@@ -33,7 +33,6 @@
 ## Operations
 
 - **[docs/CHANGELOG_AUGUST_2025.md](./CHANGELOG_AUGUST_2025.md)** - Recent fixes and changes
-- **[docs/SIMPLIFICATION_REPORT.md](./SIMPLIFICATION_REPORT.md)** - Completed simplifications and impact
 - **[scripts/](../scripts/README.md)** - Deployment and utility scripts
 - **[backups/](../backups/README.md)** - Backup procedures
 
