@@ -7,13 +7,44 @@ This document describes the PostgreSQL database schema used by Aletheia v0.1.
 Aletheia uses PostgreSQL as its primary data store with multiple schemas for different components:
 
 - **`public`** - Default PostgreSQL schema (currently unused)
-- **`court_data`** - Court opinion processing and storage
+- **`court_data`** - Court opinion processing and storage (11 tables)
+
+## Quick Access
+
+```bash
+# Access database shell
+./dev db shell
+
+# List all tables
+\\dt court_data.*
+
+# Describe a table
+\\d court_data.opinions_unified
+```
 
 ## Court Data Schema
 
 The `court_data` schema contains tables for managing court opinions and judicial data.
 
-### Tables
+### Main Tables
+
+| Table Name | Purpose | Row Count* |
+|------------|---------|------------|
+| `opinions_unified` | Unified court opinions with full text | Primary data |
+| `cl_opinions` | CourtListener opinions | Source data |
+| `cl_dockets` | CourtListener docket information | Metadata |
+| `cl_docket_entries` | Individual docket entries | Details |
+| `judges` | Judge information | Reference |
+| `judge_aliases` | Alternative judge names | Normalization |
+| `courts_reference` | Court metadata | Reference |
+| `cl_clusters` | Opinion clusters | Grouping |
+| `normalized_reporters` | Reporter citations | Reference |
+| `processed_documents_flp` | Processing status | Tracking |
+| `transcript_opinions` | Transcript data | Alternative format |
+
+*Note: Row counts vary based on data imports
+
+### Key Tables Detail
 
 #### `judges`
 
@@ -32,22 +63,29 @@ Stores information about judges in the court system.
 - Unique constraint on `name`
 - B-tree index on `name`, `court`
 
-#### `opinions`
+#### `opinions_unified`
 
-Stores court opinions with full text content and metadata.
+Primary table for unified court opinions with full text and metadata.
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | `id` | integer | PRIMARY KEY | auto-increment | Unique identifier |
-| `judge_id` | integer | FOREIGN KEY | - | References `judges.id` |
+| `cl_id` | integer | - | - | CourtListener ID reference |
+| `court_id` | varchar(15) | - | - | Court identifier code |
+| `docket_number` | varchar(500) | - | - | Court docket number |
 | `case_name` | text | - | - | Name of the case |
-| `case_date` | date | NOT NULL | - | Date of the court decision |
-| `docket_number` | varchar(100) | - | - | Court docket number |
-| `court_code` | varchar(50) | - | - | Court identifier code |
-| `pdf_url` | text | - | - | URL to the PDF document |
-| `pdf_path` | varchar(500) | - | - | Local path to stored PDF |
-| `text_content` | text | NOT NULL | - | Full text content |
-| `metadata` | jsonb | - | '{}' | Additional metadata |
+| `date_filed` | date | - | - | Date opinion was filed |
+| `author_str` | varchar(200) | - | - | Author judge name |
+| `per_curiam` | boolean | - | false | Per curiam opinion flag |
+| `type` | varchar(20) | - | - | Opinion type |
+| `plain_text` | text | - | - | Full text content |
+| `html` | text | - | - | HTML formatted content |
+| `pdf_url` | text | - | - | URL to PDF document |
+| `citations` | jsonb | - | '[]' | Citation references |
+| `judge_info` | jsonb | - | '{}' | Judge metadata |
+| `court_info` | jsonb | - | '{}' | Court metadata |
+| `structured_elements` | jsonb | - | '{}' | Parsed document structure |
+| `document_hash` | varchar(64) | NOT NULL | - | Document uniqueness hash |
 | `pdf_metadata` | jsonb | - | '{}' | PDF-specific metadata |
 | `processing_status` | varchar(50) | - | 'completed' | Processing status |
 | `processing_error` | text | - | - | Error details if any |
