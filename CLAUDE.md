@@ -267,8 +267,10 @@ docker-compose up -d
 
 ## Troubleshooting
 
+### Common Issues
+
 1. **n8n not starting**: Check for crash state in volume, may need to recreate
-2. **Port conflicts**: Ensure ports 8080, 5678, 8104, 8085 are free
+2. **Port conflicts**: Ensure ports 8080, 8082, 8100, 8102, 8104, 8200, 8201 are free
 3. **Database issues**: Verify PostgreSQL credentials in `.env`
 4. **Custom nodes not appearing**: Restart n8n after adding nodes
 5. **DocumentCabinet issues**: 
@@ -278,5 +280,22 @@ docker-compose up -d
 6. **Message fails when documents selected**:
    - This is fixed - document text is now appended to message for n8n compatibility
    - Verify container is running: `docker ps | grep court-processor`
+
+### Health Check Issues (FIXED August 2025)
+
+If containers show "unhealthy" or health checks fail:
+
+1. **Quick Fix**: Run `./scripts/utilities/fix-healthchecks.sh`
+2. **Manual Fix**: Recreate affected containers:
+   ```bash
+   docker-compose up -d --force-recreate --no-deps [service-name]
+   ```
+
+3. **Known Issues Resolved**:
+   - lawyer-chat health check now uses `/chat` path
+   - ai-portal health checks use Node.js HTTP requests
+   - ai-portal-nginx uses `nginx -t` for health verification
+   - court-processor uses root endpoint `/` instead of `/health`
+   - recap-webhook expected to be unhealthy (ignored in status)
 
 For detailed component documentation, see individual README files in each service directory.

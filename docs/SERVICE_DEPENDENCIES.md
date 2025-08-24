@@ -142,8 +142,12 @@ graph TB
 ## Health Check Dependencies
 
 Services monitor their dependencies via health checks:
-- lawyer-chat → checks `/chat/api/csrf`
-- n8n → checks `/healthz`
-- court-processor → checks `http://localhost:8104/health`
+- lawyer-chat → checks `http://localhost:3000/chat` (wget)
+- n8n → checks `/healthz` (wget)  
+- ai-portal → checks `http://localhost:3000/` (Node.js HTTP)
+- ai-portal-nginx → uses `nginx -t` (config test)
+- court-processor → checks `http://localhost:8104/` (curl)
+- docker-api → checks `http://localhost:5000/health` (curl)
 - PostgreSQL → uses `pg_isready`
 - Redis → uses `redis-cli ping`
+- recap-webhook → checks `http://localhost:5000/health` (expected unhealthy)
