@@ -82,7 +82,7 @@ docker exec aletheia_development-court-processor-1 python3 cli.py analyze judge 
 
 The service uses a single table: `public.court_documents`
 
-See [ACTIVE_SCHEMA.sql](ACTIVE_SCHEMA.sql) for full schema details.
+See [schema.sql](schema.sql) for full schema details.
 
 **Key Fields:**
 - `id` - Primary key

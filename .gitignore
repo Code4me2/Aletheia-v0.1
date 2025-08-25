@@ -7,6 +7,8 @@
 
 # Docker volumes and data
 **/data/
+# Exception for court processor data directory
+!court-processor/data/
 **/postgres_data/
 **/n8n_data/
 docker-compose.override.yml
@@ -79,6 +81,8 @@ lawyer-chat/out/
 *.sqlite
 *.sqlite3
 *.sql.gz
+# Exception for court processor sample data
+!court-processor/data/court_documents_backup.sql.gz
 
 # Database backups
 /data/db-backups/

@@ -721,6 +721,25 @@ EOF
         
         echo -e "${GREEN}✓ Generated .env with secure credentials${NC}"
         echo ""
+        
+        # Ask about court data restoration
+        if [ -f court-processor/data/court_documents_backup.sql.gz ]; then
+            if [ "$NON_INTERACTIVE" = true ]; then
+                echo -e "${BLUE}Court processor data backup available (will be restored after database setup)${NC}"
+            else
+                echo -e "${CYAN}Court processor data backup found (485 documents, ~9.5MB)${NC}"
+                echo -n "Restore this data after starting services? (Y/n): "
+                read -r response
+                if [[ ! "$response" =~ ^[Nn]$ ]]; then
+                    echo -e "${GREEN}✓ Court data will be restored after database initialization${NC}"
+                    echo "  Run './dev up' then './dev db restore-court-data' to import"
+                else
+                    echo "  You can restore it later with './dev db restore-court-data'"
+                fi
+            fi
+        fi
+        
+        echo ""
         echo "Next: Run './dev up' to start services"
         ;;
         
@@ -888,12 +907,64 @@ EOF
                 fi
                 ;;
                 
+            restore-court-data)
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo -e "${BLUE}  Court Processor Data Restoration${NC}"
+                echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                echo ""
+                
+                # Check if backup exists
+                if [ ! -f court-processor/data/court_documents_backup.sql.gz ]; then
+                    echo -e "${RED}✗${NC} Court data backup not found"
+                    echo "  Expected location: court-processor/data/court_documents_backup.sql.gz"
+                    exit 1
+                fi
+                
+                # Check if database is running
+                if ! docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "SELECT 1" &>/dev/null; then
+                    echo -e "${RED}✗${NC} Database is not running or not ready"
+                    echo "  Run './dev up' first to start services"
+                    exit 1
+                fi
+                
+                # Check existing data
+                EXISTING_COUNT=$(docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c "SELECT COUNT(*) FROM public.court_documents" 2>/dev/null || echo "0")
+                EXISTING_COUNT=$(echo $EXISTING_COUNT | tr -d ' ')
+                
+                if [ "$EXISTING_COUNT" -gt "0" ]; then
+                    echo -e "${YELLOW}⚠${NC} Table already contains $EXISTING_COUNT documents"
+                    read -p "Replace existing data? (y/N): " -n 1 -r
+                    echo
+                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                        echo "Restoration cancelled"
+                        exit 0
+                    fi
+                    echo -e "${BLUE}Clearing existing data...${NC}"
+                    docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "TRUNCATE TABLE public.court_documents RESTART IDENTITY CASCADE;"
+                fi
+                
+                # Restore the data
+                echo -e "${BLUE}Importing court documents (485 documents, ~9.5MB)...${NC}"
+                gunzip -c court-processor/data/court_documents_backup.sql.gz | docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}"
+                
+                # Verify restoration
+                NEW_COUNT=$(docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c "SELECT COUNT(*) FROM public.court_documents")
+                NEW_COUNT=$(echo $NEW_COUNT | tr -d ' ')
+                
+                echo ""
+                echo -e "${GREEN}✓ Successfully restored $NEW_COUNT court documents${NC}"
+                echo ""
+                echo -e "${CYAN}Document types:${NC}"
+                docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "SELECT document_type, COUNT(*) as count FROM public.court_documents GROUP BY document_type ORDER BY count DESC;"
+                ;;
+                
             *)
-                echo "Usage: ./dev db [schema|shell|backup|restore]"
-                echo "  schema [--detailed] - Show database schema"
-                echo "  shell              - Open PostgreSQL shell"
-                echo "  backup             - Create database backup"
-                echo "  restore <file>     - Restore from backup"
+                echo "Usage: ./dev db [schema|shell|backup|restore|restore-court-data]"
+                echo "  schema [--detailed]  - Show database schema"
+                echo "  shell               - Open PostgreSQL shell"
+                echo "  backup              - Create database backup"
+                echo "  restore <file>      - Restore from backup"
+                echo "  restore-court-data  - Restore court processor sample data"
                 ;;
         esac
         ;;

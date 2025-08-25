@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { courtAPI } from '@/lib/court-api';
 import { CourtDocument, DocumentSelection } from '@/types/court-documents';
+import { getDocumentSource } from '@/lib/document-sources/registry';
+import { DocumentSearchParams } from '@/lib/document-sources/types';
 
 interface UseDocumentSelectionReturn {
   documents: CourtDocument[];
@@ -14,19 +15,33 @@ interface UseDocumentSelectionReturn {
   clearSelections: () => void;
   getSelectedIds: () => number[];
   totalTextLength: number;
+  currentSourceId: string;
+  switchSource: (sourceId: string) => void;
 }
 
-export function useDocumentSelection(maxSelections = 15): UseDocumentSelectionReturn {
+export function useDocumentSelection(maxSelections = 15, sourceId?: string): UseDocumentSelectionReturn {
   const [documents, setDocuments] = useState<CourtDocument[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Map<number, DocumentSelection>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentSourceId, setCurrentSourceId] = useState(sourceId || 'court');
 
   const searchDocuments = useCallback(async (params: any) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await courtAPI.searchDocuments(params);
+      const source = getDocumentSource(currentSourceId);
+      
+      // Map old param names to new interface for backward compatibility
+      const searchParams: DocumentSearchParams = {
+        category: params.judge || params.category,  // Support both old and new param names
+        type: params.type,
+        min_length: params.min_length,
+        limit: params.limit,
+        offset: params.offset
+      };
+      
+      const result = await source.searchDocuments(searchParams);
       setDocuments(result.documents);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed');
@@ -34,7 +49,7 @@ export function useDocumentSelection(maxSelections = 15): UseDocumentSelectionRe
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentSourceId]);
 
   const toggleDocument = useCallback((doc: CourtDocument) => {
     setSelectedDocs(prev => {
@@ -68,6 +83,13 @@ export function useDocumentSelection(maxSelections = 15): UseDocumentSelectionRe
     return Array.from(selectedDocs.keys());
   }, [selectedDocs]);
 
+  const switchSource = useCallback((newSourceId: string) => {
+    setCurrentSourceId(newSourceId);
+    setDocuments([]);  // Clear documents when switching sources
+    setSelectedDocs(new Map());  // Clear selections
+    setError(null);
+  }, []);
+
   const totalTextLength = Array.from(selectedDocs.values())
     .reduce((sum, doc) => sum + doc.textLength, 0);
 
@@ -80,6 +102,8 @@ export function useDocumentSelection(maxSelections = 15): UseDocumentSelectionRe
     toggleDocument,
     clearSelections,
     getSelectedIds,
-    totalTextLength
+    totalTextLength,
+    currentSourceId,
+    switchSource
   };
 }
