@@ -50,7 +50,7 @@
     "npm": ">=9.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.41.0",
+    "@playwright/test": "^1.55.0",
     "@types/node": "^20.0.0",
     "eslint": "^8.57.0",
     "husky": "^9.0.0",
