@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import SafeMarkdown from '@/components/SafeMarkdown';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import AnalyticsDropdown from '@/components/AnalyticsDropdown';
 import { StreamProgressCompact } from '@/components/StreamProgress';
+import { hasCitations } from '@/utils/citationExtractor';
 import type { Message } from '@/types/chat';
 
 interface MessageListProps {
@@ -10,7 +11,7 @@ interface MessageListProps {
   isDarkMode: boolean;
   isLoading: boolean;
   assistantWidth: string;
-  onCitationClick: (citationKey?: string) => void;
+  onCitationClick: (messageId?: number) => void;
 }
 
 export default function MessageList({ 
@@ -91,12 +92,9 @@ export default function MessageList({
                           content={message.text}
                           className="max-w-none markdown-content"
                           citedDocumentIds={message.citedDocumentIds}
-                          onCitationClick={(citationKey) => {
-                            // Find the user message with document context
-                            const userMessageIndex = messages.findIndex(m => m.id === message.id - 1 && m.sender === 'user');
-                            if (userMessageIndex >= 0 && messages[userMessageIndex].documentContext) {
-                              onCitationClick(citationKey);
-                            }
+                          onCitationClick={() => {
+                            // Pass the message ID to the parent handler
+                            onCitationClick(message.id);
                           }}
                         />
                       </div>
@@ -107,21 +105,24 @@ export default function MessageList({
                   {/* Citation and Analytics Buttons - Show after response is complete */}
                   {message.sender === 'assistant' && message.text && !(isLoading && message.id === messages[messages.length - 1].id) && (
                     <div className={`mt-3 w-full flex items-center gap-2`} key={`buttons-${message.id}`}>
-                      <button
-                        onClick={() => onCitationClick()}
-                        className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 transform active:scale-95 ${
-                          isDarkMode 
-                            ? 'bg-[#25262b] text-[#d1d1d1] hover:bg-[#404147] active:bg-[#505157]' 
-                            : 'bg-[#E1C88E] text-[#004A84] hover:bg-[#C8A665] active:bg-[#B59552]'
-                        }`}
-                        style={{
-                          fontSize: '1.092rem', // 1.3x of text-sm (0.875rem × 1.3 = 1.1375rem)
-                          fontWeight: '600',
-                          letterSpacing: '0.05em'
-                        }}
-                      >
-                        CITATIONS
-                      </button>
+                      {/* Only show citations button if response contains citation markers */}
+                      {hasCitations(message.text) && (
+                        <button
+                          onClick={() => onCitationClick(message.id)}
+                          className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 transform active:scale-95 ${
+                            isDarkMode 
+                              ? 'bg-[#25262b] text-[#d1d1d1] hover:bg-[#404147] active:bg-[#505157]' 
+                              : 'bg-[#E1C88E] text-[#004A84] hover:bg-[#C8A665] active:bg-[#B59552]'
+                          }`}
+                          style={{
+                            fontSize: '1.092rem', // 1.3x of text-sm (0.875rem × 1.3 = 1.1375rem)
+                            fontWeight: '600',
+                            letterSpacing: '0.05em'
+                          }}
+                        >
+                          CITATIONS
+                        </button>
+                      )}
                       
                       {/* Analytics Button - Show only if analytics data exists */}
                       {message.analytics && (

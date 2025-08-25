@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import DarkModeToggle from '@/components/DarkModeToggle';
 import TaskBar from '@/components/TaskBar';
-import CitationPanel from '@/components/CitationPanel';
+import CitationPanelEnhanced from '@/components/CitationPanelEnhanced';
 import { DocumentCabinet } from '@/components/DocumentCabinet';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import AuthGuard from '@/components/AuthGuard';
@@ -14,7 +14,7 @@ import ChatControls from '@/components/ChatControls';
 import { useSidebarStore } from '@/store/sidebar';
 import { useChatState } from '@/hooks/useChatState';
 import { useChatAPI } from '@/hooks/useChatAPI';
-import { getRandomMockCitation } from '@/utils/mockCitations';
+// Removed mock citations - real citations only
 import { documentToCitation } from '@/utils/citationExtractor';
 import { useCsrfStore } from '@/store/csrf';
 import { PDFGenerator, generateChatText, downloadBlob, downloadText } from '@/utils/pdfGenerator';
@@ -41,10 +41,6 @@ function LawyerChatContent() {
     setIsCreatingChat,
     showCitationPanel,
     setShowCitationPanel,
-    selectedCitation,
-    setSelectedCitation,
-    isCitationOnRight,
-    setIsCitationOnRight,
     hasMessages
   } = useChatState();
   
@@ -206,52 +202,48 @@ function LawyerChatContent() {
     await sendMessage(messageToSend, selectedTools, messages, isCreatingChat, selectedDocuments);
   };
 
-  const handleCitationClick = (citationKey?: string) => {
-    // If we have a citation key like "DOC1", find the corresponding document
-    if (citationKey && citationKey.startsWith('DOC')) {
-      // Find the most recent assistant message with citations
-      const assistantMessage = messages
-        .slice()
-        .reverse()
-        .find(m => m.sender === 'assistant' && m.citedDocumentIds?.includes(citationKey));
-      
+  const [citationResponseText, setCitationResponseText] = useState<string>('');
+  const [citationDocumentContext, setCitationDocumentContext] = useState<CourtDocument[]>([]);
+
+  const handleCitationClick = (messageId?: number) => {
+    // Only show citations if we have real document context
+    if (messageId) {
+      const assistantMessage = messages.find(m => m.id === messageId && m.sender === 'assistant');
       if (assistantMessage) {
         // Find the corresponding user message with document context
-        const userMessageIndex = messages.findIndex(m => m.id === assistantMessage.id - 1 && m.sender === 'user');
-        if (userMessageIndex >= 0 && messages[userMessageIndex].documentContext) {
-          const documents = messages[userMessageIndex].documentContext!;
-          
-          // Map citation key to document (DOC1 -> index 0, DOC2 -> index 1, etc.)
-          const docIndex = parseInt(citationKey.replace('DOC', '')) - 1;
-          if (docIndex >= 0 && docIndex < documents.length) {
-            const doc = documents[docIndex];
-            const citation: Citation = {
-              id: `${doc.id}-${citationKey}`,
-              title: doc.formatted_title_short || doc.case || `Document ${doc.id}`,
-              source: `Judge ${doc.judge}`,
-              court: doc.court,
-              date: doc.date_filed,
-              caseNumber: doc.case,
-              content: doc.text || doc.preview || 'No text available',
-              excerpt: doc.preview
-            };
-            setSelectedCitation(citation);
-            setShowCitationPanel(true);
-            return;
+        // Look for the most recent user message before this assistant message
+        const assistantIndex = messages.findIndex(m => m.id === messageId);
+        let userMessage = null;
+        
+        // Search backwards from the assistant message to find the corresponding user message
+        for (let i = assistantIndex - 1; i >= 0; i--) {
+          if (messages[i].sender === 'user') {
+            userMessage = messages[i];
+            break;
           }
         }
+        
+        if (userMessage && userMessage.documentContext && userMessage.documentContext.length > 0) {
+          setCitationResponseText(assistantMessage.text);
+          setCitationDocumentContext(userMessage.documentContext);
+          setShowCitationPanel(true);
+        } else {
+          // Log for debugging
+          console.log('Citation clicked but no document context found', {
+            assistantMessage,
+            userMessage,
+            hasDocContext: userMessage?.documentContext
+          });
+        }
+        // No fallback - if no document context, no citations panel
       }
     }
-    
-    // Fallback to mock citation for testing
-    const mockCitation = getRandomMockCitation();
-    setSelectedCitation(mockCitation);
-    setShowCitationPanel(true);
   };
 
   const closeCitationPanel = () => {
     setShowCitationPanel(false);
-    setSelectedCitation(null);
+    setCitationResponseText('');
+    setCitationDocumentContext([]);
   };
 
   // Download functions
@@ -301,8 +293,8 @@ function LawyerChatContent() {
 
       {/* Main Content Container - Adjust margin for taskbar only */}
       <div className={`flex-1 flex transition-all duration-300 ${isTaskBarExpanded ? 'ml-[280px]' : 'ml-[56px]'}`}>
-        {/* Citation Panel (when on left) */}
-        {showCitationPanel && selectedCitation && !isCitationOnRight && (
+        {/* Citation Panel */}
+        {showCitationPanel && citationResponseText && citationDocumentContext.length > 0 && (
           <div className="flex-1 h-full">
             <ErrorBoundary
               level="component"
@@ -321,11 +313,10 @@ function LawyerChatContent() {
                 </div>
               }
             >
-              <CitationPanel
-                citation={selectedCitation}
+              <CitationPanelEnhanced
+                responseText={citationResponseText}
+                documentContext={citationDocumentContext}
                 onClose={closeCitationPanel}
-                onSwap={() => setIsCitationOnRight(!isCitationOnRight)}
-                isCitationOnRight={isCitationOnRight}
               />
             </ErrorBoundary>
           </div>
@@ -444,35 +435,6 @@ function LawyerChatContent() {
         </div>
         </div>
         
-        {/* Citation Panel (when on right) */}
-        {showCitationPanel && selectedCitation && isCitationOnRight && (
-          <div className="flex-1 h-full">
-            <ErrorBoundary
-              level="component"
-              isolate
-              fallback={
-                <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-                  <div className="text-center">
-                    <p className="text-gray-500 dark:text-gray-400">Unable to display citation</p>
-                    <button
-                      onClick={closeCitationPanel}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                    >
-                      Close panel
-                    </button>
-                  </div>
-                </div>
-              }
-            >
-              <CitationPanel
-                citation={selectedCitation}
-                onClose={closeCitationPanel}
-                onSwap={() => setIsCitationOnRight(!isCitationOnRight)}
-                isCitationOnRight={isCitationOnRight}
-              />
-            </ErrorBoundary>
-          </div>
-        )}
       </div>
     </div>
   );

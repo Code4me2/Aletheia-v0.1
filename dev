@@ -56,6 +56,9 @@ show_help() {
     echo "  setup           Initial setup wizard (generate secure .env)"
     echo "  doctor          Run comprehensive system diagnostics"
     echo "  backup          Backup database and configurations"
+    echo "  rebuild [opts]  Rebuild services with cache control"
+    echo "                  Options: [service] --hard --verify"
+    echo "  verify-frontend Run frontend verification for lawyer-chat"
     echo "  cleanup         Archive old/backup files to .archive/"
     echo "  clean           Stop services and clean volumes (WARNING: deletes data)"
     echo "  reload-nginx    Reload nginx configuration without restart"
@@ -64,6 +67,8 @@ show_help() {
     echo "  ./dev up                  # Start everything"
     echo "  ./dev up n8n             # Start only n8n service"
     echo "  ./dev down lawyer-chat   # Stop only lawyer-chat"
+    echo "  ./dev rebuild lawyer-chat # Rebuild lawyer-chat with standard cache clear"
+    echo "  ./dev rebuild --hard      # Rebuild all with aggressive cache clearing"
     echo "  ./dev health              # Check if everything is working"
     echo "  ./dev logs n8n           # Show n8n logs"
     echo "  ./dev shell db           # Open PostgreSQL shell"
@@ -1277,6 +1282,268 @@ EOF
                 echo "  list  - List all environment variables"
                 ;;
         esac
+        ;;
+        
+    rebuild)
+        check_requirements
+        check_env
+        
+        # Parse arguments
+        SERVICE=""
+        HARD_CLEAN=false
+        VERIFY=false
+        
+        for arg in "${@:2}"; do
+            case "$arg" in
+                --hard)
+                    HARD_CLEAN=true
+                    ;;
+                --verify)
+                    VERIFY=true
+                    ;;
+                -*)
+                    echo -e "${RED}Unknown option: $arg${NC}"
+                    echo "Usage: ./dev rebuild [service] [--hard] [--verify]"
+                    exit 1
+                    ;;
+                *)
+                    if [ -z "$SERVICE" ]; then
+                        SERVICE="$arg"
+                    fi
+                    ;;
+            esac
+        done
+        
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo -e "${BLUE}  Docker Service Rebuild${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo ""
+        
+        # Determine what to rebuild
+        if [ -n "$SERVICE" ]; then
+            echo -e "${CYAN}Target:${NC} $SERVICE"
+        else
+            echo -e "${CYAN}Target:${NC} All services"
+        fi
+        
+        if [ "$HARD_CLEAN" = true ]; then
+            echo -e "${CYAN}Mode:${NC} Hard clean (aggressive cache clearing)"
+        else
+            echo -e "${CYAN}Mode:${NC} Standard rebuild"
+        fi
+        echo ""
+        
+        # Step 1: Stop services
+        if [ -n "$SERVICE" ]; then
+            echo -e "${YELLOW}→${NC} Stopping $SERVICE..."
+            docker-compose stop "$SERVICE" 2>/dev/null || true
+            
+            # Remove the container
+            CONTAINER_NAME="${PROJECT_NAME}-${SERVICE}-1"
+            docker rm "$CONTAINER_NAME" 2>/dev/null || true
+        else
+            echo -e "${YELLOW}→${NC} Stopping all services..."
+            docker-compose down
+        fi
+        
+        # Step 2: Clear caches based on mode
+        if [ "$HARD_CLEAN" = true ]; then
+            echo -e "${YELLOW}→${NC} Performing aggressive cache cleanup..."
+            
+            if [ -n "$SERVICE" ]; then
+                # Remove specific service image
+                IMAGE_NAME="${PROJECT_NAME}_${SERVICE}"
+                echo "  • Removing image: $IMAGE_NAME"
+                docker rmi "$IMAGE_NAME" 2>/dev/null || true
+                
+                # Remove dangling images
+                docker image prune -f >/dev/null 2>&1
+                
+                # Clear builder cache for this service
+                echo "  • Clearing builder cache"
+                docker builder prune -f --filter "label=com.docker.compose.project=${PROJECT_NAME}" >/dev/null 2>&1
+            else
+                # Full system cleanup
+                echo "  • Removing all project images"
+                docker-compose down --rmi all 2>/dev/null || true
+                
+                echo "  • Clearing all builder cache"
+                docker builder prune -af >/dev/null 2>&1
+                
+                echo "  • Removing dangling volumes"
+                docker volume prune -f >/dev/null 2>&1
+            fi
+        else
+            echo -e "${YELLOW}→${NC} Standard cache clear..."
+            if [ -n "$SERVICE" ]; then
+                # Just remove the specific container
+                echo "  • Container removed"
+            fi
+        fi
+        
+        # Step 3: For Next.js services, clear local build cache
+        if [ -n "$SERVICE" ]; then
+            if [ -d "services/$SERVICE/.next" ]; then
+                echo -e "${YELLOW}→${NC} Clearing Next.js build cache for $SERVICE..."
+                rm -rf "services/$SERVICE/.next"
+            fi
+        else
+            # Clear all Next.js caches
+            for next_dir in services/*/.next; do
+                if [ -d "$next_dir" ]; then
+                    service_name=$(basename $(dirname "$next_dir"))
+                    echo -e "${YELLOW}→${NC} Clearing Next.js cache for $service_name..."
+                    rm -rf "$next_dir"
+                fi
+            done
+        fi
+        
+        # Step 4: Rebuild
+        echo ""
+        echo -e "${YELLOW}→${NC} Rebuilding..."
+        
+        if [ -n "$SERVICE" ]; then
+            if [ "$HARD_CLEAN" = true ]; then
+                docker-compose build --no-cache --pull "$SERVICE"
+            else
+                docker-compose build "$SERVICE"
+            fi
+        else
+            if [ "$HARD_CLEAN" = true ]; then
+                docker-compose build --no-cache --pull
+            else
+                docker-compose build
+            fi
+        fi
+        
+        # Step 5: Start services
+        echo ""
+        echo -e "${YELLOW}→${NC} Starting services..."
+        
+        if [ -n "$SERVICE" ]; then
+            docker-compose up -d "$SERVICE"
+        else
+            docker-compose up -d
+        fi
+        
+        # Step 6: Verify if requested
+        if [ "$VERIFY" = true ] || [ -n "$SERVICE" ]; then
+            echo ""
+            echo -e "${YELLOW}→${NC} Verifying deployment..."
+            
+            # Wait for services to be ready
+            sleep 5
+            
+            # Function to verify a service
+            verify_service() {
+                local svc="$1"
+                local verified=false
+                
+                case "$svc" in
+                    lawyer-chat)
+                        echo -n "  • Checking $svc deployment... "
+                        
+                        # Get container BUILD_ID
+                        CONTAINER_BUILD_ID=$(docker exec "$CONTAINER" cat /app/.next/BUILD_ID 2>/dev/null || echo "")
+                        if [ -n "$CONTAINER_BUILD_ID" ]; then
+                            echo -e "${GREEN}✓${NC} Running"
+                            echo "    Build ID: $CONTAINER_BUILD_ID"
+                            
+                            # Check for key components in the build
+                            COMPONENTS=("CitationPanel" "DocumentCabinet" "extractCitation")
+                            FOUND_COUNT=0
+                            for comp in "${COMPONENTS[@]}"; do
+                                if docker exec "$CONTAINER" grep -q "$comp" /app/.next/server/app/page.js 2>/dev/null; then
+                                    ((FOUND_COUNT++))
+                                fi
+                            done
+                            echo "    Components verified: $FOUND_COUNT/${#COMPONENTS[@]}"
+                            
+                            # Compare with local build if exists
+                            if [ -f "services/lawyer-chat/.next/BUILD_ID" ]; then
+                                LOCAL_BUILD_ID=$(cat "services/lawyer-chat/.next/BUILD_ID")
+                                if [ "$LOCAL_BUILD_ID" = "$CONTAINER_BUILD_ID" ]; then
+                                    echo "    ${YELLOW}⚠${NC} Same as local build (may need rebuild)"
+                                else
+                                    echo "    ${GREEN}✓${NC} Different from local build"
+                                fi
+                            fi
+                        else
+                            echo -e "${RED}✗${NC} Could not verify"
+                        fi
+                        ;;
+                    
+                    web)
+                        # Check if web reverse proxy is working
+                        echo -n "  • Checking $svc for recent changes... "
+                        
+                        # Try to find evidence of recent code changes
+                        if curl -s "http://localhost:${WEB_PORT:-8080}" | grep -q "DocumentContext\|CitationPanel" 2>/dev/null; then
+                            echo -e "${GREEN}✓${NC} UI components present"
+                        else
+                            echo -e "${YELLOW}⚠${NC} Could not verify components"
+                        fi
+                        ;;
+                        
+                    court-processor)
+                        echo -n "  • Checking $svc API... "
+                        if curl -s "http://localhost:8104/health" | grep -q "ok\|healthy" 2>/dev/null; then
+                            echo -e "${GREEN}✓${NC} API responding"
+                        else
+                            echo -e "${RED}✗${NC} API not responding"
+                        fi
+                        ;;
+                        
+                    n8n)
+                        echo -n "  • Checking $svc... "
+                        if curl -s "http://localhost:${N8N_PORT:-8100}" >/dev/null 2>&1; then
+                            echo -e "${GREEN}✓${NC} Service responding"
+                        else
+                            echo -e "${YELLOW}⚠${NC} Service may still be starting"
+                        fi
+                        ;;
+                        
+                    *)
+                        # Generic container check
+                        CONTAINER="${PROJECT_NAME}-${svc}-1"
+                        if docker ps | grep -q "$CONTAINER"; then
+                            echo "  • $svc: ${GREEN}✓${NC} Container running"
+                        else
+                            echo "  • $svc: ${RED}✗${NC} Container not running"
+                        fi
+                        ;;
+                esac
+            }
+            
+            if [ -n "$SERVICE" ]; then
+                verify_service "$SERVICE"
+            else
+                # Verify key services
+                for svc in lawyer-chat court-processor n8n; do
+                    if docker ps | grep -q "${PROJECT_NAME}-${svc}-1"; then
+                        verify_service "$svc"
+                    fi
+                done
+            fi
+        fi
+        
+        echo ""
+        echo -e "${GREEN}✓ Rebuild complete!${NC}"
+        
+        if [ -n "$SERVICE" ] && [ "$SERVICE" = "lawyer-chat" ]; then
+            echo ""
+            echo "Access lawyer-chat at: http://localhost:${WEB_PORT:-8080}"
+        fi
+        ;;
+        
+    verify-frontend)
+        # Run the verification script
+        if [ -f "scripts/verify-lawyer-chat.sh" ]; then
+            bash scripts/verify-lawyer-chat.sh
+        else
+            echo -e "${RED}Verification script not found${NC}"
+            echo "Expected at: scripts/verify-lawyer-chat.sh"
+        fi
         ;;
         
     help|--help|-h|"")
