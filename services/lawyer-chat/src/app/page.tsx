@@ -293,37 +293,8 @@ function LawyerChatContent() {
 
       {/* Main Content Container - Adjust margin for taskbar only */}
       <div className={`flex-1 flex transition-all duration-300 ${isTaskBarExpanded ? 'ml-[280px]' : 'ml-[56px]'}`}>
-        {/* Citation Panel */}
-        {showCitationPanel && citationResponseText && citationDocumentContext.length > 0 && (
-          <div className="flex-1 h-full">
-            <ErrorBoundary
-              level="component"
-              isolate
-              fallback={
-                <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-                  <div className="text-center">
-                    <p className="text-gray-500 dark:text-gray-400">Unable to display citation</p>
-                    <button
-                      onClick={closeCitationPanel}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                    >
-                      Close panel
-                    </button>
-                  </div>
-                </div>
-              }
-            >
-              <CitationPanelEnhanced
-                responseText={citationResponseText}
-                documentContext={citationDocumentContext}
-                onClose={closeCitationPanel}
-              />
-            </ErrorBoundary>
-          </div>
-        )}
-        
-        {/* Chat Section */}
-        <div className={`flex-1 flex flex-col transition-all duration-300 ${showCitationPanel ? 'w-1/2' : 'w-full'}`}>
+        {/* Chat Section - Now on the left */}
+        <div className={`flex-1 flex flex-col transition-all duration-300 ${showCitationPanel ? 'pr-[400px]' : ''}`}>
         {/* Header */}
         <div className={`px-6 py-4 relative z-10`}>
           <div className="flex items-center justify-between">
@@ -434,6 +405,35 @@ function LawyerChatContent() {
           </div>
         </div>
         </div>
+        
+        {/* Citation Panel - Now on the right as a fixed overlay */}
+        {showCitationPanel && citationResponseText && citationDocumentContext.length > 0 && (
+          <div className="fixed right-0 top-0 h-full w-[400px] z-20 shadow-xl">
+            <ErrorBoundary
+              level="component"
+              isolate
+              fallback={
+                <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                  <div className="text-center">
+                    <p className="text-gray-500 dark:text-gray-400">Unable to display citation</p>
+                    <button
+                      onClick={closeCitationPanel}
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                    >
+                      Close panel
+                    </button>
+                  </div>
+                </div>
+              }
+            >
+              <CitationPanelEnhanced
+                responseText={citationResponseText}
+                documentContext={citationDocumentContext}
+                onClose={closeCitationPanel}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
         
       </div>
     </div>

@@ -16,6 +16,7 @@ interface SafeMarkdownProps {
   className?: string;
   onCitationClick?: (citationKey: string) => void;
   citedDocumentIds?: string[];
+  onCitationDoubleClick?: (citationKey: string) => void;
 }
 
 // Type definitions for component props
@@ -40,7 +41,7 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 };
 
 
-export default function SafeMarkdown({ content, className, onCitationClick, citedDocumentIds }: SafeMarkdownProps) {
+export default function SafeMarkdown({ content, className, onCitationClick, citedDocumentIds, onCitationDoubleClick }: SafeMarkdownProps) {
   const { isDarkMode } = useSidebarStore();
   
   // Pre-process content to convert [DOC1] markers to clickable links
@@ -159,19 +160,85 @@ export default function SafeMarkdown({ content, className, onCitationClick, cite
     ),
     // ========== LINKS - Clean and accessible ==========
     a: ({ children, href, ...props }: LinkProps) => {
-      // Check if this is a citation link
-      if (href?.startsWith('citation:')) {
-        const citationKey = href.replace('citation:', '');
+      // Check if this is a citation link (various patterns)
+      const citationPatterns = [
+        /^citation:(.+)$/,           // Our custom format
+        /^#?\[?(DOC\d+)\]?$/i,      // [DOC1] or DOC1 patterns
+        /^#doc(\d+)$/i,              // #doc1 pattern
+        /\/citation\/(DOC\d+)$/i,    // URL path pattern
+        /\?.*cite=(DOC\d+)/i,        // Query param pattern
+      ];
+      
+      let citationKey: string | null = null;
+      if (href) {
+        for (const pattern of citationPatterns) {
+          const match = href.match(pattern);
+          if (match) {
+            citationKey = match[1];
+            // Normalize to DOC format if it's just a number
+            if (/^\d+$/.test(citationKey)) {
+              citationKey = `DOC${citationKey}`;
+            }
+            break;
+          }
+        }
+      }
+      
+      // Also check if the link text itself looks like a citation
+      if (!citationKey && typeof children === 'string') {
+        const textMatch = children.match(/^\[?(DOC\d+)\]?$/i);
+        if (textMatch) {
+          citationKey = textMatch[1].toUpperCase();
+        }
+      }
+      
+      if (citationKey) {
         return (
           <button
             onClick={(e) => {
               e.preventDefault();
               onCitationClick?.(citationKey);
             }}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              onCitationDoubleClick?.(citationKey);
+            }}
             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
               isDarkMode 
                 ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-800/50' 
                 : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            }`}
+            title="Click to view citation, double-click for full text"
+          >
+            {children}
+          </button>
+        );
+      }
+      
+      // For regular links, check if they might be citation-related
+      // If so, don't open in new tab
+      const mightBeCitation = href && (
+        href.includes('DOC') || 
+        href.includes('citation') || 
+        href.includes('cite') ||
+        href.startsWith('#')
+      );
+      
+      if (mightBeCitation) {
+        return (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              // Try to extract a citation key from the URL
+              const match = href?.match(/DOC\d+/i);
+              if (match) {
+                onCitationClick?.(match[0].toUpperCase());
+              }
+            }}
+            className={`underline underline-offset-2 transition-colors cursor-pointer ${
+              isDarkMode 
+                ? 'text-blue-400 hover:text-blue-300' 
+                : 'text-blue-600 hover:text-blue-800'
             }`}
           >
             {children}
@@ -179,7 +246,7 @@ export default function SafeMarkdown({ content, className, onCitationClick, cite
         );
       }
       
-      // Regular link
+      // Regular external link
       return (
         <a 
           {...props}

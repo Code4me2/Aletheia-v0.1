@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, ArrowLeft, FileText, ExternalLink, Loader2 } from 'lucide-react';
 import { useSidebarStore } from '@/store/sidebar';
 import { getDocumentSource } from '@/lib/document-sources/registry';
@@ -15,6 +15,148 @@ interface CitationPanelEnhancedProps {
 }
 
 type ViewMode = 'list' | 'fulltext';
+
+// Format legal document text with proper structure
+function formatLegalText(text: string): React.ReactNode {
+  if (!text) return 'No text available';
+  
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentParagraph: string[] = [];
+  let inBlockQuote = false;
+  let listItems: string[] = [];
+  let listType: 'ordered' | 'unordered' | null = null;
+  
+  const flushParagraph = () => {
+    if (currentParagraph.length > 0) {
+      const text = currentParagraph.join(' ').trim();
+      if (text) {
+        elements.push(
+          <p key={elements.length} className="mb-4 leading-relaxed">
+            {text}
+          </p>
+        );
+      }
+      currentParagraph = [];
+    }
+  };
+  
+  const flushList = () => {
+    if (listItems.length > 0) {
+      const ListTag = listType === 'ordered' ? 'ol' : 'ul';
+      elements.push(
+        <ListTag key={elements.length} className={`${listType === 'ordered' ? 'list-decimal' : 'list-disc'} ml-8 mb-4 space-y-1`}>
+          {listItems.map((item, idx) => (
+            <li key={idx} className="leading-relaxed">{item}</li>
+          ))}
+        </ListTag>
+      );
+      listItems = [];
+      listType = null;
+    }
+  };
+  
+  lines.forEach((line, index) => {
+    // Check for section headers (e.g., "I. BACKGROUND", "II. ANALYSIS")
+    const headerMatch = line.match(/^\s*([IVX]+\.\s+[A-Z][A-Z\s]+)$/i);
+    if (headerMatch) {
+      flushParagraph();
+      flushList();
+      elements.push(
+        <h3 key={elements.length} className="text-lg font-bold mt-6 mb-3 uppercase">
+          {headerMatch[1]}
+        </h3>
+      );
+      return;
+    }
+    
+    // Check for subsection headers (e.g., "A. Procedural History")
+    const subHeaderMatch = line.match(/^\s*([A-Z]\.\s+[A-Z][\w\s]+)$/);
+    if (subHeaderMatch) {
+      flushParagraph();
+      flushList();
+      elements.push(
+        <h4 key={elements.length} className="text-base font-semibold mt-4 mb-2">
+          {subHeaderMatch[1]}
+        </h4>
+      );
+      return;
+    }
+    
+    // Check for numbered lists (e.g., "1. ", "(1) ")
+    const numberedMatch = line.match(/^\s*(?:\(?(\d+)\)|\d+\.)\s+(.+)/);
+    if (numberedMatch) {
+      flushParagraph();
+      if (listType !== 'ordered') {
+        flushList();
+        listType = 'ordered';
+      }
+      listItems.push(numberedMatch[2]);
+      return;
+    }
+    
+    // Check for bulleted lists
+    const bulletMatch = line.match(/^\s*[•·\-\*]\s+(.+)/);
+    if (bulletMatch) {
+      flushParagraph();
+      if (listType !== 'unordered') {
+        flushList();
+        listType = 'unordered';
+      }
+      listItems.push(bulletMatch[1]);
+      return;
+    }
+    
+    // Check for block quotes (indented text)
+    const indentedMatch = line.match(/^\s{4,}(.+)/);
+    if (indentedMatch && !line.trim().startsWith('//') && !line.trim().startsWith('/*')) {
+      flushParagraph();
+      flushList();
+      if (!inBlockQuote) {
+        inBlockQuote = true;
+        elements.push(
+          <blockquote key={elements.length} className="border-l-4 border-gray-300 pl-4 ml-4 my-4 italic">
+            {indentedMatch[1]}
+          </blockquote>
+        );
+      }
+      return;
+    } else {
+      inBlockQuote = false;
+    }
+    
+    // Check for footnotes (e.g., "[1]", "*1")
+    const footnoteMatch = line.match(/^\s*(?:\[(\d+)\]|\*(\d+))\s+(.+)/);
+    if (footnoteMatch) {
+      flushParagraph();
+      flushList();
+      const footnoteNum = footnoteMatch[1] || footnoteMatch[2];
+      elements.push(
+        <div key={elements.length} className="text-sm mt-4 mb-2 border-t pt-2">
+          <sup className="mr-1">{footnoteNum}</sup>
+          <span className="text-gray-600 dark:text-gray-400">{footnoteMatch[3]}</span>
+        </div>
+      );
+      return;
+    }
+    
+    // Empty line - flush current paragraph
+    if (line.trim() === '') {
+      flushParagraph();
+      flushList();
+      return;
+    }
+    
+    // Regular text - add to current paragraph
+    currentParagraph.push(line.trim());
+  });
+  
+  // Flush any remaining content
+  flushParagraph();
+  flushList();
+  
+  return <div className="space-y-2">{elements}</div>;
+}
 
 export default function CitationPanelEnhanced({ 
   responseText, 
@@ -259,11 +401,11 @@ export default function CitationPanelEnhanced({
                   </div>
                 )}
                 
-                {/* Document Text */}
-                <div className={`whitespace-pre-wrap leading-relaxed text-sm ${
+                {/* Document Text - Now with proper formatting */}
+                <div className={`text-sm ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-700'
                 }`}>
-                  {fullText || 'No text available'}
+                  {formatLegalText(fullText)}
                 </div>
               </div>
             )}
