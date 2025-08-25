@@ -60,5 +60,9 @@ ENV N8N_USER_FOLDER=/data
 ENV NODE_PATH=/usr/local/lib/node_modules:/usr/lib/node_modules
 ENV N8N_CUSTOM_EXTENSIONS=/data/.n8n/custom
 
-# Use the standard n8n entrypoint
-ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
+# Copy the fix script
+COPY --chown=node:node ./n8n/fix-custom-nodes.sh /fix-custom-nodes.sh
+RUN chmod +x /fix-custom-nodes.sh
+
+# Use our custom entrypoint that fixes nodes before starting
+ENTRYPOINT ["tini", "--", "/fix-custom-nodes.sh"]

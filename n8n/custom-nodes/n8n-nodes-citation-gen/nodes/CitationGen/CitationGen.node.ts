@@ -25,6 +25,46 @@ let globalCircuitBreaker: CircuitBreaker | null = null;
 // Global rate limiter instance (shared across all executions)
 let globalRateLimiter: RateLimiter | null = null;
 
+// Document section structure for pre-chunked input
+interface DocumentSection {
+  id: string;                    // Unique section identifier
+  type: 'transcript' | 'opinion' | 'document'; // Document type
+  sequence: number;               // Chronological order
+  metadata: {
+    speaker?: string;             // For transcripts
+    action?: string;              // objection, testimony, cross, recross, etc.
+    timestamp?: string;           // When in proceeding
+    page?: number;                // Page reference
+    line?: number;                // Line reference
+    [key: string]: any;           // Extensible metadata
+  };
+  content: string;                // Actual text content
+  context?: {                     // Optional linking context
+    previousSectionId?: string;
+    relatedSections?: string[];
+  };
+}
+
+// Processing strategy configuration
+interface ProcessingStrategy {
+  documentType: 'transcript' | 'opinion' | 'document';
+  summarization: {
+    sectionPrompt: string;        // Per-section summary prompt
+    groupPrompt?: string;          // Group-level summary prompt
+    patternPrompt?: string;        // Pattern analysis prompt
+    finalPrompt: string;           // Final synthesis prompt
+  };
+  grouping?: {
+    enabled: boolean;
+    groupBy: string[];             // Metadata fields to group by
+    groupOrder?: string[];         // Processing order for groups
+  };
+  context: {
+    includesPrevious: boolean;     // Include previous summaries
+    maxContextTokens?: number;     // Limit context size
+  };
+}
+
 interface HierarchicalDocument {
   id?: number;
   content: string;
@@ -37,10 +77,12 @@ interface HierarchicalDocument {
   created_at?: Date;
   updated_at?: Date;
   // New fields for better traceability
-  document_type?: 'source' | 'chunk' | 'batch' | 'summary';
+  document_type?: 'source' | 'chunk' | 'batch' | 'summary' | 'section' | 'group';
   chunk_index?: number;
   source_document_ids?: number[];
   token_count?: number;
+  section_id?: string;            // Reference to original section ID
+  group_key?: string;             // Group identifier for pattern analysis
 }
 
 interface ProcessingConfig {
@@ -49,6 +91,8 @@ interface ProcessingConfig {
   batchSize: number;
   batchId: string;
   resilience?: ResilienceConfig;
+  strategy?: ProcessingStrategy;   // New: Processing strategy
+  sections?: DocumentSection[];    // New: Pre-chunked sections
 }
 
 interface DocumentChunk {
@@ -232,8 +276,8 @@ export class CitationGen implements INodeType {
     icon: 'file:citationGen.svg',
     group: ['transform'],
     version: 1,
-    subtitle: '=3-Level Citation Generation',
-    description: 'Generate citations using 3-level hierarchical document processing (source → first summary → final summary)',
+    subtitle: '=Flexible Document Processing',
+    description: 'Process pre-chunked documents with metadata-driven summarization and pattern analysis',
     defaults: {
       name: 'Citation Generator',
     },
@@ -290,6 +334,11 @@ export class CitationGen implements INodeType {
         type: 'options',
         options: [
           {
+            name: 'Document Sections (JSON)',
+            value: 'sections',
+            description: 'Pre-chunked document sections with metadata',
+          },
+          {
             name: 'JSON Input',
             value: 'json',
             description: 'Process JSON data from previous node',
@@ -305,8 +354,123 @@ export class CitationGen implements INodeType {
             description: 'Extract text from previous node output',
           },
         ],
-        default: 'json',
+        default: 'sections',
         description: 'Source of documents to process',
+      },
+      // Processing Strategy Options
+      {
+        displayName: 'Document Type',
+        name: 'documentType',
+        type: 'options',
+        options: [
+          {
+            name: 'Transcript',
+            value: 'transcript',
+            description: 'Legal transcript with speakers and actions',
+          },
+          {
+            name: 'Opinion',
+            value: 'opinion',
+            description: 'Legal opinion document',
+          },
+          {
+            name: 'Generic Document',
+            value: 'document',
+            description: 'General document processing',
+          },
+        ],
+        default: 'transcript',
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+          },
+        },
+        description: 'Type of document being processed',
+      },
+      {
+        displayName: 'Enable Action Grouping',
+        name: 'enableGrouping',
+        type: 'boolean',
+        default: true,
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+            documentType: ['transcript'],
+          },
+        },
+        description: 'Group sections by action type for pattern analysis',
+      },
+      {
+        displayName: 'Group By Fields',
+        name: 'groupByFields',
+        type: 'string',
+        default: 'action',
+        placeholder: 'action,speaker',
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+            enableGrouping: [true],
+          },
+        },
+        description: 'Comma-separated metadata fields to group sections by',
+      },
+      {
+        displayName: 'Include Previous Context',
+        name: 'includePreviousContext',
+        type: 'boolean',
+        default: true,
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+          },
+        },
+        description: 'Include previous summaries as context for transcript processing',
+      },
+      {
+        displayName: 'Section Summary Prompt',
+        name: 'sectionSummaryPrompt',
+        type: 'string',
+        default: 'Summarize this {{action}} section from {{speaker}} in 2-3 sentences, focusing on key legal points',
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+          },
+        },
+        typeOptions: {
+          rows: 3,
+        },
+        description: 'Prompt for individual section summaries. Use {{field}} for metadata placeholders',
+      },
+      {
+        displayName: 'Group Analysis Prompt',
+        name: 'groupAnalysisPrompt',
+        type: 'string',
+        default: 'Analyze the pattern of {{action}} actions across the transcript. Identify trends and strategic patterns.',
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+            enableGrouping: [true],
+          },
+        },
+        typeOptions: {
+          rows: 3,
+        },
+        description: 'Prompt for analyzing grouped sections',
+      },
+      {
+        displayName: 'Final Synthesis Prompt',
+        name: 'finalSynthesisPrompt',
+        type: 'string',
+        default: 'Provide a comprehensive summary of the entire document, highlighting key findings and patterns',
+        displayOptions: {
+          show: {
+            contentSource: ['sections'],
+          },
+        },
+        typeOptions: {
+          rows: 3,
+        },
+        description: 'Prompt for final document synthesis',
       },
       {
         displayName: 'Directory Path',
@@ -714,7 +878,95 @@ export class CitationGen implements INodeType {
             // Process based on content source
             let documentsToProcess: Array<{name: string, content: string, metadata?: any}> = [];
             
-            if (contentSource === 'json') {
+            // Handle new document sections source
+            if (contentSource === 'sections') {
+              // Process pre-chunked document sections
+              const documentType = this.getNodeParameter('documentType', itemIndex) as string;
+              const enableGrouping = this.getNodeParameter('enableGrouping', itemIndex) as boolean;
+              const groupByFields = this.getNodeParameter('groupByFields', itemIndex) as string;
+              const includePreviousContext = this.getNodeParameter('includePreviousContext', itemIndex) as boolean;
+              const sectionSummaryPrompt = this.getNodeParameter('sectionSummaryPrompt', itemIndex) as string;
+              const groupAnalysisPrompt = this.getNodeParameter('groupAnalysisPrompt', itemIndex) as string;
+              const finalSynthesisPrompt = this.getNodeParameter('finalSynthesisPrompt', itemIndex) as string;
+              
+              // Extract sections from input
+              const item = items[itemIndex];
+              let sections: DocumentSection[] = [];
+              
+              if (Array.isArray(item.json)) {
+                sections = item.json as DocumentSection[];
+              } else if (item.json.sections && Array.isArray(item.json.sections)) {
+                sections = item.json.sections as DocumentSection[];
+              } else if (item.json.data && Array.isArray(item.json.data)) {
+                sections = item.json.data as DocumentSection[];
+              } else {
+                throw new NodeOperationError(
+                  this.getNode(),
+                  'Expected an array of document sections in the input',
+                  { itemIndex }
+                );
+              }
+              
+              // Validate sections have required fields
+              for (const section of sections) {
+                if (!section.id || !section.content || typeof section.sequence !== 'number') {
+                  throw new NodeOperationError(
+                    this.getNode(),
+                    'Each section must have id, content, and sequence fields',
+                    { itemIndex }
+                  );
+                }
+              }
+              
+              // Sort sections by sequence
+              sections.sort((a, b) => a.sequence - b.sequence);
+              
+              // Build processing strategy
+              const strategy: ProcessingStrategy = {
+                documentType: documentType as 'transcript' | 'opinion' | 'document',
+                summarization: {
+                  sectionPrompt: sectionSummaryPrompt,
+                  groupPrompt: groupAnalysisPrompt,
+                  patternPrompt: groupAnalysisPrompt,
+                  finalPrompt: finalSynthesisPrompt,
+                },
+                grouping: enableGrouping ? {
+                  enabled: true,
+                  groupBy: groupByFields.split(',').map(f => f.trim()),
+                } : undefined,
+                context: {
+                  includesPrevious: includePreviousContext,
+                  maxContextTokens: Math.floor(batchSize * 0.3), // Use 30% of batch size for context
+                },
+              };
+              
+              // Update config with strategy and sections
+              config.strategy = strategy;
+              config.sections = sections;
+              
+              // Process sections with new logic
+              const processingResult = await processSectionsWithStrategy(
+                client,
+                config,
+                this
+              );
+              
+              // Prepare output
+              returnData.push({
+                json: {
+                  batchId,
+                  documentType,
+                  processingResult,
+                  metadata: {
+                    totalSections: sections.length,
+                    groupingEnabled: enableGrouping,
+                    timestamp: new Date().toISOString(),
+                  },
+                },
+                pairedItem: { item: itemIndex },
+              });
+              
+            } else if (contentSource === 'json') {
               // Process JSON input
               const jsonStructure = this.getNodeParameter('jsonStructure', itemIndex) as string;
               const documentField = this.getNodeParameter('documentField', itemIndex) as string;
@@ -817,23 +1069,23 @@ export class CitationGen implements INodeType {
               });
             }
             
-            // Processing will start
-            
-            // Step 1: Index all documents at hierarchy level 0
-            await indexDocuments(
-              client,
-              documentsToProcess,
-              config
-            );
-            
-            // Step 2: Begin recursive summarization
-            const finalSummary = await performHierarchicalSummarization(
-              client,
-              config,
-              this // Pass the execution context for AI model access
-            );
-            
-            await client.query('COMMIT');
+            // Only process regular documents if not sections
+            if (contentSource !== 'sections') {
+              // Processing will start
+              
+              // Step 1: Index all documents at hierarchy level 0
+              await indexDocuments(
+                client,
+                documentsToProcess,
+                config
+              );
+              
+              // Step 2: Begin recursive summarization
+              const finalSummary = await performHierarchicalSummarization(
+                client,
+                config,
+                this // Pass the execution context for AI model access
+              );
             
             // Get all source documents for citation reference
             const sourceDocsResult = await client.query(
@@ -893,6 +1145,9 @@ export class CitationGen implements INodeType {
               },
               pairedItem: { item: itemIndex },
             });
+            } // End of non-sections processing
+            
+            await client.query('COMMIT');
             
           } catch (error) {
             await client.query('ROLLBACK');
@@ -1225,16 +1480,36 @@ async function ensureDatabaseSchema(pool: Pool): Promise<void> {
           ALTER TABLE hierarchical_documents 
           ADD COLUMN source_document_ids INTEGER[] DEFAULT '{}';
       END IF;
+      
+      -- Add section_id column for referencing original section IDs
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                     WHERE table_name = 'hierarchical_documents' 
+                     AND column_name = 'section_id') THEN
+          ALTER TABLE hierarchical_documents 
+          ADD COLUMN section_id VARCHAR(255);
+      END IF;
+      
+      -- Add group_key column for group analysis
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                     WHERE table_name = 'hierarchical_documents' 
+                     AND column_name = 'group_key') THEN
+          ALTER TABLE hierarchical_documents 
+          ADD COLUMN group_key VARCHAR(255);
+      END IF;
     END $$;
   `;
   
   await pool.query(migrationSQL);
   
-  // Create index on document_type separately, outside the DO block
+  // Create indexes on new columns separately, outside the DO block
   // Using CREATE INDEX IF NOT EXISTS which is supported in PostgreSQL 9.5+
   const indexSQL = `
     CREATE INDEX IF NOT EXISTS idx_document_type 
       ON hierarchical_documents(document_type);
+    CREATE INDEX IF NOT EXISTS idx_section_id 
+      ON hierarchical_documents(section_id);
+    CREATE INDEX IF NOT EXISTS idx_group_key 
+      ON hierarchical_documents(group_key);
   `;
   
   await pool.query(indexSQL);
@@ -2187,3 +2462,371 @@ function parseAIResponse(response: any): string {
 // Note: createSummaryDocument and createBatchSummaryDocument functions removed
 // as they are not needed in the simplified 3-level structure.
 // The processLevelToFinal function handles all Level 2 summary creation directly.
+
+/**
+ * Process document sections with metadata-driven strategy
+ * Supports chronological processing, grouping, and pattern analysis
+ */
+async function processSectionsWithStrategy(
+  client: any,
+  config: ProcessingConfig,
+  executeFunctions: IExecuteFunctions
+): Promise<any> {
+  if (!config.sections || !config.strategy) {
+    throw new Error('Sections and strategy are required for section processing');
+  }
+  
+  const sections = config.sections;
+  const strategy = config.strategy;
+  const startTime = Date.now();
+  
+  console.log(`[CG] Processing ${sections.length} sections with strategy: ${strategy.documentType}`);
+  
+  // Phase 1: Store sections in database
+  const sectionIds = await storeSectionsInDatabase(client, sections, config);
+  
+  // Phase 2: Process sections chronologically with context
+  const sectionSummaries = await processSectionsChronologically(
+    client,
+    sections,
+    sectionIds,
+    config,
+    strategy,
+    executeFunctions
+  );
+  
+  // Phase 3: Group analysis (if enabled)
+  let groupAnalysis = null;
+  if (strategy.grouping?.enabled) {
+    groupAnalysis = await performGroupAnalysis(
+      client,
+      sections,
+      sectionSummaries,
+      config,
+      strategy,
+      executeFunctions
+    );
+  }
+  
+  // Phase 4: Final synthesis
+  const finalSynthesis = await generateFinalSynthesis(
+    client,
+    sectionSummaries,
+    groupAnalysis,
+    config,
+    strategy,
+    executeFunctions
+  );
+  
+  const processingTime = Math.round((Date.now() - startTime) / 1000);
+  console.log(`[CG] Section processing completed in ${processingTime} seconds`);
+  
+  return {
+    sectionSummaries,
+    groupAnalysis,
+    finalSynthesis,
+    processingTime,
+  };
+}
+
+/**
+ * Store document sections in database for traceability
+ */
+async function storeSectionsInDatabase(
+  client: any,
+  sections: DocumentSection[],
+  config: ProcessingConfig
+): Promise<number[]> {
+  const ids: number[] = [];
+  
+  for (const section of sections) {
+    const result = await client.query(
+      `INSERT INTO hierarchical_documents 
+       (content, batch_id, hierarchy_level, token_count, metadata, document_type, section_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING id`,
+      [
+        section.content,
+        config.batchId,
+        0, // Level 0 for original sections
+        estimateTokenCount(section.content),
+        JSON.stringify({
+          ...section.metadata,
+          originalId: section.id,
+          sequence: section.sequence,
+          type: section.type,
+        }),
+        'section',
+        section.id,
+      ]
+    );
+    
+    ids.push(result.rows[0].id);
+  }
+  
+  return ids;
+}
+
+/**
+ * Process sections chronologically with cumulative context
+ */
+async function processSectionsChronologically(
+  client: any,
+  sections: DocumentSection[],
+  sectionIds: number[],
+  config: ProcessingConfig,
+  strategy: ProcessingStrategy,
+  executeFunctions: IExecuteFunctions
+): Promise<any[]> {
+  const summaries: any[] = [];
+  let cumulativeContext = '';
+  
+  console.log(`[CG] Processing ${sections.length} sections chronologically`);
+  
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    const sectionId = sectionIds[i];
+    
+    // Build prompt with metadata placeholders replaced
+    let prompt = strategy.summarization.sectionPrompt;
+    for (const [key, value] of Object.entries(section.metadata || {})) {
+      prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+    }
+    
+    // Build content with context if enabled
+    let contentToSummarize = section.content;
+    if (strategy.context.includesPrevious && cumulativeContext) {
+      // Limit context size
+      const maxContextChars = (strategy.context.maxContextTokens || 500) * CHARS_PER_TOKEN;
+      const truncatedContext = cumulativeContext.length > maxContextChars
+        ? '...' + cumulativeContext.slice(-maxContextChars)
+        : cumulativeContext;
+      
+      contentToSummarize = `Previous context:\n${truncatedContext}\n\nCurrent section:\n${section.content}`;
+    }
+    
+    // Create chunk for summarization
+    const chunk: DocumentChunk = {
+      content: contentToSummarize,
+      index: i,
+      parentDocumentId: sectionId,
+      tokenCount: estimateTokenCount(contentToSummarize),
+      metadata: section.metadata,
+    };
+    
+    // Generate summary with custom prompt
+    const tempConfig = { ...config, summaryPrompt: prompt };
+    const summary = await summarizeChunk(chunk, null, tempConfig, executeFunctions);
+    
+    // Store summary in database
+    await client.query(
+      `UPDATE hierarchical_documents 
+       SET summary = $1 
+       WHERE id = $2`,
+      [summary, sectionId]
+    );
+    
+    summaries.push({
+      sectionId: section.id,
+      sequence: section.sequence,
+      metadata: section.metadata,
+      summary,
+      originalLength: section.content.length,
+    });
+    
+    // Update cumulative context for next iteration
+    if (strategy.context.includesPrevious) {
+      cumulativeContext += `\n[Section ${section.sequence}]: ${summary}`;
+    }
+    
+    console.log(`[CG] Processed section ${i + 1}/${sections.length}`);
+  }
+  
+  return summaries;
+}
+
+/**
+ * Perform group analysis on sections
+ */
+async function performGroupAnalysis(
+  client: any,
+  sections: DocumentSection[],
+  sectionSummaries: any[],
+  config: ProcessingConfig,
+  strategy: ProcessingStrategy,
+  executeFunctions: IExecuteFunctions
+): Promise<any> {
+  if (!strategy.grouping) {
+    return null;
+  }
+  
+  console.log(`[CG] Performing group analysis by: ${strategy.grouping.groupBy.join(', ')}`);
+  
+  // Group sections by specified fields
+  const groups = new Map<string, any[]>();
+  
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    const summary = sectionSummaries[i];
+    
+    // Build group key from metadata fields
+    const keyParts = strategy.grouping.groupBy.map(field => {
+      const value = section.metadata?.[field];
+      return value !== undefined ? String(value) : 'undefined';
+    });
+    const groupKey = keyParts.join('_');
+    
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
+    }
+    
+    groups.get(groupKey)!.push({
+      section,
+      summary,
+    });
+  }
+  
+  console.log(`[CG] Created ${groups.size} groups for analysis`);
+  
+  // Analyze each group
+  const groupAnalyses: any[] = [];
+  
+  for (const [groupKey, groupItems] of groups.entries()) {
+    // Combine summaries for group analysis
+    const groupContent = groupItems.map((item, idx) => 
+      `[${idx + 1}] ${item.summary.summary}`
+    ).join('\n\n');
+    
+    // Build prompt with metadata
+    let prompt = strategy.summarization.groupPrompt || strategy.summarization.patternPrompt || '';
+    const firstItem = groupItems[0];
+    for (const field of strategy.grouping.groupBy) {
+      const value = firstItem.section.metadata?.[field] || 'undefined';
+      prompt = prompt.replace(new RegExp(`{{${field}}}`, 'g'), String(value));
+    }
+    
+    // Create chunk for group analysis
+    const chunk: DocumentChunk = {
+      content: groupContent,
+      index: groupAnalyses.length,
+      tokenCount: estimateTokenCount(groupContent),
+      metadata: { groupKey, itemCount: groupItems.length },
+    };
+    
+    // Generate group analysis
+    const tempConfig = { ...config, summaryPrompt: prompt };
+    const analysis = await summarizeChunk(chunk, null, tempConfig, executeFunctions);
+    
+    // Store group analysis in database
+    await client.query(
+      `INSERT INTO hierarchical_documents 
+       (content, summary, batch_id, hierarchy_level, token_count, metadata, document_type, group_key) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        groupContent,
+        analysis,
+        config.batchId,
+        1, // Level 1 for group analyses
+        estimateTokenCount(analysis),
+        JSON.stringify({
+          groupKey,
+          groupBy: strategy.grouping.groupBy,
+          itemCount: groupItems.length,
+        }),
+        'group',
+        groupKey,
+      ]
+    );
+    
+    groupAnalyses.push({
+      groupKey,
+      groupBy: strategy.grouping.groupBy,
+      itemCount: groupItems.length,
+      analysis,
+    });
+  }
+  
+  return {
+    groups: groupAnalyses,
+    totalGroups: groups.size,
+  };
+}
+
+/**
+ * Generate final synthesis combining all analyses
+ */
+async function generateFinalSynthesis(
+  client: any,
+  sectionSummaries: any[],
+  groupAnalysis: any,
+  config: ProcessingConfig,
+  strategy: ProcessingStrategy,
+  executeFunctions: IExecuteFunctions
+): Promise<any> {
+  console.log(`[CG] Generating final synthesis`);
+  
+  // Combine all summaries and analyses
+  let synthesisContent = '';
+  
+  // Add section summaries
+  synthesisContent += 'SECTION SUMMARIES:\n\n';
+  for (const summary of sectionSummaries) {
+    const metadata = Object.entries(summary.metadata || {})
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ');
+    synthesisContent += `[Section ${summary.sequence}${metadata ? ` - ${metadata}` : ''}]:\n${summary.summary}\n\n`;
+  }
+  
+  // Add group analyses if available
+  if (groupAnalysis) {
+    synthesisContent += '\n\nGROUP PATTERN ANALYSES:\n\n';
+    for (const group of groupAnalysis.groups) {
+      synthesisContent += `[Group: ${group.groupKey} (${group.itemCount} items)]:\n${group.analysis}\n\n`;
+    }
+  }
+  
+  // Create chunk for final synthesis
+  const chunk: DocumentChunk = {
+    content: synthesisContent,
+    index: 0,
+    tokenCount: estimateTokenCount(synthesisContent),
+    metadata: {
+      sectionCount: sectionSummaries.length,
+      groupCount: groupAnalysis?.totalGroups || 0,
+    },
+  };
+  
+  // Generate final synthesis
+  const tempConfig = { ...config, summaryPrompt: strategy.summarization.finalPrompt };
+  const synthesis = await summarizeChunk(chunk, null, tempConfig, executeFunctions);
+  
+  // Store final synthesis in database
+  await client.query(
+    `INSERT INTO hierarchical_documents 
+     (content, summary, batch_id, hierarchy_level, token_count, metadata, document_type) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      synthesisContent,
+      synthesis,
+      config.batchId,
+      2, // Level 2 for final synthesis
+      estimateTokenCount(synthesis),
+      JSON.stringify({
+        documentType: strategy.documentType,
+        sectionCount: sectionSummaries.length,
+        groupCount: groupAnalysis?.totalGroups || 0,
+        timestamp: new Date().toISOString(),
+      }),
+      'summary',
+    ]
+  );
+  
+  return {
+    synthesis,
+    metadata: {
+      sectionCount: sectionSummaries.length,
+      groupCount: groupAnalysis?.totalGroups || 0,
+      documentType: strategy.documentType,
+    },
+  };
+}
