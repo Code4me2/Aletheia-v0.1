@@ -2,6 +2,28 @@
 
 AI-powered legal document processing platform with n8n workflow automation.
 
+## Prerequisites
+
+Before you begin, ensure you have:
+
+1. **Docker Desktop** installed and running:
+   - [Download Docker Desktop](https://www.docker.com/products/docker-desktop)
+   - After installation, make sure Docker is running (icon in system tray/menu bar)
+   - Verify with: `docker --version` and `docker-compose --version`
+
+2. **System Requirements**:
+   - 8GB RAM minimum (16GB recommended)
+   - 10GB free disk space
+   - macOS, Linux, or Windows with WSL2
+
+3. **Required Ports Available**:
+   - 8080 (Main web interface)
+   - 8100 (n8n workflow automation)
+   - 8102 (AI Portal)
+   - 8104 (Court Processor)
+   - 8200 (PostgreSQL)
+   - 8201 (Redis)
+
 ## Quick Start
 
 ```bash
@@ -129,32 +151,29 @@ Aletheia/
 
 ### Environment Setup
 
+**Option 1: Automatic Setup (Recommended)**
+```bash
+./dev setup                    # Interactive setup
+./dev setup --non-interactive  # Automated setup (for CI/CD)
+```
+
+**Option 2: Manual Setup**
 1. Copy the template:
    ```bash
    cp .env.example .env
    ```
 
-2. Edit `.env` with your configuration:
+2. Replace ALL `CHANGE_ME` values in `.env`:
    ```bash
-   # Database
-   DB_USER=your_db_user
-   DB_PASSWORD=your_secure_password_here
-   DB_NAME=your_db_name
-   
-   # n8n
-   N8N_ENCRYPTION_KEY=your_secure_encryption_key_here
-   N8N_PORT=8100
-   
-   # Services
-   AI_PORTAL_PORT=8085
-   HAYSTACK_PORT=8000
-   ELASTICSEARCH_PORT=9200
-   
-   # Authentication
-   NEXTAUTH_SECRET=your_nextauth_secret
+   # Generate secure passwords:
+   openssl rand -hex 32  # For DB_PASSWORD and N8N_ENCRYPTION_KEY
+   openssl rand -base64 48  # For NEXTAUTH_SECRET
    ```
 
-3. Never commit `.env` with real credentials
+3. **Important Notes:**
+   - Never commit `.env` with real credentials
+   - N8N_API_KEY and N8N_API_SECRET are optional (only needed for n8n API access)
+   - AI service keys (OpenAI, Anthropic) are optional
 
 ### Port Configuration
 

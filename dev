@@ -54,6 +54,7 @@ show_help() {
     echo ""
     echo -e "${CYAN}Setup & Maintenance:${NC}"
     echo "  setup           Initial setup wizard (generate secure .env)"
+    echo "  doctor          Run comprehensive system diagnostics"
     echo "  backup          Backup database and configurations"
     echo "  cleanup         Archive old/backup files to .archive/"
     echo "  clean           Stop services and clean volumes (WARNING: deletes data)"
@@ -72,11 +73,25 @@ show_help() {
 check_requirements() {
     if ! command -v docker &> /dev/null; then
         echo -e "${RED}Error: Docker is not installed${NC}"
+        echo -e "${YELLOW}Please install Docker Desktop from: https://www.docker.com/products/docker-desktop${NC}"
         exit 1
     fi
     
     if ! command -v docker-compose &> /dev/null; then
         echo -e "${RED}Error: docker-compose is not installed${NC}"
+        echo -e "${YELLOW}Docker Compose should come with Docker Desktop. Please reinstall Docker Desktop.${NC}"
+        exit 1
+    fi
+    
+    # Check if Docker daemon is running
+    if ! docker info &> /dev/null; then
+        echo -e "${RED}Error: Docker daemon is not running${NC}"
+        echo -e "${YELLOW}Please start Docker Desktop first:${NC}"
+        echo -e "  • On macOS: Open Docker Desktop from Applications"
+        echo -e "  • On Linux: Run 'sudo systemctl start docker'"
+        echo -e "  • On Windows: Open Docker Desktop from Start Menu"
+        echo ""
+        echo -e "${CYAN}After starting Docker, run this command again.${NC}"
         exit 1
     fi
 }
@@ -614,23 +629,54 @@ case "$1" in
         ;;
         
     setup)
+        # Check for non-interactive mode
+        NON_INTERACTIVE=false
+        FORCE=false
+        for arg in "$@"; do
+            case $arg in
+                --non-interactive|-n)
+                    NON_INTERACTIVE=true
+                    ;;
+                --force|-f)
+                    FORCE=true
+                    ;;
+                --help|-h)
+                    echo "Usage: ./dev setup [options]"
+                    echo ""
+                    echo "Options:"
+                    echo "  --non-interactive, -n  Run without prompts (auto-backup existing .env)"
+                    echo "  --force, -f           Overwrite .env without backup"
+                    echo "  --help, -h            Show this help message"
+                    exit 0
+                    ;;
+            esac
+        done
+        
         echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
         echo -e "${BLUE}║       Aletheia Setup Wizard            ║${NC}"
         echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
         echo ""
         
         if [ -f .env ]; then
-            echo -e "${YELLOW}⚠ .env file already exists${NC}"
-            echo -n "Backup and create new? (y/N): "
-            read -r response
-            if [[ ! "$response" =~ ^[Yy]$ ]]; then
-                echo "Setup cancelled"
-                exit 0
+            if [ "$FORCE" = true ]; then
+                echo -e "${YELLOW}⚠ Overwriting existing .env file (--force)${NC}"
+            elif [ "$NON_INTERACTIVE" = true ]; then
+                timestamp=$(date +%Y%m%d_%H%M%S)
+                cp .env ".env.backup_${timestamp}"
+                echo -e "${GREEN}✓ Backed up existing .env to .env.backup_${timestamp}${NC}"
+            else
+                echo -e "${YELLOW}⚠ .env file already exists${NC}"
+                echo -n "Backup and create new? (y/N): "
+                read -r response
+                if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                    echo "Setup cancelled"
+                    exit 0
+                fi
+                
+                timestamp=$(date +%Y%m%d_%H%M%S)
+                cp .env ".env.backup_${timestamp}"
+                echo -e "${GREEN}✓ Backed up to .env.backup_${timestamp}${NC}"
             fi
-            
-            timestamp=$(date +%Y%m%d_%H%M%S)
-            cp .env ".env.backup_${timestamp}"
-            echo -e "${GREEN}✓ Backed up to .env.backup_${timestamp}${NC}"
         fi
         
         # Generate secure passwords
@@ -648,15 +694,29 @@ ENVIRONMENT=development
 DB_USER=aletheia
 DB_PASSWORD=$(generate_password 32)
 DB_NAME=aletheia
+DB_HOST=db
+DB_PORT=5432
 
 # Ports
 WEB_PORT=8080
 N8N_PORT=8100
+AI_PORTAL_PORT=8102
+COURT_PROCESSOR_PORT=8104
 POSTGRES_PORT=8200
+REDIS_PORT=8201
 
 # Security
 N8N_ENCRYPTION_KEY=$(generate_password 32)
 NEXTAUTH_SECRET=$(generate_password 64)
+N8N_WEBHOOK_ID=c188c31c-1c45-4118-9ece-5b6057ab5177
+
+# Optional - N8N API Credentials (leave empty if not using API)
+N8N_API_KEY=
+N8N_API_SECRET=
+
+# Optional - AI Service Keys
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
 EOF
         
         echo -e "${GREEN}✓ Generated .env with secure credentials${NC}"
@@ -836,6 +896,202 @@ EOF
                 echo "  restore <file>     - Restore from backup"
                 ;;
         esac
+        ;;
+        
+    doctor)
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo -e "${BLUE}  Comprehensive System Diagnostics${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo ""
+        
+        issues=0
+        warnings=0
+        
+        # 1. Check Docker
+        echo -e "${CYAN}1. Docker Environment:${NC}"
+        if ! command -v docker &> /dev/null; then
+            echo -e "${RED}✗${NC} Docker not installed"
+            echo -e "  ${YELLOW}→ Install from: https://www.docker.com/products/docker-desktop${NC}"
+            ((issues++))
+        else
+            echo -e "${GREEN}✓${NC} Docker installed ($(docker --version 2>/dev/null | cut -d' ' -f3 | tr -d ','))"
+            
+            if ! docker info &> /dev/null; then
+                echo -e "${RED}✗${NC} Docker daemon not running"
+                echo -e "  ${YELLOW}→ Start Docker Desktop application${NC}"
+                ((issues++))
+            else
+                echo -e "${GREEN}✓${NC} Docker daemon running"
+                
+                # Check Docker resources
+                mem_limit=$(docker info 2>/dev/null | grep "Total Memory" | awk '{print $3}')
+                if [ -n "$mem_limit" ]; then
+                    echo -e "${GREEN}✓${NC} Docker memory: $mem_limit"
+                fi
+            fi
+        fi
+        
+        if ! command -v docker-compose &> /dev/null; then
+            echo -e "${RED}✗${NC} docker-compose not installed"
+            ((issues++))
+        else
+            echo -e "${GREEN}✓${NC} docker-compose installed ($(docker-compose --version 2>/dev/null | cut -d' ' -f4 | tr -d ','))"
+        fi
+        echo ""
+        
+        # 2. Check Configuration
+        echo -e "${CYAN}2. Configuration:${NC}"
+        if [ ! -f .env ]; then
+            echo -e "${RED}✗${NC} No .env file found"
+            echo -e "  ${YELLOW}→ Run './dev setup' to create one${NC}"
+            ((issues++))
+        else
+            echo -e "${GREEN}✓${NC} .env file exists"
+            
+            # Check for default passwords
+            if grep -q "CHANGE_ME" .env 2>/dev/null; then
+                echo -e "${RED}✗${NC} Found CHANGE_ME placeholders in .env"
+                echo -e "  ${YELLOW}→ Update all CHANGE_ME values with secure passwords${NC}"
+                ((issues++))
+            fi
+            
+            if grep -q "aletheia123" .env 2>/dev/null; then
+                echo -e "${YELLOW}⚠${NC} Weak default password detected"
+                echo -e "  ${YELLOW}→ Update DB_PASSWORD with a secure password${NC}"
+                ((warnings++))
+            fi
+            
+            # Check required variables
+            source .env 2>/dev/null
+            missing=0
+            for var in DB_USER DB_PASSWORD DB_NAME N8N_ENCRYPTION_KEY NEXTAUTH_SECRET; do
+                if [ -z "${!var}" ]; then
+                    echo -e "${RED}✗${NC} Missing required: $var"
+                    ((missing++))
+                fi
+            done
+            
+            if [ $missing -eq 0 ]; then
+                echo -e "${GREEN}✓${NC} All required variables set"
+            else
+                ((issues++))
+            fi
+        fi
+        echo ""
+        
+        # 3. Check Ports
+        echo -e "${CYAN}3. Port Availability:${NC}"
+        port_issues=0
+        for port_var in WEB_PORT N8N_PORT AI_PORTAL_PORT COURT_PROCESSOR_PORT POSTGRES_PORT REDIS_PORT; do
+            port=${!port_var}
+            if [ -z "$port" ]; then
+                # Use defaults if not set
+                case $port_var in
+                    WEB_PORT) port=8080 ;;
+                    N8N_PORT) port=8100 ;;
+                    AI_PORTAL_PORT) port=8102 ;;
+                    COURT_PROCESSOR_PORT) port=8104 ;;
+                    POSTGRES_PORT) port=8200 ;;
+                    REDIS_PORT) port=8201 ;;
+                esac
+            fi
+            
+            if lsof -i :$port &> /dev/null || netstat -an 2>/dev/null | grep -q ":$port.*LISTEN"; then
+                echo -e "${RED}✗${NC} Port $port ($port_var) already in use"
+                ((port_issues++))
+            else
+                echo -e "${GREEN}✓${NC} Port $port ($port_var) available"
+            fi
+        done
+        
+        if [ $port_issues -gt 0 ]; then
+            echo -e "  ${YELLOW}→ Change port numbers in .env or stop conflicting services${NC}"
+            ((warnings++))
+        fi
+        echo ""
+        
+        # 4. Check Services (if Docker is running)
+        if docker info &> /dev/null; then
+            echo -e "${CYAN}4. Service Status:${NC}"
+            running=$(docker-compose ps --services --filter "status=running" 2>/dev/null | wc -l | tr -d ' ')
+            total=$(docker-compose config --services 2>/dev/null | wc -l | tr -d ' ')
+            
+            if [ "$running" = "0" ]; then
+                echo -e "${YELLOW}⚠${NC} No services running ($running/$total)"
+                echo -e "  ${YELLOW}→ Run './dev up' to start services${NC}"
+            else
+                echo -e "${GREEN}✓${NC} Services running: $running/$total"
+                
+                # Check health status
+                unhealthy=$(docker-compose ps 2>/dev/null | grep -c "(unhealthy)" || echo "0")
+                if [ "$unhealthy" -gt "0" ]; then
+                    echo -e "${YELLOW}⚠${NC} $unhealthy service(s) unhealthy"
+                    echo -e "  ${YELLOW}→ Run './dev health' for details${NC}"
+                    ((warnings++))
+                fi
+            fi
+        else
+            echo -e "${CYAN}4. Service Status:${NC}"
+            echo -e "${YELLOW}⚠${NC} Cannot check services (Docker not running)"
+        fi
+        echo ""
+        
+        # 5. System Resources
+        echo -e "${CYAN}5. System Resources:${NC}"
+        
+        # Check disk space
+        if command -v df &> /dev/null; then
+            disk_usage=$(df -h . 2>/dev/null | awk 'NR==2 {print $5}' | tr -d '%')
+            disk_avail=$(df -h . 2>/dev/null | awk 'NR==2 {print $4}')
+            
+            if [ -n "$disk_usage" ]; then
+                if [ "$disk_usage" -gt 90 ]; then
+                    echo -e "${RED}✗${NC} Low disk space ($disk_avail available)"
+                    ((warnings++))
+                else
+                    echo -e "${GREEN}✓${NC} Disk space: $disk_avail available"
+                fi
+            fi
+        fi
+        
+        # Check memory (macOS/Linux)
+        if command -v free &> /dev/null; then
+            # Linux
+            mem_avail=$(free -h 2>/dev/null | awk '/^Mem:/ {print $7}')
+            if [ -n "$mem_avail" ]; then
+                echo -e "${GREEN}✓${NC} Memory available: $mem_avail"
+            fi
+        elif command -v vm_stat &> /dev/null; then
+            # macOS
+            pages_free=$(vm_stat 2>/dev/null | grep "Pages free" | awk '{print $3}' | tr -d '.')
+            if [ -n "$pages_free" ]; then
+                mem_free_mb=$((pages_free * 4096 / 1024 / 1024))
+                echo -e "${GREEN}✓${NC} Memory available: ~${mem_free_mb}MB free"
+            fi
+        fi
+        echo ""
+        
+        # Summary
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        if [ $issues -eq 0 ] && [ $warnings -eq 0 ]; then
+            echo -e "${GREEN}✅ System ready! All checks passed.${NC}"
+            echo ""
+            echo "Next steps:"
+            if [ "$running" = "0" ]; then
+                echo "  1. Run './dev up' to start services"
+            else
+                echo "  1. Services are running"
+            fi
+            echo "  2. Access http://localhost:8080"
+        elif [ $issues -gt 0 ]; then
+            echo -e "${RED}❌ Found $issues critical issue(s) and $warnings warning(s)${NC}"
+            echo ""
+            echo "Please fix the critical issues above before proceeding."
+        else
+            echo -e "${YELLOW}⚠ Found $warnings warning(s)${NC}"
+            echo ""
+            echo "System is functional but review warnings above."
+        fi
         ;;
         
     env)
