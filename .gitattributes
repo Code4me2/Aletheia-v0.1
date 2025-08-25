@@ -1,0 +1,10 @@
+# Exclude database backups from language statistics
+data/db-backups/* linguist-vendored
+backups/*.sql linguist-vendored
+backups/* linguist-vendored
+
+# Mark SQL schema files as SQL (not PLpgSQL)
+*.sql linguist-language=SQL
+
+# Exclude archived files from language stats
+court-processor/archived/* linguist-vendored

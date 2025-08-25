@@ -7,7 +7,6 @@
 
 # Docker volumes and data
 **/data/
-!/data/db-backups/
 **/postgres_data/
 **/n8n_data/
 docker-compose.override.yml
@@ -80,6 +79,12 @@ lawyer-chat/out/
 *.sqlite
 *.sqlite3
 *.sql.gz
+
+# Database backups
+/data/db-backups/
+/backups/
+data/db-backups/
+backups/*.sql
 
 # Court data
 court-data/pdfs/**/*.pdf

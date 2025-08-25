@@ -1,13 +1,12 @@
 # Database Schema
 
-This document describes the PostgreSQL database schema used by Aletheia v0.1.
+This document describes the PostgreSQL database schema used by Aletheia.
 
 ## Overview
 
-Aletheia uses PostgreSQL as its primary data store with multiple schemas for different components:
+Aletheia uses PostgreSQL as its primary data store. The court-processor service uses a simplified single-table design:
 
-- **`public`** - Default PostgreSQL schema (currently unused)
-- **`court_data`** - Court opinion processing and storage (11 tables)
+- **`public.court_documents`** - Main table for all court documents (485 documents as of Aug 2025)
 
 ## Quick Access
 
@@ -15,229 +14,173 @@ Aletheia uses PostgreSQL as its primary data store with multiple schemas for dif
 # Access database shell
 ./dev db shell
 
-# List all tables
-\\dt court_data.*
+# View court_documents table structure
+\d public.court_documents
 
-# Describe a table
-\\d court_data.opinions_unified
+# Count documents
+SELECT COUNT(*) FROM public.court_documents;
+
+# View document types
+SELECT DISTINCT document_type FROM public.court_documents;
 ```
 
-## Court Data Schema
+## Active Schema
 
-The `court_data` schema contains tables for managing court opinions and judicial data.
+### `public.court_documents`
 
-### Main Tables
-
-| Table Name | Purpose | Row Count* |
-|------------|---------|------------|
-| `opinions_unified` | Unified court opinions with full text | Primary data |
-| `cl_opinions` | CourtListener opinions | Source data |
-| `cl_dockets` | CourtListener docket information | Metadata |
-| `cl_docket_entries` | Individual docket entries | Details |
-| `judges` | Judge information | Reference |
-| `judge_aliases` | Alternative judge names | Normalization |
-| `courts_reference` | Court metadata | Reference |
-| `cl_clusters` | Opinion clusters | Grouping |
-| `normalized_reporters` | Reporter citations | Reference |
-| `processed_documents_flp` | Processing status | Tracking |
-| `transcript_opinions` | Transcript data | Alternative format |
-
-*Note: Row counts vary based on data imports
-
-### Key Tables Detail
-
-#### `judges`
-
-Stores information about judges in the court system.
+The primary table used by the court-processor API and CLI.
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | `id` | integer | PRIMARY KEY | auto-increment | Unique identifier |
-| `name` | varchar(255) | NOT NULL, UNIQUE | - | Judge's full name |
-| `court` | varchar(100) | - | - | Court affiliation |
+| `case_number` | varchar(255) | - | - | Case identifier (e.g., "2:17-CV-00141-JRG") |
+| `document_type` | varchar(100) | - | - | Type: 'opinion', '020lead', 'opinion_doctor', 'docket' |
+| `file_path` | text | - | - | Path to original file (if applicable) |
+| `content` | text | - | - | Full document content (HTML/XML format) |
+| `metadata` | jsonb | - | - | Flexible metadata storage |
+| `processed` | boolean | - | false | Processing status flag |
 | `created_at` | timestamp | - | CURRENT_TIMESTAMP | Record creation time |
 | `updated_at` | timestamp | - | CURRENT_TIMESTAMP | Last update time |
+| `case_name` | varchar(500) | - | - | Human-readable case name |
 
 **Indexes:**
 - Primary key on `id`
-- Unique constraint on `name`
-- B-tree index on `name`, `court`
+- B-tree index on `case_number`
+- B-tree index on `document_type`
+- B-tree index on `processed`
+- GIN index on `metadata` for JSONB queries
 
-#### `opinions_unified`
+### Document Types
 
-Primary table for unified court opinions with full text and metadata.
+| Type | Description | Count* |
+|------|-------------|--------|
+| `opinion` | Generic court opinion | 273 |
+| `020lead` | CourtListener lead opinion (main opinion of the court) | 210 |
+| `opinion_doctor` | Enhanced/processed opinion | 2 |
+| `docket` | Docket entry | 0 |
 
-| Column | Type | Constraints | Default | Description |
-|--------|------|-------------|---------|-------------|
-| `id` | integer | PRIMARY KEY | auto-increment | Unique identifier |
-| `cl_id` | integer | - | - | CourtListener ID reference |
-| `court_id` | varchar(15) | - | - | Court identifier code |
-| `docket_number` | varchar(500) | - | - | Court docket number |
-| `case_name` | text | - | - | Name of the case |
-| `date_filed` | date | - | - | Date opinion was filed |
-| `author_str` | varchar(200) | - | - | Author judge name |
-| `per_curiam` | boolean | - | false | Per curiam opinion flag |
-| `type` | varchar(20) | - | - | Opinion type |
-| `plain_text` | text | - | - | Full text content |
-| `html` | text | - | - | HTML formatted content |
-| `pdf_url` | text | - | - | URL to PDF document |
-| `citations` | jsonb | - | '[]' | Citation references |
-| `judge_info` | jsonb | - | '{}' | Judge metadata |
-| `court_info` | jsonb | - | '{}' | Court metadata |
-| `structured_elements` | jsonb | - | '{}' | Parsed document structure |
-| `document_hash` | varchar(64) | NOT NULL | - | Document uniqueness hash |
-| `pdf_metadata` | jsonb | - | '{}' | PDF-specific metadata |
-| `processing_status` | varchar(50) | - | 'completed' | Processing status |
-| `processing_error` | text | - | - | Error details if any |
-| `vector_indexed` | boolean | - | false | Vector indexing status |
-| `hierarchical_doc_id` | integer | - | - | Hierarchical document reference |
-| `scraped_at` | timestamp | - | CURRENT_TIMESTAMP | Scraping timestamp |
-| `created_at` | timestamp | - | CURRENT_TIMESTAMP | Record creation time |
-| `updated_at` | timestamp | - | CURRENT_TIMESTAMP | Last update time |
+*Counts as of August 2025
 
-**Indexes:**
-- Primary key on `id`
-- Unique constraint on `(court_code, docket_number, case_date)`
-- Foreign key to `judges(id)`
-- B-tree indexes on `court_code`, `case_date`, `docket_number`, `judge_id`
-- GIN index for full-text search on `text_content`
-- Partial index on `vector_indexed` for unprocessed documents
+### Metadata Structure
 
-#### `processing_log`
+The `metadata` JSONB field typically contains:
 
-Tracks court opinion processing runs and statistics.
-
-| Column | Type | Constraints | Default | Description |
-|--------|------|-------------|---------|-------------|
-| `id` | integer | PRIMARY KEY | auto-increment | Unique identifier |
-| `court_code` | varchar(50) | - | - | Court being processed |
-| `run_date` | date | - | - | Date of processing run |
-| `opinions_found` | integer | - | 0 | Number of opinions found |
-| `opinions_processed` | integer | - | 0 | Number processed successfully |
-| `errors_count` | integer | - | 0 | Number of errors |
-| `error_details` | jsonb | - | - | Detailed error information |
-| `started_at` | timestamp | - | CURRENT_TIMESTAMP | Processing start time |
-| `completed_at` | timestamp | - | - | Processing completion time |
-| `status` | varchar(50) | - | 'running' | Current status |
-
-### Views
-
-#### `judge_stats`
-
-Provides aggregated statistics for each judge.
-
-```sql
-CREATE VIEW court_data.judge_stats AS
-SELECT 
-    j.id,
-    j.name,
-    j.court,
-    count(o.id) AS opinion_count,
-    min(o.case_date) AS earliest_opinion,
-    max(o.case_date) AS latest_opinion,
-    count(o.id) FILTER (WHERE o.vector_indexed = false) AS pending_indexing
-FROM court_data.judges j
-LEFT JOIN court_data.opinions o ON j.id = o.judge_id
-GROUP BY j.id, j.name, j.court;
+```json
+{
+  "judge_name": "Rodney Gilstrap",
+  "court_id": "txed",
+  "date_filed": "2019-06-14",
+  "cl_opinion_id": "1967",
+  "cl_cluster_id": 7336453,
+  "citations": ["767 F.3d 1308", "664 F.3d 467"],
+  "source": "courtlistener_standalone",
+  "type": "020lead"
+}
 ```
-
-### Functions
-
-#### `get_or_create_judge(name, court)`
-
-Retrieves an existing judge ID or creates a new judge record.
-
-**Parameters:**
-- `p_judge_name` (varchar) - Name of the judge
-- `p_court` (varchar) - Court affiliation
-
-**Returns:** integer - Judge ID
-
-#### `update_updated_at_column()`
-
-Trigger function that automatically updates the `updated_at` timestamp on row modification.
-
-### Sequences
-
-| Sequence | Table | Column |
-|----------|-------|---------|
-| `judges_id_seq` | judges | id |
-| `opinions_id_seq` | opinions | id |
-| `processing_log_id_seq` | processing_log | id |
 
 ## Usage Examples
 
-### Query Opinions by Judge
+### Query by Judge
 
 ```sql
-SELECT o.* 
-FROM court_data.opinions o
-JOIN court_data.judges j ON o.judge_id = j.id
-WHERE j.name = 'Judge Smith'
-ORDER BY o.case_date DESC;
+SELECT * FROM public.court_documents
+WHERE metadata->>'judge_name' = 'Gilstrap'
+ORDER BY (metadata->>'date_filed')::date DESC;
 ```
 
-### Find Unprocessed Documents
+### Find Long Documents
 
 ```sql
-SELECT * FROM court_data.opinions
-WHERE vector_indexed = false
-LIMIT 100;
+SELECT id, case_number, LENGTH(content) as content_length
+FROM public.court_documents
+WHERE document_type = '020lead'
+AND LENGTH(content) > 50000
+ORDER BY LENGTH(content) DESC;
 ```
 
-### Full-Text Search
+### Get Document Statistics
 
 ```sql
-SELECT * FROM court_data.opinions
-WHERE to_tsvector('english', text_content) @@ plainto_tsquery('constitutional rights');
+SELECT 
+  document_type,
+  COUNT(*) as count,
+  AVG(LENGTH(content)) as avg_length,
+  MAX(LENGTH(content)) as max_length
+FROM public.court_documents
+GROUP BY document_type;
 ```
 
-### Get Judge Statistics
+### Search by Court
 
 ```sql
-SELECT * FROM court_data.judge_stats
-ORDER BY opinion_count DESC
-LIMIT 20;
+SELECT * FROM public.court_documents
+WHERE metadata->>'court_id' = 'txed'
+LIMIT 10;
 ```
 
-## Database Initialization
+## API Access
 
-To initialize the court data schema:
+The court-processor API provides REST endpoints for this data:
 
 ```bash
-# Using the court processor
-docker-compose exec court-processor python processor.py --init-db
+# Get document text
+curl http://localhost:8104/text/420
 
-# Or directly via SQL
-docker-compose exec db psql -U your_db_user -d your_db_name -f /court-processor/scripts/init_db.sql
+# Search documents
+curl "http://localhost:8104/search?judge=Gilstrap&type=020lead"
+
+# List documents
+curl http://localhost:8104/list
 ```
 
-## Migration Strategy
+## Data Statistics (August 2025)
 
-When updating the schema:
+- **Total Documents**: 485
+- **Document Types**: opinion (273), 020lead (210), opinion_doctor (2)
+- **Top Courts**: txed (72), ded (44), mdd (16)
+- **Date Range**: 1996-05-02 to 2025-07-22
+- **Largest Document**: 119,432 characters
+- **Documents > 50K chars**: 19
 
-1. Create migration scripts in `court-processor/scripts/migrations/`
-2. Version migrations with timestamps (e.g., `202501_add_column.sql`)
-3. Test migrations in development before production
-4. Always backup before running migrations
+## Archived Schemas
+
+Multiple legacy schemas exist but are NOT in active use:
+
+- `court_data.opinions` - Original design (archived)
+- `court_data.cl_*` tables - CourtListener integration (never populated)
+- `court_data.opinions_unified` - Unification attempt (partial data)
+
+These schemas are preserved in `court-processor/archived/database_schemas/` for reference but should not be used for new development.
 
 ## Performance Considerations
 
-1. **Indexes**: The schema includes comprehensive indexes for common query patterns
-2. **JSONB Storage**: Flexible metadata storage without schema rigidity
-3. **Full-Text Search**: GIN indexes enable efficient text searching
-4. **Partial Indexes**: Optimize queries for unprocessed documents
+1. **Single Table Design**: Simplified queries and maintenance
+2. **JSONB Metadata**: Flexible storage without schema changes
+3. **Indexed Lookups**: Fast queries on case_number and document_type
+4. **Text Storage**: Efficient for documents up to 120KB+
 
 ## Security
 
-- All database credentials are stored in environment variables
+- Database credentials stored in environment variables
 - Application uses least-privilege database user
 - No direct external database access
 - Prepared statements prevent SQL injection
 
-## Future Enhancements
+## Future Considerations
 
-- [ ] Partitioning for large opinion tables
-- [ ] Read replicas for search operations
-- [ ] Connection pooling optimization
-- [ ] Automated backup procedures
+The current simple schema works well for 485 documents but may need enhancement for scale:
+
+- [ ] Full-text search indexes for content field
+- [ ] Partitioning if document count exceeds 100K
+- [ ] Separate metadata tables if JSONB queries become slow
+- [ ] Migration to `court_data.opinions_unified` if consolidation needed
+
+## Connection Details
+
+```bash
+# From Docker containers
+postgresql://aletheia:aletheia123@db:5432/aletheia
+
+# From host machine
+postgresql://aletheia:aletheia123@localhost:8200/aletheia
+```

@@ -1,0 +1,124 @@
+{
+  "sections": [
+    {
+      "id": "section-001",
+      "type": "transcript",
+      "sequence": 1,
+      "metadata": {
+        "speaker": "Attorney Smith",
+        "action": "opening",
+        "page": 1,
+        "line": 10
+      },
+      "content": "Your Honor, we are here today to present evidence showing that the defendant breached the contract. The evidence will show clear violations of sections 3.2 and 4.1 of the agreement."
+    },
+    {
+      "id": "section-002",
+      "type": "transcript",
+      "sequence": 2,
+      "metadata": {
+        "speaker": "Judge",
+        "action": "ruling",
+        "page": 2,
+        "line": 5
+      },
+      "content": "Thank you, counsel. Please proceed with your opening statement."
+    },
+    {
+      "id": "section-003",
+      "type": "transcript",
+      "sequence": 3,
+      "metadata": {
+        "speaker": "Attorney Jones",
+        "action": "objection",
+        "page": 2,
+        "line": 15
+      },
+      "content": "Objection, Your Honor. The plaintiff's characterization of the contract terms is misleading and prejudicial."
+    },
+    {
+      "id": "section-004",
+      "type": "transcript",
+      "sequence": 4,
+      "metadata": {
+        "speaker": "Judge",
+        "action": "ruling",
+        "page": 3,
+        "line": 1
+      },
+      "content": "Overruled. This is opening statements. You'll have your opportunity to present your interpretation."
+    },
+    {
+      "id": "section-005",
+      "type": "transcript",
+      "sequence": 5,
+      "metadata": {
+        "speaker": "Witness Davis",
+        "action": "testimony",
+        "page": 5,
+        "line": 10
+      },
+      "content": "I was present during the contract negotiations. The defendant explicitly agreed to the delivery timeline of 30 days. There was no ambiguity in the terms discussed."
+    },
+    {
+      "id": "section-006",
+      "type": "transcript",
+      "sequence": 6,
+      "metadata": {
+        "speaker": "Attorney Jones",
+        "action": "cross",
+        "page": 7,
+        "line": 20
+      },
+      "content": "Mr. Davis, isn't it true that there were subsequent emails discussing potential modifications to that timeline?"
+    },
+    {
+      "id": "section-007",
+      "type": "transcript",
+      "sequence": 7,
+      "metadata": {
+        "speaker": "Witness Davis",
+        "action": "testimony",
+        "page": 8,
+        "line": 5
+      },
+      "content": "There were discussions, yes, but no formal amendments were ever executed."
+    },
+    {
+      "id": "section-008",
+      "type": "transcript",
+      "sequence": 8,
+      "metadata": {
+        "speaker": "Attorney Jones",
+        "action": "objection",
+        "page": 9,
+        "line": 12
+      },
+      "content": "Objection. The witness is offering a legal conclusion about what constitutes a formal amendment."
+    },
+    {
+      "id": "section-009",
+      "type": "transcript",
+      "sequence": 9,
+      "metadata": {
+        "speaker": "Judge",
+        "action": "ruling",
+        "page": 9,
+        "line": 15
+      },
+      "content": "Sustained. The jury will disregard the witness's characterization of formal amendments."
+    },
+    {
+      "id": "section-010",
+      "type": "transcript",
+      "sequence": 10,
+      "metadata": {
+        "speaker": "Attorney Smith",
+        "action": "redirect",
+        "page": 10,
+        "line": 8
+      },
+      "content": "Mr. Davis, focusing just on what you observed, were any written modifications to the contract ever signed by both parties?"
+    }
+  ]
+}

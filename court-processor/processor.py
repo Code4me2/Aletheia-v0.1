@@ -29,7 +29,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from services.database import get_db_connection
-from services.service_config import SERVICES
+from services.config import SERVICES
 
 # Import FLP components
 from courts_db import find_court, courts
@@ -37,10 +37,10 @@ from eyecite import get_citations
 from reporters_db import REPORTERS
 
 # Import our custom components
-from pipeline_exceptions import *
-from pipeline_validators import *
-from error_reporter import ErrorCollector
-from judge_extractor import ComprehensiveJudgeExtractor as EnhancedJudgeExtractor  # Using renamed simple version
+from exceptions import *
+from validators import *
+from utils.reporter import ErrorCollector
+from extractors.judge import ComprehensiveJudgeExtractor as EnhancedJudgeExtractor  # Using renamed simple version
 
 # Create courts dictionary for direct lookup
 COURTS_DICT = {court['id']: court for court in courts if isinstance(court, dict)}

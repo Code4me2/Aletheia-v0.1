@@ -27,13 +27,17 @@ Before you begin, ensure you have:
 ## Quick Start
 
 ```bash
-# 1. Setup (first time only)
+# 1. Clone the repository
+git clone https://github.com/Code4me2/Aletheia-v0.1.git
+cd Aletheia-v0.1
+
+# 2. Setup (first time only)
 ./dev setup
 
-# 2. Start services
+# 3. Start services
 ./dev up
 
-# 3. Access services
+# 4. Access services
 # Main app:          http://localhost:8080
 # n8n:               http://localhost:8100
 # Lawyer Chat:       http://localhost:8080/chat
