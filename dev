@@ -142,6 +142,54 @@ case "$1" in
             echo ""
             echo "Run './dev logs' to see output"
             echo "Run './dev health' to check services"
+            
+            # Auto-restore court data if it's a fresh database
+            if [ -f court-processor/data/court_documents_backup.sql.gz ]; then
+                echo ""
+                echo -e "${BLUE}Checking for court processor data...${NC}"
+                
+                # Wait for database to be ready (max 30 seconds)
+                DB_READY=false
+                for i in {1..30}; do
+                    if docker-compose exec -T db pg_isready -U "${DB_USER:-aletheia}" &>/dev/null; then
+                        DB_READY=true
+                        break
+                    fi
+                    if [ $i -eq 1 ]; then
+                        echo -n "Waiting for database to be ready"
+                    else
+                        echo -n "."
+                    fi
+                    sleep 1
+                done
+                
+                if [ "$DB_READY" = true ]; then
+                    echo ""  # New line after dots
+                    
+                    # Check if court_documents table exists and count records
+                    COUNT=$(docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c \
+                        "SELECT COUNT(*) FROM public.court_documents" 2>/dev/null || echo "0")
+                    COUNT=$(echo $COUNT | tr -d ' ')
+                    
+                    if [ "$COUNT" = "0" ]; then
+                        echo -e "${BLUE}Restoring court processor sample data (485 documents)...${NC}"
+                        if gunzip -c court-processor/data/court_documents_backup.sql.gz | \
+                           docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" &>/dev/null; then
+                            echo -e "${GREEN}✓ Successfully restored 485 court documents${NC}"
+                            echo "  Documents are now available in Lawyer Chat interface"
+                        else
+                            echo -e "${YELLOW}⚠ Failed to restore court data${NC}"
+                            echo "  You can manually restore with: ./dev db restore-court-data"
+                        fi
+                    elif [ "$COUNT" -gt "0" ]; then
+                        echo -e "${GREEN}✓ Database already contains $COUNT court documents${NC}"
+                    fi
+                else
+                    echo ""  # New line after dots
+                    echo -e "${YELLOW}⚠ Database not ready for auto-restore${NC}"
+                    echo "  You can manually restore later with: ./dev db restore-court-data"
+                fi
+            fi
         fi
         ;;
         
@@ -722,21 +770,10 @@ EOF
         echo -e "${GREEN}✓ Generated .env with secure credentials${NC}"
         echo ""
         
-        # Ask about court data restoration
+        # Notify about court data restoration
         if [ -f court-processor/data/court_documents_backup.sql.gz ]; then
-            if [ "$NON_INTERACTIVE" = true ]; then
-                echo -e "${BLUE}Court processor data backup available (will be restored after database setup)${NC}"
-            else
-                echo -e "${CYAN}Court processor data backup found (485 documents, ~9.5MB)${NC}"
-                echo -n "Restore this data after starting services? (Y/n): "
-                read -r response
-                if [[ ! "$response" =~ ^[Nn]$ ]]; then
-                    echo -e "${GREEN}✓ Court data will be restored after database initialization${NC}"
-                    echo "  Run './dev up' then './dev db restore-court-data' to import"
-                else
-                    echo "  You can restore it later with './dev db restore-court-data'"
-                fi
-            fi
+            echo -e "${CYAN}Court processor data backup found (485 documents, ~9.5MB)${NC}"
+            echo -e "${GREEN}✓ Will be automatically restored when services start${NC}"
         fi
         
         echo ""

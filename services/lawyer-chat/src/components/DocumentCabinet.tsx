@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, FileText, X, Loader2, AlertCircle } from 'lucide-react';
-import { courtAPI } from '@/lib/court-api';
+import { ChevronRight, ChevronDown, FileText, X, Loader2, AlertCircle, Gavel, FileAudio } from 'lucide-react';
+import { getDocumentSource, documentSourceRegistry } from '@/lib/document-sources/registry';
 import { CourtDocument } from '@/types/court-documents';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +22,16 @@ interface JudgeData {
 
 export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: DocumentCabinetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [currentSourceId, setCurrentSourceId] = useState<'court' | 'transcripts'>('court');
+  
+  // Clear selections when switching sources
+  const handleSourceChange = (sourceId: 'court' | 'transcripts') => {
+    if (sourceId !== currentSourceId) {
+      setCurrentSourceId(sourceId);
+      setSelectedDocIds(new Set());
+      onDocumentsSelected([]); // Clear selected documents in parent
+    }
+  };
   const [judges, setJudges] = useState<JudgeData[]>([
     { name: 'Gilstrap', documents: [], isExpanded: false, isLoading: false },
     { name: 'Albright', documents: [], isExpanded: false, isLoading: false }
@@ -37,8 +47,9 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
     ));
 
     try {
-      const response = await courtAPI.searchDocuments({
-        judge: judgeName,
+      const source = getDocumentSource(currentSourceId);
+      const response = await source.searchDocuments({
+        category: judgeName,
         type: '020lead',
         limit: 50,
         min_length: 5000
@@ -80,7 +91,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
       }
       return j;
     }));
-  }, [loadJudgeDocuments]);
+  }, [loadJudgeDocuments, currentSourceId]);
 
   // Toggle document selection
   const toggleDocument = useCallback(async (doc: CourtDocument) => {
@@ -95,7 +106,8 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
       
       try {
         // Fetch the full document text
-        const fullText = await courtAPI.getDocumentText(doc.id);
+        const source = getDocumentSource(currentSourceId);
+        const fullText = await source.getDocumentText(doc.id);
         const fullDoc = { ...doc, text: fullText };
         
         newSelected.add(doc.id);
@@ -113,7 +125,8 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                 }
                 // Fetch text for other selected docs if needed
                 if (!foundDoc.text) {
-                  const text = await courtAPI.getDocumentText(id);
+                  const source = getDocumentSource(currentSourceId);
+                  const text = await source.getDocumentText(id);
                   return { ...foundDoc, text };
                 }
                 return foundDoc;
@@ -217,6 +230,49 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
           </button>
         </div>
 
+        {/* Source Selector */}
+        <div className={cn(
+          "p-4 border-b",
+          isDarkMode ? "border-gray-700" : "border-gray-200"
+        )}>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleSourceChange('court')}
+              className={cn(
+                "flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2",
+                "transition-all font-medium text-sm",
+                currentSourceId === 'court'
+                  ? isDarkMode 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-blue-500 text-white"
+                  : isDarkMode
+                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              )}
+            >
+              <Gavel className="w-4 h-4" />
+              <span>Opinions</span>
+            </button>
+            <button
+              onClick={() => handleSourceChange('transcripts')}
+              className={cn(
+                "flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2",
+                "transition-all font-medium text-sm",
+                currentSourceId === 'transcripts'
+                  ? isDarkMode 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-blue-500 text-white"
+                  : isDarkMode
+                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              )}
+            >
+              <FileAudio className="w-4 h-4" />
+              <span>Transcripts</span>
+            </button>
+          </div>
+        </div>
+
         {/* Selected count */}
         {selectedDocIds.size > 0 && (
           <div className={cn(
@@ -227,9 +283,18 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
           </div>
         )}
 
-        {/* Judge dropdowns */}
+        {/* Document dropdowns */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {judges.map((judge) => (
+          {currentSourceId === 'transcripts' ? (
+            // Transcripts placeholder
+            <div className="text-center py-8 opacity-60">
+              <FileAudio className="w-12 h-12 mx-auto mb-3" />
+              <p className="text-sm">No transcripts available</p>
+              <p className="text-xs mt-2">Transcript integration coming soon</p>
+            </div>
+          ) : (
+            // Opinions (existing judge dropdowns)
+            judges.map((judge) => (
             <div key={judge.name} className="border rounded-lg overflow-hidden">
               {/* Judge header */}
               <button
@@ -336,7 +401,8 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                 </div>
               )}
             </div>
-          ))}
+          ))
+          )}
         </div>
       </div>
     </>

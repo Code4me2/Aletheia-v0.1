@@ -39,7 +39,12 @@ gunzip -c court-processor/data/court_documents_backup.sql.gz | \
 
 ## Integration with Setup
 
-The `./dev setup` command will automatically detect this backup and offer to restore it for new users.
+The `./dev up` command automatically restores this data when:
+- Starting services for the first time (empty database)
+- The backup file is present
+- The database becomes ready
+
+This ensures new users immediately have sample data available.
 
 ## Creating a New Backup
 
