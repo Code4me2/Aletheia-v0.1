@@ -22,6 +22,15 @@ cd "$SCRIPT_DIR"
 PROJECT_NAME=${COMPOSE_PROJECT_NAME:-aletheia_development}
 BASE_URL=${BASE_URL:-"http://localhost:8080"}
 
+# Determine docker-compose command to use
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+else
+    DOCKER_COMPOSE=""  # Will be checked later in check_requirements
+fi
+
 # Function to show usage
 show_help() {
     echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
@@ -74,7 +83,7 @@ show_help() {
     echo "  ./dev shell db           # Open PostgreSQL shell"
 }
 
-# Check if docker and docker-compose are installed
+# Check if docker and $DOCKER_COMPOSE are installed
 check_requirements() {
     if ! command -v docker &> /dev/null; then
         echo -e "${RED}Error: Docker is not installed${NC}"
@@ -82,8 +91,9 @@ check_requirements() {
         exit 1
     fi
     
-    if ! command -v docker-compose &> /dev/null; then
-        echo -e "${RED}Error: docker-compose is not installed${NC}"
+    # Check for $DOCKER_COMPOSE (either standalone or plugin)
+    if [ -z "$DOCKER_COMPOSE" ]; then
+        echo -e "${RED}Error: $DOCKER_COMPOSE is not installed${NC}"
         echo -e "${YELLOW}Docker Compose should come with Docker Desktop. Please reinstall Docker Desktop.${NC}"
         exit 1
     fi
@@ -130,11 +140,11 @@ case "$1" in
         # Check if specific service requested
         if [ -n "$2" ]; then
             echo -e "${BLUE}Starting $2...${NC}"
-            docker-compose up -d "$2"
+            $DOCKER_COMPOSE up -d "$2"
             echo -e "${GREEN}✓ Service $2 started${NC}"
         else
             echo -e "${BLUE}Starting all Aletheia services...${NC}"
-            docker-compose up -d
+            $DOCKER_COMPOSE up -d
             echo ""
             echo -e "${GREEN}✓ Services started successfully!${NC}"
             echo ""
@@ -204,11 +214,11 @@ case "$1" in
         # Check if specific service requested
         if [ -n "$2" ]; then
             echo -e "${BLUE}Stopping $2...${NC}"
-            docker-compose stop "$2"
+            $DOCKER_COMPOSE stop "$2"
             echo -e "${GREEN}✓ Service $2 stopped${NC}"
         else
             echo -e "${BLUE}Stopping all Aletheia services...${NC}"
-            docker-compose down
+            $DOCKER_COMPOSE down
             echo -e "${GREEN}✓ All services stopped${NC}"
         fi
         ;;
@@ -217,10 +227,10 @@ case "$1" in
         check_requirements
         if [ -z "$2" ]; then
             echo -e "${BLUE}Restarting all services...${NC}"
-            docker-compose restart
+            $DOCKER_COMPOSE restart
         else
             echo -e "${BLUE}Restarting $2...${NC}"
-            docker-compose restart "$2"
+            $DOCKER_COMPOSE restart "$2"
         fi
         echo -e "${GREEN}✓ Restart complete${NC}"
         ;;
@@ -228,9 +238,9 @@ case "$1" in
     logs|log)
         check_requirements
         if [ -z "$2" ]; then
-            docker-compose logs -f --tail=100
+            $DOCKER_COMPOSE logs -f --tail=100
         else
-            docker-compose logs -f --tail=100 "$2"
+            $DOCKER_COMPOSE logs -f --tail=100 "$2"
         fi
         ;;
         
@@ -243,7 +253,7 @@ case "$1" in
         
         # Container status
         echo -e "${CYAN}Containers:${NC}"
-        docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+        $DOCKER_COMPOSE ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
         echo ""
         
         # Health status
@@ -301,15 +311,15 @@ case "$1" in
         case "$2" in
             db|postgres)
                 echo -e "${BLUE}Opening PostgreSQL shell...${NC}"
-                docker-compose exec db psql -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}"
+                $DOCKER_COMPOSE exec db psql -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}"
                 ;;
             n8n)
                 echo -e "${BLUE}Opening n8n shell...${NC}"
-                docker-compose exec n8n /bin/sh
+                $DOCKER_COMPOSE exec n8n /bin/sh
                 ;;
             *)
                 echo -e "${BLUE}Opening shell in $2...${NC}"
-                docker-compose exec "$2" /bin/sh 2>/dev/null || docker-compose exec "$2" /bin/bash
+                $DOCKER_COMPOSE exec "$2" /bin/sh 2>/dev/null || $DOCKER_COMPOSE exec "$2" /bin/bash
                 ;;
         esac
         ;;
@@ -320,7 +330,7 @@ case "$1" in
         read -r response
         if [[ "$response" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}Cleaning up...${NC}"
-            docker-compose down -v
+            $DOCKER_COMPOSE down -v
             echo -e "${GREEN}✓ Cleanup complete${NC}"
         else
             echo "Cancelled"
@@ -346,15 +356,15 @@ case "$1" in
         done
         [ $moved -gt 0 ] && echo -e "${GREEN}✓${NC} Archived $moved nginx config files"
         
-        # Archive old docker-compose files
-        echo -e "${CYAN}Archiving unused docker-compose files...${NC}"
+        # Archive old $DOCKER_COMPOSE files
+        echo -e "${CYAN}Archiving unused $DOCKER_COMPOSE files...${NC}"
         moved=0
-        for file in docker-compose.{unified,staging,swarm,env}.yml; do
+        for file in $DOCKER_COMPOSE.{unified,staging,swarm,env}.yml; do
             if [ -f "$file" ]; then
                 mv "$file" .archive/docker/ 2>/dev/null && moved=$((moved + 1))
             fi
         done
-        [ $moved -gt 0 ] && echo -e "${GREEN}✓${NC} Archived $moved docker-compose files"
+        [ $moved -gt 0 ] && echo -e "${GREEN}✓${NC} Archived $moved $DOCKER_COMPOSE files"
         
         # Find and archive .bak files
         echo -e "${CYAN}Finding backup files...${NC}"
@@ -442,7 +452,7 @@ case "$1" in
         # Check database
         echo ""
         echo -e "${CYAN}Database:${NC}"
-        if docker-compose exec -T db pg_isready > /dev/null 2>&1; then
+        if $DOCKER_COMPOSE exec -T db pg_isready > /dev/null 2>&1; then
             echo -e "${GREEN}✓${NC} PostgreSQL is ready"
         else
             echo -e "${RED}✗${NC} PostgreSQL is not ready"
@@ -482,7 +492,7 @@ case "$1" in
             issues=$((issues + 1))
         fi
         
-        if command -v docker-compose &> /dev/null; then
+        if [ -n "$DOCKER_COMPOSE" ]; then
             echo -e "${GREEN}✓${NC} docker-compose installed"
         else
             echo -e "${RED}✗${NC} docker-compose not installed"
@@ -505,17 +515,17 @@ case "$1" in
             issues=$((issues + 1))
         fi
         
-        if [ -f docker-compose.yml ]; then
-            echo -e "${GREEN}✓${NC} docker-compose.yml exists"
-            # Validate docker-compose syntax
-            if docker-compose config > /dev/null 2>&1; then
-                echo -e "${GREEN}✓${NC} docker-compose.yml syntax valid"
+        if [ -f $DOCKER_COMPOSE.yml ]; then
+            echo -e "${GREEN}✓${NC} $DOCKER_COMPOSE.yml exists"
+            # Validate $DOCKER_COMPOSE syntax
+            if $DOCKER_COMPOSE config > /dev/null 2>&1; then
+                echo -e "${GREEN}✓${NC} $DOCKER_COMPOSE.yml syntax valid"
             else
-                echo -e "${RED}✗${NC} docker-compose.yml has syntax errors"
+                echo -e "${RED}✗${NC} $DOCKER_COMPOSE.yml has syntax errors"
                 issues=$((issues + 1))
             fi
         else
-            echo -e "${RED}✗${NC} docker-compose.yml missing"
+            echo -e "${RED}✗${NC} $DOCKER_COMPOSE.yml missing"
             issues=$((issues + 1))
         fi
         
@@ -545,7 +555,7 @@ case "$1" in
         # Service health
         echo ""
         echo -e "${CYAN}4. Service Health:${NC}"
-        if docker-compose ps 2>/dev/null | grep -q "Up"; then
+        if $DOCKER_COMPOSE ps 2>/dev/null | grep -q "Up"; then
             healthy=$(docker ps --filter "health=healthy" --format "{{.Names}}" | wc -l | tr -d ' ')
             unhealthy=$(docker ps --filter "health=unhealthy" --format "{{.Names}}" | wc -l | tr -d ' ')
             total=$(docker ps --format "{{.Names}}" | wc -l | tr -d ' ')
@@ -601,7 +611,7 @@ case "$1" in
         mkdir -p "$backup_dir"
         
         # Backup database
-        if docker-compose exec -T db pg_dump -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}" > "$backup_dir/db_backup_${timestamp}.sql" 2>/dev/null; then
+        if $DOCKER_COMPOSE exec -T db pg_dump -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}" > "$backup_dir/db_backup_${timestamp}.sql" 2>/dev/null; then
             echo -e "${GREEN}✓${NC} Database backed up to $backup_dir/db_backup_${timestamp}.sql"
         else
             echo -e "${YELLOW}⚠${NC} Database backup skipped (not running?)"
@@ -621,9 +631,9 @@ case "$1" in
         check_requirements
         echo -e "${BLUE}Reloading nginx configuration...${NC}"
         
-        if docker-compose exec -T web nginx -t 2>/dev/null; then
+        if $DOCKER_COMPOSE exec -T web nginx -t 2>/dev/null; then
             echo -e "${GREEN}✓${NC} Configuration valid"
-            docker-compose exec -T web nginx -s reload 2>/dev/null
+            $DOCKER_COMPOSE exec -T web nginx -s reload 2>/dev/null
             echo -e "${GREEN}✓${NC} Nginx reloaded"
         else
             echo -e "${RED}✗${NC} Configuration invalid"
@@ -798,7 +808,7 @@ EOF
                 # Check SERVICE_DEPENDENCIES.md
                 echo -e "${CYAN}Checking SERVICE_DEPENDENCIES.md...${NC}"
                 if [ -f docs/SERVICE_DEPENDENCIES.md ]; then
-                    deps_in_compose=$(grep -c "depends_on:" docker-compose.yml 2>/dev/null || echo "0")
+                    deps_in_compose=$(grep -c "depends_on:" $DOCKER_COMPOSE.yml 2>/dev/null || echo "0")
                     deps_in_docs=$(grep -c "→" docs/SERVICE_DEPENDENCIES.md 2>/dev/null || echo "0")
                     if [ "$deps_in_compose" -gt 0 ] && [ "$deps_in_docs" -gt 0 ]; then
                         echo -e "${GREEN}✓${NC} SERVICE_DEPENDENCIES.md exists"
@@ -834,7 +844,7 @@ EOF
                 if [ -f docs/DATABASE.md ]; then
                     echo -e "${GREEN}✓${NC} DATABASE.md exists"
                     # Check if it mentions the actual tables
-                    if docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dt court_data.*" 2>/dev/null | grep -q "opinions_unified"; then
+                    if $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dt court_data.*" 2>/dev/null | grep -q "opinions_unified"; then
                         if grep -q "opinions_unified" docs/DATABASE.md; then
                             echo -e "${GREEN}✓${NC} Database documentation includes main tables"
                         else
@@ -860,7 +870,7 @@ EOF
                 echo -e "${BLUE}Updating documentation from current system...${NC}"
                 echo -e "${YELLOW}This feature is planned but not yet implemented${NC}"
                 echo "Would generate:"
-                echo "  - SERVICE_DEPENDENCIES.md from docker-compose.yml"
+                echo "  - SERVICE_DEPENDENCIES.md from $DOCKER_COMPOSE.yml"
                 echo "  - DATABASE.md from actual database schema"
                 echo "  - PORT_CONFIGURATION.md from running containers"
                 ;;
@@ -881,16 +891,16 @@ EOF
                 echo -e "${BLUE}═══════════════════════════════════════${NC}"
                 echo ""
                 
-                if ! docker-compose ps | grep -q "db.*Up"; then
+                if ! $DOCKER_COMPOSE ps | grep -q "db.*Up"; then
                     echo -e "${RED}Database is not running. Start it with './dev up'${NC}"
                     exit 1
                 fi
                 
                 echo -e "${CYAN}Schemas:${NC}"
-                docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dn" 2>/dev/null
+                $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dn" 2>/dev/null
                 
                 echo -e "${CYAN}Tables in court_data schema:${NC}"
-                docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dt court_data.*" 2>/dev/null
+                $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\dt court_data.*" 2>/dev/null
                 
                 if [ "$3" = "--detailed" ]; then
                     echo ""
@@ -898,7 +908,7 @@ EOF
                     for table in opinions_unified judges cl_opinions cl_dockets; do
                         echo ""
                         echo -e "${YELLOW}Table: court_data.$table${NC}"
-                        docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\d court_data.$table" 2>/dev/null | head -20
+                        $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "\\d court_data.$table" 2>/dev/null | head -20
                     done
                 fi
                 ;;
@@ -906,7 +916,7 @@ EOF
             shell)
                 check_requirements
                 echo -e "${BLUE}Opening database shell...${NC}"
-                docker-compose exec db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}"
+                $DOCKER_COMPOSE exec db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}"
                 ;;
                 
             backup)
@@ -916,7 +926,7 @@ EOF
                 backup_dir="backups"
                 mkdir -p "$backup_dir"
                 
-                if docker-compose exec -T db pg_dump -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}" > "$backup_dir/db_backup_${timestamp}.sql" 2>/dev/null; then
+                if $DOCKER_COMPOSE exec -T db pg_dump -U "${DB_USER:-aletheia}" "${DB_NAME:-aletheia}" > "$backup_dir/db_backup_${timestamp}.sql" 2>/dev/null; then
                     echo -e "${GREEN}✓${NC} Database backed up to $backup_dir/db_backup_${timestamp}.sql"
                     size=$(du -h "$backup_dir/db_backup_${timestamp}.sql" | cut -f1)
                     echo "  Size: $size"
@@ -944,7 +954,7 @@ EOF
                 echo
                 if [[ $REPLY =~ ^[Yy]$ ]]; then
                     echo -e "${BLUE}Restoring database...${NC}"
-                    docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" < "$3"
+                    $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" < "$3"
                     echo -e "${GREEN}✓${NC} Database restored"
                 fi
                 ;;
@@ -963,14 +973,14 @@ EOF
                 fi
                 
                 # Check if database is running
-                if ! docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "SELECT 1" &>/dev/null; then
+                if ! $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "SELECT 1" &>/dev/null; then
                     echo -e "${RED}✗${NC} Database is not running or not ready"
                     echo "  Run './dev up' first to start services"
                     exit 1
                 fi
                 
                 # Check existing data
-                EXISTING_COUNT=$(docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c "SELECT COUNT(*) FROM public.court_documents" 2>/dev/null || echo "0")
+                EXISTING_COUNT=$($DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c "SELECT COUNT(*) FROM public.court_documents" 2>/dev/null || echo "0")
                 EXISTING_COUNT=$(echo $EXISTING_COUNT | tr -d ' ')
                 
                 if [ "$EXISTING_COUNT" -gt "0" ]; then
@@ -982,22 +992,22 @@ EOF
                         exit 0
                     fi
                     echo -e "${BLUE}Clearing existing data...${NC}"
-                    docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "TRUNCATE TABLE public.court_documents RESTART IDENTITY CASCADE;"
+                    $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "TRUNCATE TABLE public.court_documents RESTART IDENTITY CASCADE;"
                 fi
                 
                 # Restore the data
                 echo -e "${BLUE}Importing court documents (485 documents, ~9.5MB)...${NC}"
-                gunzip -c court-processor/data/court_documents_backup.sql.gz | docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}"
+                gunzip -c court-processor/data/court_documents_backup.sql.gz | $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}"
                 
                 # Verify restoration
-                NEW_COUNT=$(docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c "SELECT COUNT(*) FROM public.court_documents")
+                NEW_COUNT=$($DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c "SELECT COUNT(*) FROM public.court_documents")
                 NEW_COUNT=$(echo $NEW_COUNT | tr -d ' ')
                 
                 echo ""
                 echo -e "${GREEN}✓ Successfully restored $NEW_COUNT court documents${NC}"
                 echo ""
                 echo -e "${CYAN}Document types:${NC}"
-                docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "SELECT document_type, COUNT(*) as count FROM public.court_documents GROUP BY document_type ORDER BY count DESC;"
+                $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -c "SELECT document_type, COUNT(*) as count FROM public.court_documents GROUP BY document_type ORDER BY count DESC;"
                 ;;
                 
             *)
@@ -1044,11 +1054,11 @@ EOF
             fi
         fi
         
-        if ! command -v docker-compose &> /dev/null; then
-            echo -e "${RED}✗${NC} docker-compose not installed"
+        if ! command -v $DOCKER_COMPOSE &> /dev/null; then
+            echo -e "${RED}✗${NC} $DOCKER_COMPOSE not installed"
             ((issues++))
         else
-            echo -e "${GREEN}✓${NC} docker-compose installed ($(docker-compose --version 2>/dev/null | cut -d' ' -f4 | tr -d ','))"
+            echo -e "${GREEN}✓${NC} $DOCKER_COMPOSE installed ($($DOCKER_COMPOSE --version 2>/dev/null | cut -d' ' -f4 | tr -d ','))"
         fi
         echo ""
         
@@ -1126,8 +1136,8 @@ EOF
         # 4. Check Services (if Docker is running)
         if docker info &> /dev/null; then
             echo -e "${CYAN}4. Service Status:${NC}"
-            running=$(docker-compose ps --services --filter "status=running" 2>/dev/null | wc -l | tr -d ' ')
-            total=$(docker-compose config --services 2>/dev/null | wc -l | tr -d ' ')
+            running=$($DOCKER_COMPOSE ps --services --filter "status=running" 2>/dev/null | wc -l | tr -d ' ')
+            total=$($DOCKER_COMPOSE config --services 2>/dev/null | wc -l | tr -d ' ')
             
             if [ "$running" = "0" ]; then
                 echo -e "${YELLOW}⚠${NC} No services running ($running/$total)"
@@ -1136,7 +1146,7 @@ EOF
                 echo -e "${GREEN}✓${NC} Services running: $running/$total"
                 
                 # Check health status
-                unhealthy=$(docker-compose ps 2>/dev/null | grep -c "(unhealthy)" || echo "0")
+                unhealthy=$($DOCKER_COMPOSE ps 2>/dev/null | grep -c "(unhealthy)" || echo "0")
                 if [ "$unhealthy" -gt "0" ]; then
                     echo -e "${YELLOW}⚠${NC} $unhealthy service(s) unhealthy"
                     echo -e "  ${YELLOW}→ Run './dev health' for details${NC}"
