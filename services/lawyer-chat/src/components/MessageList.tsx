@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import SafeMarkdown from '@/components/SafeMarkdown';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import AnalyticsDropdown from '@/components/AnalyticsDropdown';
@@ -22,14 +22,52 @@ export default function MessageList({
   onCitationClick 
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+  const prevMessageCountRef = useRef(0);
+  
+  // Check if user is at bottom of scroll container
+  const checkIfAtBottom = useCallback(() => {
+    // Find the scrollable parent (Messages Window div)
+    const scrollContainer = messagesEndRef.current?.closest('.overflow-y-auto, [style*="overflow"]');
+    if (!scrollContainer) return true;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer as HTMLElement;
+    // Consider user at bottom if within 100px of bottom
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    return isAtBottom;
+  }, []);
+  
+  // Track scroll position on mount and when scrolling
+  useEffect(() => {
+    const scrollContainer = messagesEndRef.current?.closest('.overflow-y-auto, [style*="overflow"]');
+    if (!scrollContainer) return;
+    
+    const handleScroll = () => {
+      setIsUserAtBottom(checkIfAtBottom());
+    };
+    
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [checkIfAtBottom]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Smart auto-scroll logic
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // Check if new messages were added
+    const messageCountChanged = messages.length !== prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    
+    // Only auto-scroll if:
+    // 1. User was at bottom before new message
+    // 2. New messages were added (not just edits)
+    if (isUserAtBottom && messageCountChanged && messages.length > 0) {
+      // Small delay to allow render to complete
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [messages.length, isUserAtBottom]);
 
   return (
     <>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, FileText, X, Loader2, AlertCircle, Gavel, FileAudio } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, X, Loader2, AlertCircle, Gavel, FileAudio, Search } from 'lucide-react';
 import { getDocumentSource, documentSourceRegistry } from '@/lib/document-sources/registry';
 import { CourtDocument } from '@/types/court-documents';
 import { cn } from '@/lib/utils';
@@ -22,16 +22,8 @@ interface JudgeData {
 
 export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: DocumentCabinetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentSourceId, setCurrentSourceId] = useState<'court' | 'transcripts'>('court');
-  
-  // Clear selections when switching sources
-  const handleSourceChange = (sourceId: 'court' | 'transcripts') => {
-    if (sourceId !== currentSourceId) {
-      setCurrentSourceId(sourceId);
-      setSelectedDocIds(new Set());
-      onDocumentsSelected([]); // Clear selected documents in parent
-    }
-  };
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [judges, setJudges] = useState<JudgeData[]>([
     { name: 'Gilstrap', documents: [], isExpanded: false, isLoading: false },
     { name: 'Albright', documents: [], isExpanded: false, isLoading: false }
@@ -47,7 +39,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
     ));
 
     try {
-      const source = getDocumentSource(currentSourceId);
+      const source = getDocumentSource('court');
       const response = await source.searchDocuments({
         category: judgeName,
         type: '020lead',
@@ -91,7 +83,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
       }
       return j;
     }));
-  }, [loadJudgeDocuments, currentSourceId]);
+  }, [loadJudgeDocuments]);
 
   // Toggle document selection
   const toggleDocument = useCallback(async (doc: CourtDocument) => {
@@ -106,7 +98,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
       
       try {
         // Fetch the full document text
-        const source = getDocumentSource(currentSourceId);
+        const source = getDocumentSource('court');
         const fullText = await source.getDocumentText(doc.id);
         const fullDoc = { ...doc, text: fullText };
         
@@ -125,7 +117,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                 }
                 // Fetch text for other selected docs if needed
                 if (!foundDoc.text) {
-                  const source = getDocumentSource(currentSourceId);
+                  const source = getDocumentSource('court');
                   const text = await source.getDocumentText(id);
                   return { ...foundDoc, text };
                 }
@@ -187,7 +179,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed right-4 top-20 z-40",
+          "fixed right-4 top-20 z-10",
           "px-4 py-2 rounded-lg",
           "bg-black/20 hover:bg-black/30 backdrop-blur-sm",
           "text-white font-medium text-sm",
@@ -208,7 +200,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
           "w-96 max-w-[90vw]",
           "transition-transform duration-300 ease-in-out",
           isOpen ? "translate-x-0" : "translate-x-full",
-          isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900",
+          isDarkMode ? "bg-[#25262b] text-white" : "bg-white text-gray-900",
           "shadow-2xl border-l",
           isDarkMode ? "border-gray-700" : "border-gray-200"
         )}
@@ -222,54 +214,35 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
           <button
             onClick={() => setIsOpen(false)}
             className={cn(
-              "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700",
-              "transition-colors"
+              "p-1 rounded transition-colors",
+              isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-200"
             )}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Source Selector */}
+        {/* Search Bar */}
         <div className={cn(
           "p-4 border-b",
           isDarkMode ? "border-gray-700" : "border-gray-200"
         )}>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleSourceChange('court')}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2",
-                "transition-all font-medium text-sm",
-                currentSourceId === 'court'
-                  ? isDarkMode 
-                    ? "bg-blue-600 text-white" 
-                    : "bg-blue-500 text-white"
-                  : isDarkMode
-                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                "w-full pl-10 pr-4 py-2 rounded-lg text-sm",
+                "transition-colors",
+                isDarkMode 
+                  ? "bg-gray-800 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500"
+                  : "bg-gray-100 text-gray-900 placeholder-gray-500 border-gray-300 focus:border-blue-500",
+                "border focus:outline-none focus:ring-1 focus:ring-blue-500"
               )}
-            >
-              <Gavel className="w-4 h-4" />
-              <span>Opinions</span>
-            </button>
-            <button
-              onClick={() => handleSourceChange('transcripts')}
-              className={cn(
-                "flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2",
-                "transition-all font-medium text-sm",
-                currentSourceId === 'transcripts'
-                  ? isDarkMode 
-                    ? "bg-blue-600 text-white" 
-                    : "bg-blue-500 text-white"
-                  : isDarkMode
-                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              )}
-            >
-              <FileAudio className="w-4 h-4" />
-              <span>Transcripts</span>
-            </button>
+            />
           </div>
         </div>
 
@@ -283,18 +256,49 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
           </div>
         )}
 
-        {/* Document dropdowns */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {currentSourceId === 'transcripts' ? (
-            // Transcripts placeholder
-            <div className="text-center py-8 opacity-60">
-              <FileAudio className="w-12 h-12 mx-auto mb-3" />
-              <p className="text-sm">No transcripts available</p>
-              <p className="text-xs mt-2">Transcript integration coming soon</p>
-            </div>
-          ) : (
-            // Opinions (existing judge dropdowns)
-            judges.map((judge) => (
+        {/* Document Categories - Vertical Dropdowns */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* Opinions Section */}
+          <div className={cn(
+            "rounded-lg border",
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          )}>
+            <button
+              onClick={() => {
+                const newExpanded = new Set(expandedSections);
+                if (newExpanded.has('opinions')) {
+                  newExpanded.delete('opinions');
+                } else {
+                  newExpanded.add('opinions');
+                }
+                setExpandedSections(newExpanded);
+              }}
+              className={cn(
+                "w-full px-4 py-3 flex items-center justify-between",
+                "transition-colors",
+                isDarkMode 
+                  ? "bg-gray-800 hover:bg-gray-700" 
+                  : "bg-gray-50 hover:bg-gray-100"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Gavel className="w-4 h-4" />
+                <span className="font-medium">Opinions</span>
+              </div>
+              <ChevronDown
+                className={cn(
+                  "w-4 h-4 transition-transform",
+                  expandedSections.has('opinions') ? "rotate-180" : ""
+                )}
+              />
+            </button>
+            
+            {expandedSections.has('opinions') && (
+              <div className={cn(
+                "border-t",
+                isDarkMode ? "border-gray-700" : "border-gray-200"
+              )}>
+                {judges.map((judge) => (
             <div key={judge.name} className="border rounded-lg overflow-hidden">
               {/* Judge header */}
               <button
@@ -303,7 +307,7 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                   "w-full px-4 py-3 flex items-center justify-between",
                   "hover:bg-gray-100 dark:hover:bg-gray-800",
                   "transition-colors",
-                  isDarkMode ? "bg-gray-800" : "bg-gray-50"
+                  isDarkMode ? "bg-gray-900/50" : "bg-gray-50"
                 )}
               >
                 <span className="font-medium">Judge {judge.name}</span>
@@ -401,8 +405,58 @@ export function DocumentCabinet({ onDocumentsSelected, isDarkMode, className }: 
                 </div>
               )}
             </div>
-          ))
-          )}
+          ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Transcripts Section */}
+          <div className={cn(
+            "rounded-lg border",
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          )}>
+            <button
+              onClick={() => {
+                const newExpanded = new Set(expandedSections);
+                if (newExpanded.has('transcripts')) {
+                  newExpanded.delete('transcripts');
+                } else {
+                  newExpanded.add('transcripts');
+                }
+                setExpandedSections(newExpanded);
+              }}
+              className={cn(
+                "w-full px-4 py-3 flex items-center justify-between",
+                "transition-colors",
+                isDarkMode 
+                  ? "bg-gray-800 hover:bg-gray-700" 
+                  : "bg-gray-50 hover:bg-gray-100"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <FileAudio className="w-4 h-4" />
+                <span className="font-medium">Transcripts</span>
+              </div>
+              <ChevronDown
+                className={cn(
+                  "w-4 h-4 transition-transform",
+                  expandedSections.has('transcripts') ? "rotate-180" : ""
+                )}
+              />
+            </button>
+            
+            {expandedSections.has('transcripts') && (
+              <div className={cn(
+                "p-4 text-center opacity-60",
+                "border-t",
+                isDarkMode ? "border-gray-700" : "border-gray-200"
+              )}>
+                <FileAudio className="w-8 h-8 mx-auto mb-2" />
+                <p className="text-sm">No transcripts available</p>
+                <p className="text-xs mt-1">Coming soon</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
