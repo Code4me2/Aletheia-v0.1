@@ -1,27 +1,26 @@
 # Demo Credentials Setup Guide
 
-## Quick Start - Simplest Method
+## Automatic Setup (Recommended)
 
-For local development and testing, use this SQL command to create demo users directly:
+Demo users are automatically created when you run `./dev up` for the first time. The system will:
+1. Initialize the Prisma database schema
+2. Create demo users with pre-verified email status
+3. Display the credentials in the console
+
+## Manual Setup
+
+If you need to manually create or reset demo users:
 
 ```bash
-# Create demo users with pre-verified email status
-docker exec aletheia-db-1 psql -U your_db_user -d lawyerchat << 'EOF'
--- Create demo user (password: "password")
-INSERT INTO "User" (id, email, name, password, role, "emailVerified", "createdAt", "updatedAt", "failedLoginAttempts")
-VALUES 
-  ('demo-user-001', 'demo@reichmanjorgensen.com', 'Demo User', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW(), NOW(), 0);
-
--- Create admin user (password: "password")
-INSERT INTO "User" (id, email, name, password, role, "emailVerified", "createdAt", "updatedAt", "failedLoginAttempts")
-VALUES 
-  ('admin-user-001', 'admin@reichmanjorgensen.com', 'Admin User', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', NOW(), NOW(), NOW(), 0);
-EOF
+# From the project root
+./dev seed-users
 ```
 
+This command will create or reset the following users:
+
 **Demo Credentials:**
-- **Demo User:** `demo@reichmanjorgensen.com` / `password`
-- **Admin User:** `admin@reichmanjorgensen.com` / `password`
+- **Demo User:** `demo@reichmanjorgensen.com` / `demo123`
+- **Admin User:** `admin@reichmanjorgensen.com` / `admin123`
 
 Access the application at: http://localhost:8080/chat
 

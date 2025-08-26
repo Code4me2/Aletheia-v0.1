@@ -6,6 +6,17 @@ This file contains specific instructions for AI assistants (Claude, GPT, etc.) w
 
 Aletheia is an AI-powered legal document processing platform. The main documentation is in [README.md](README.md).
 
+## Automatic Setup Features
+
+When running `./dev up`:
+- **Database Initialization**: Automatically creates Prisma schema for lawyer-chat if needed
+- **User Seeding**: Automatically seeds demo users if database is empty
+  - Demo User: demo@reichmanjorgensen.com / demo123
+  - Admin User: admin@reichmanjorgensen.com / admin123
+- **Court Data Restore**: Automatically restores 485 court documents if database is empty
+
+To manually seed/reset users: `./dev seed-users`
+
 ## Important Guidelines
 
 ### 1. Use the dev CLI

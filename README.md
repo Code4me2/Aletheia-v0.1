@@ -41,9 +41,13 @@ cd Aletheia-v0.1
 # Main app:          http://localhost:8080
 # n8n:               http://localhost:8100
 # Lawyer Chat:       http://localhost:8080/chat
+#   Demo login:      demo@reichmanjorgensen.com / demo123
+#   Admin login:     admin@reichmanjorgensen.com / admin123
 # AI Portal:         http://localhost:8102
 # Court Processor:   http://localhost:8104
 # Development API:   http://localhost:8082/status
+
+# Note: Demo users are automatically created on first run
 ```
 
 ## Project Overview
@@ -86,6 +90,7 @@ Aletheia is a unified AI-powered platform that combines:
 ./dev db restore        # Restore database
 ./dev db shell          # Database shell
 ./dev db schema         # View database schema
+./dev seed-users        # Create/reset demo users for lawyer-chat
 ```
 
 ## Architecture

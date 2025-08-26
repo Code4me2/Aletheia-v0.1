@@ -71,6 +71,7 @@ show_help() {
     echo "  cleanup         Archive old/backup files to .archive/"
     echo "  clean           Stop services and clean volumes (WARNING: deletes data)"
     echo "  reload-nginx    Reload nginx configuration without restart"
+    echo "  seed-users      Initialize/reset lawyer-chat demo users"
     echo ""
     echo -e "${CYAN}Examples:${NC}"
     echo "  ./dev up                  # Start everything"
@@ -158,38 +159,39 @@ case "$1" in
             echo "Run './dev logs' to see output"
             echo "Run './dev health' to check services"
             
-            # Auto-restore court data if it's a fresh database
-            if [ -f court-processor/data/court_documents_backup.sql.gz ]; then
-                echo ""
-                echo -e "${BLUE}Checking for court processor data...${NC}"
+            # Wait for database to be ready (max 30 seconds)
+            DB_READY=false
+            for i in {1..30}; do
+                if $DOCKER_COMPOSE exec -T db pg_isready -U "${DB_USER:-aletheia}" &>/dev/null; then
+                    DB_READY=true
+                    break
+                fi
+                if [ $i -eq 1 ]; then
+                    echo ""
+                    echo -n "Waiting for database to be ready"
+                else
+                    echo -n "."
+                fi
+                sleep 1
+            done
+            
+            if [ "$DB_READY" = true ]; then
+                echo ""  # New line after dots
                 
-                # Wait for database to be ready (max 30 seconds)
-                DB_READY=false
-                for i in {1..30}; do
-                    if docker-compose exec -T db pg_isready -U "${DB_USER:-aletheia}" &>/dev/null; then
-                        DB_READY=true
-                        break
-                    fi
-                    if [ $i -eq 1 ]; then
-                        echo -n "Waiting for database to be ready"
-                    else
-                        echo -n "."
-                    fi
-                    sleep 1
-                done
-                
-                if [ "$DB_READY" = true ]; then
-                    echo ""  # New line after dots
+                # Auto-restore court data if it's a fresh database
+                if [ -f court-processor/data/court_documents_backup.sql.gz ]; then
+                    echo ""
+                    echo -e "${BLUE}Checking for court processor data...${NC}"
                     
                     # Check if court_documents table exists and count records
-                    COUNT=$(docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c \
+                    COUNT=$($DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c \
                         "SELECT COUNT(*) FROM public.court_documents" 2>/dev/null || echo "0")
                     COUNT=$(echo $COUNT | tr -d ' ')
                     
                     if [ "$COUNT" = "0" ]; then
                         echo -e "${BLUE}Restoring court processor sample data (485 documents)...${NC}"
                         if gunzip -c court-processor/data/court_documents_backup.sql.gz | \
-                           docker-compose exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" &>/dev/null; then
+                           $DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" &>/dev/null; then
                             echo -e "${GREEN}✓ Successfully restored 485 court documents${NC}"
                             echo "  Documents are now available in Lawyer Chat interface"
                         else
@@ -199,11 +201,100 @@ case "$1" in
                     elif [ "$COUNT" -gt "0" ]; then
                         echo -e "${GREEN}✓ Database already contains $COUNT court documents${NC}"
                     fi
-                else
-                    echo ""  # New line after dots
-                    echo -e "${YELLOW}⚠ Database not ready for auto-restore${NC}"
-                    echo "  You can manually restore later with: ./dev db restore-court-data"
                 fi
+                
+                # Auto-initialize lawyer-chat database and seed demo users
+                echo ""
+                echo -e "${BLUE}Checking lawyer-chat database setup...${NC}"
+                
+                # Check if User table exists
+                USER_TABLE_EXISTS=$($DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c \
+                    "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'User');" 2>/dev/null | tr -d ' ')
+                
+                if [ "$USER_TABLE_EXISTS" = "f" ] || [ "$USER_TABLE_EXISTS" = "false" ]; then
+                    echo -e "${BLUE}Initializing lawyer-chat database...${NC}"
+                    
+                    # Check if lawyer-chat service directory exists
+                    if [ -d "services/lawyer-chat" ]; then
+                        cd services/lawyer-chat
+                        
+                        # URL-encode the password to handle special characters
+                        ENCODED_PASSWORD=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${DB_PASSWORD}'))" 2>/dev/null || echo "${DB_PASSWORD}")
+                        export DATABASE_URL="postgresql://${DB_USER:-aletheia}:${ENCODED_PASSWORD}@localhost:${POSTGRES_PORT:-8200}/${DB_NAME:-aletheia}"
+                        
+                        if npx prisma db push --force-reset --skip-generate &>/dev/null 2>&1; then
+                            echo -e "${GREEN}✓ Database schema created${NC}"
+                            
+                            # Generate Prisma client
+                            if npx prisma generate &>/dev/null 2>&1; then
+                                echo -e "${GREEN}✓ Prisma client generated${NC}"
+                                
+                                # Seed demo users
+                                if [ -f "scripts/seed-users.cjs" ]; then
+                                    if node scripts/seed-users.cjs &>/dev/null 2>&1; then
+                                        echo -e "${GREEN}✓ Demo users created:${NC}"
+                                        echo "    • demo@reichmanjorgensen.com / demo123"
+                                        echo "    • admin@reichmanjorgensen.com / admin123"
+                                    else
+                                        echo -e "${YELLOW}⚠ Failed to seed demo users${NC}"
+                                        echo "  You can manually run: cd services/lawyer-chat && node scripts/seed-users.cjs"
+                                    fi
+                                elif [ -f "prisma/seed.ts" ]; then
+                                    if npx tsx prisma/seed.ts &>/dev/null 2>&1; then
+                                        echo -e "${GREEN}✓ Demo users created:${NC}"
+                                        echo "    • demo@reichmanjorgensen.com / demo123"
+                                        echo "    • admin@reichmanjorgensen.com / admin123"
+                                    else
+                                        echo -e "${YELLOW}⚠ Failed to seed demo users${NC}"
+                                        echo "  You can manually run: cd services/lawyer-chat && npx tsx prisma/seed.ts"
+                                    fi
+                                fi
+                            else
+                                echo -e "${YELLOW}⚠ Failed to generate Prisma client${NC}"
+                            fi
+                        else
+                            echo -e "${YELLOW}⚠ Failed to initialize database schema${NC}"
+                            echo "  You can manually run: cd services/lawyer-chat && npx prisma db push"
+                        fi
+                        
+                        cd - &>/dev/null
+                    else
+                        echo -e "${YELLOW}⚠ Lawyer-chat service directory not found${NC}"
+                    fi
+                else
+                    # Check if demo users exist
+                    USER_COUNT=$($DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c \
+                        "SELECT COUNT(*) FROM \"User\" WHERE email IN ('demo@reichmanjorgensen.com', 'admin@reichmanjorgensen.com');" 2>/dev/null | tr -d ' ')
+                    
+                    if [ "$USER_COUNT" = "0" ]; then
+                        echo -e "${BLUE}Seeding demo users...${NC}"
+                        
+                        if [ -d "services/lawyer-chat" ]; then
+                            cd services/lawyer-chat
+                            # URL-encode the password to handle special characters
+                            ENCODED_PASSWORD=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${DB_PASSWORD}'))" 2>/dev/null || echo "${DB_PASSWORD}")
+                            export DATABASE_URL="postgresql://${DB_USER:-aletheia}:${ENCODED_PASSWORD}@localhost:${POSTGRES_PORT:-8200}/${DB_NAME:-aletheia}"
+                            
+                            if [ -f "scripts/seed-users.cjs" ]; then
+                                if node scripts/seed-users.cjs &>/dev/null 2>&1; then
+                                    echo -e "${GREEN}✓ Demo users created:${NC}"
+                                    echo "    • demo@reichmanjorgensen.com / demo123"
+                                    echo "    • admin@reichmanjorgensen.com / admin123"
+                                else
+                                    echo -e "${YELLOW}⚠ Failed to seed demo users${NC}"
+                                fi
+                            fi
+                            
+                            cd - &>/dev/null
+                        fi
+                    else
+                        echo -e "${GREEN}✓ Lawyer-chat database ready ($USER_COUNT demo users found)${NC}"
+                    fi
+                fi
+            else
+                echo ""  # New line after dots
+                echo -e "${YELLOW}⚠ Database not ready${NC}"
+                echo "  Database initialization skipped - run './dev up' again when ready"
             fi
         fi
         ;;
@@ -1019,6 +1110,132 @@ EOF
                 echo "  restore-court-data  - Restore court processor sample data"
                 ;;
         esac
+        ;;
+        
+    seed-users)
+        check_requirements
+        
+        # Load database credentials from .env file
+        if [ -f .env ]; then
+            DB_USER=$(grep "^DB_USER=" .env | cut -d= -f2-)
+            DB_PASSWORD=$(grep "^DB_PASSWORD=" .env | cut -d= -f2-)
+            DB_NAME=$(grep "^DB_NAME=" .env | cut -d= -f2-)
+            POSTGRES_PORT=$(grep "^POSTGRES_PORT=" .env | cut -d= -f2-)
+        fi
+        
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo -e "${BLUE}  Seeding Lawyer-Chat Demo Users${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo ""
+        
+        # Check if database is running
+        if ! $DOCKER_COMPOSE exec -T db pg_isready -U "${DB_USER:-aletheia}" &>/dev/null; then
+            echo -e "${RED}✗ Database is not running${NC}"
+            echo "  Start the database with: ./dev up db"
+            exit 1
+        fi
+        
+        # Check if User table exists
+        USER_TABLE_EXISTS=$($DOCKER_COMPOSE exec -T db psql -U "${DB_USER:-aletheia}" -d "${DB_NAME:-aletheia}" -t -c \
+            "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'User');" 2>/dev/null | tr -d ' ')
+        
+        if [ "$USER_TABLE_EXISTS" = "f" ] || [ "$USER_TABLE_EXISTS" = "false" ]; then
+            echo -e "${BLUE}Creating database schema...${NC}"
+            
+            if [ -d "services/lawyer-chat" ]; then
+                cd services/lawyer-chat
+                # URL-encode the password to handle special characters
+                ENCODED_PASSWORD=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${DB_PASSWORD}'))" 2>/dev/null || echo "${DB_PASSWORD}")
+                export DATABASE_URL="postgresql://${DB_USER:-aletheia}:${ENCODED_PASSWORD}@localhost:${POSTGRES_PORT:-8200}/${DB_NAME:-aletheia}"
+                
+                # Push schema to database
+                if npx prisma db push --force-reset --skip-generate &>/dev/null 2>&1; then
+                    echo -e "${GREEN}✓ Database schema created${NC}"
+                    
+                    # Generate Prisma client
+                    if npx prisma generate &>/dev/null 2>&1; then
+                        echo -e "${GREEN}✓ Prisma client generated${NC}"
+                    else
+                        echo -e "${YELLOW}⚠ Failed to generate Prisma client${NC}"
+                    fi
+                else
+                    echo -e "${RED}✗ Failed to create database schema${NC}"
+                    cd - &>/dev/null
+                    exit 1
+                fi
+                
+                cd - &>/dev/null
+            else
+                echo -e "${RED}✗ Lawyer-chat service directory not found${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${GREEN}✓ Database schema already exists${NC}"
+        fi
+        
+        # Seed users
+        echo -e "${BLUE}Seeding demo users...${NC}"
+        
+        if [ -d "services/lawyer-chat" ]; then
+            cd services/lawyer-chat
+            # URL-encode the password to handle special characters
+            ENCODED_PASSWORD=$(python3 -c "import urllib.parse; import sys; print(urllib.parse.quote(sys.argv[1]))" "${DB_PASSWORD}" 2>/dev/null || echo "${DB_PASSWORD}")
+            export DATABASE_URL="postgresql://${DB_USER:-aletheia}:${ENCODED_PASSWORD}@localhost:${POSTGRES_PORT:-8200}/${DB_NAME:-aletheia}"
+            
+            # Ensure Prisma client is generated
+            if [ ! -d "node_modules/@prisma/client" ]; then
+                echo -e "${BLUE}Generating Prisma client...${NC}"
+                npx prisma generate &>/dev/null 2>&1
+            fi
+            
+            if [ -f "scripts/seed-users.cjs" ]; then
+                if node scripts/seed-users.cjs 2>&1; then
+                    echo -e "${GREEN}✓ Demo users created successfully:${NC}"
+                    echo ""
+                    echo "  ${CYAN}Demo User:${NC}"
+                    echo "    Email: demo@reichmanjorgensen.com"
+                    echo "    Password: demo123"
+                    echo ""
+                    echo "  ${CYAN}Admin User:${NC}"
+                    echo "    Email: admin@reichmanjorgensen.com"
+                    echo "    Password: admin123"
+                else
+                    echo -e "${RED}✗ Failed to seed users${NC}"
+                    cd - &>/dev/null
+                    exit 1
+                fi
+            elif [ -f "prisma/seed.ts" ]; then
+                if npx tsx prisma/seed.ts 2>&1; then
+                    echo -e "${GREEN}✓ Demo users created successfully:${NC}"
+                    echo ""
+                    echo "  ${CYAN}Demo User:${NC}"
+                    echo "    Email: demo@reichmanjorgensen.com"
+                    echo "    Password: demo123"
+                    echo ""
+                    echo "  ${CYAN}Admin User:${NC}"
+                    echo "    Email: admin@reichmanjorgensen.com"
+                    echo "    Password: admin123"
+                else
+                    echo -e "${RED}✗ Failed to seed users${NC}"
+                    cd - &>/dev/null
+                    exit 1
+                fi
+            else
+                echo -e "${RED}✗ No seed script found${NC}"
+                cd - &>/dev/null
+                exit 1
+            fi
+            
+            cd - &>/dev/null
+        else
+            echo -e "${RED}✗ Lawyer-chat service directory not found${NC}"
+            exit 1
+        fi
+        
+        echo ""
+        echo -e "${GREEN}✓ User seeding complete!${NC}"
+        echo ""
+        echo "You can now log into lawyer-chat at: http://localhost:${WEB_PORT:-8080}"
         ;;
         
     doctor)
