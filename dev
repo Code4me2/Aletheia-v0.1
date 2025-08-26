@@ -62,10 +62,11 @@ show_help() {
     echo "  env list        List all environment variables"
     echo ""
     echo -e "${CYAN}n8n Automation:${NC}"
-    echo "  n8n workflows   Manage workflows (list, import, export, reset, activate)"
+    echo "  n8n workflows   Manage workflows (list, import, export, execute, activate/deactivate)"
+    echo "  n8n credentials Manage credentials (export, import, backup)"
     echo "  n8n nodes       Manage custom nodes (list, build, verify)"
-    echo "  n8n cli         Direct access to n8n CLI commands"
     echo "  n8n executions  View workflow execution history"
+    echo "  n8n cli         Direct access to n8n CLI commands"
     echo ""
     echo -e "${CYAN}Setup & Maintenance:${NC}"
     echo "  setup           Initial setup wizard (generate secure .env)"
@@ -1263,15 +1264,64 @@ EOF
                             exit 1
                         fi
                         ;;
+                    deactivate)
+                        if [ -z "$4" ]; then
+                            echo -e "${BLUE}Deactivating all n8n workflows...${NC}"
+                            if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                                echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                                exit 1
+                            fi
+                            
+                            if $DOCKER_COMPOSE exec -T n8n n8n update:workflow --all --active=false 2>/dev/null; then
+                                echo -e "${GREEN}All workflows deactivated${NC}"
+                            else
+                                echo -e "${RED}Failed to deactivate workflows${NC}"
+                                exit 1
+                            fi
+                        else
+                            echo -e "${BLUE}Deactivating workflow $4...${NC}"
+                            if $DOCKER_COMPOSE exec -T n8n n8n update:workflow --id="$4" --active=false 2>/dev/null; then
+                                echo -e "${GREEN}Workflow $4 deactivated${NC}"
+                            else
+                                echo -e "${RED}Failed to deactivate workflow $4${NC}"
+                                exit 1
+                            fi
+                        fi
+                        ;;
+                    execute)
+                        if [ -z "$4" ]; then
+                            echo "Usage: ./dev n8n workflows execute <workflow-id>"
+                            echo ""
+                            echo "Execute a specific workflow by ID"
+                            echo "Get workflow IDs with: ./dev n8n workflows list"
+                            exit 1
+                        fi
+                        
+                        echo -e "${BLUE}Executing workflow $4...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        if $DOCKER_COMPOSE exec -T n8n n8n execute --id="$4" 2>/dev/null; then
+                            echo -e "${GREEN}Workflow executed successfully${NC}"
+                        else
+                            echo -e "${RED}Failed to execute workflow${NC}"
+                            echo -e "${YELLOW}Note: Workflow may need to be active to execute${NC}"
+                            exit 1
+                        fi
+                        ;;
                     *)
-                        echo "Usage: ./dev n8n workflows {list|import|export|reset|activate}"
+                        echo "Usage: ./dev n8n workflows {list|import|export|reset|activate|deactivate|execute}"
                         echo ""
                         echo "Commands:"
-                        echo "  list      - List all workflows in n8n"
-                        echo "  import    - Import workflows from workflow_json/"
-                        echo "  export    - Export all workflows to a timestamped directory"
-                        echo "  reset     - Clear all workflows and reimport from workflow_json/"
-                        echo "  activate  - Activate all workflows"
+                        echo "  list           - List all workflows in n8n"
+                        echo "  import         - Import workflows from workflow_json/"
+                        echo "  export         - Export all workflows to a timestamped directory"
+                        echo "  reset          - Clear all workflows and reimport from workflow_json/"
+                        echo "  activate       - Activate all workflows"
+                        echo "  deactivate [id] - Deactivate all workflows or specific one"
+                        echo "  execute <id>   - Execute a specific workflow"
                         ;;
                 esac
                 ;;
@@ -1369,6 +1419,22 @@ EOF
             cli)
                 # Pass-through to n8n CLI
                 shift 2
+                
+                # Check if any arguments provided
+                if [ $# -eq 0 ]; then
+                    echo "Usage: ./dev n8n cli <command> [options]"
+                    echo ""
+                    echo "Pass commands directly to the n8n CLI"
+                    echo ""
+                    echo "Examples:"
+                    echo "  ./dev n8n cli --version              # Get n8n version"
+                    echo "  ./dev n8n cli --help                 # Get n8n help"
+                    echo "  ./dev n8n cli list:workflow --help   # Get help for specific command"
+                    echo ""
+                    echo "Note: Avoid 'start' or 'webhook' commands which conflict with running instance"
+                    exit 1
+                fi
+                
                 if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
                     echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
                     exit 1
@@ -1379,22 +1445,96 @@ EOF
                 ;;
             credentials)
                 case "$3" in
-                    list)
-                        echo -e "${BLUE}Listing n8n credentials...${NC}"
+                    export)
+                        echo -e "${BLUE}Exporting n8n credentials...${NC}"
                         if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
                             echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
                             exit 1
                         fi
                         
-                        # n8n doesn't have a CLI command for credentials, so we'll check the database
-                        echo -e "${YELLOW}Note: n8n CLI doesn't support credential listing directly${NC}"
-                        echo "You can view credentials in the n8n UI at: http://localhost:${N8N_PORT:-8100}/credentials"
+                        export_dir="credentials_export_$(date +%Y%m%d_%H%M%S)"
+                        mkdir -p "$export_dir"
+                        echo "Exporting credentials to $export_dir/"
+                        
+                        if $DOCKER_COMPOSE exec -T n8n n8n export:credentials --backup --output="/tmp/cred_export/" 2>/dev/null; then
+                            docker cp "$($DOCKER_COMPOSE ps -q n8n):/tmp/cred_export/" "$export_dir/" 2>/dev/null
+                            $DOCKER_COMPOSE exec -T n8n rm -rf "/tmp/cred_export/" 2>/dev/null
+                            echo -e "${GREEN}Credentials exported to $export_dir/${NC}"
+                        else
+                            echo -e "${RED}Failed to export credentials${NC}"
+                            rmdir "$export_dir"
+                            exit 1
+                        fi
+                        ;;
+                    import)
+                        if [ -z "$4" ]; then
+                            echo "Usage: ./dev n8n credentials import <file-or-directory>"
+                            echo ""
+                            echo "Import credentials from a JSON file or directory"
+                            exit 1
+                        fi
+                        
+                        echo -e "${BLUE}Importing n8n credentials...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        import_path="$4"
+                        
+                        if [ ! -e "$import_path" ]; then
+                            echo -e "${RED}File or directory not found: $import_path${NC}"
+                            exit 1
+                        fi
+                        
+                        container_path="/tmp/cred_import_$(date +%s)"
+                        docker cp "$import_path" "$($DOCKER_COMPOSE ps -q n8n):$container_path"
+                        
+                        if [ -d "$import_path" ]; then
+                            echo "Importing from directory..."
+                            import_flags="--separate --input=$container_path"
+                        else
+                            echo "Importing from file..."
+                            import_flags="--input=$container_path"
+                        fi
+                        
+                        if $DOCKER_COMPOSE exec -T n8n n8n import:credentials $import_flags 2>/dev/null; then
+                            echo -e "${GREEN}Credentials imported successfully${NC}"
+                        else
+                            echo -e "${RED}Failed to import credentials${NC}"
+                            exit 1
+                        fi
+                        
+                        $DOCKER_COMPOSE exec -T n8n rm -rf "$container_path" 2>/dev/null
+                        ;;
+                    backup)
+                        echo -e "${BLUE}Backing up n8n credentials (encrypted)...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        backup_file="credentials_backup_$(date +%Y%m%d_%H%M%S).json"
+                        
+                        if $DOCKER_COMPOSE exec -T n8n n8n export:credentials --all --output="/tmp/$backup_file" 2>/dev/null; then
+                            docker cp "$($DOCKER_COMPOSE ps -q n8n):/tmp/$backup_file" "$backup_file" 2>/dev/null
+                            $DOCKER_COMPOSE exec -T n8n rm -f "/tmp/$backup_file" 2>/dev/null
+                            echo -e "${GREEN}Credentials backed up to $backup_file${NC}"
+                            echo -e "${YELLOW}Note: Credentials are encrypted with your n8n instance key${NC}"
+                        else
+                            echo -e "${RED}Failed to backup credentials${NC}"
+                            exit 1
+                        fi
                         ;;
                     *)
-                        echo "Usage: ./dev n8n credentials {list}"
+                        echo "Usage: ./dev n8n credentials {export|import|backup}"
                         echo ""
                         echo "Commands:"
-                        echo "  list - Show information about n8n credentials"
+                        echo "  export       - Export all credentials to separate files"
+                        echo "  import <path> - Import credentials from file or directory"
+                        echo "  backup       - Create encrypted backup of all credentials"
+                        echo ""
+                        echo "Note: Credentials contain sensitive data. Handle exports carefully."
                         ;;
                 esac
                 ;;
@@ -1424,17 +1564,18 @@ EOF
                 echo "Usage: ./dev n8n {workflows|nodes|cli|credentials|executions} [command]"
                 echo ""
                 echo "Subcommands:"
-                echo "  workflows   - Manage n8n workflows (list, import, export, reset, activate)"
+                echo "  workflows   - Manage workflows (list, import, export, execute, activate/deactivate)"
                 echo "  nodes       - Manage custom nodes (list, build, verify)"
-                echo "  cli         - Pass commands directly to n8n CLI"
-                echo "  credentials - View credential information"
+                echo "  credentials - Manage credentials (export, import, backup)"
                 echo "  executions  - View workflow executions"
+                echo "  cli         - Pass commands directly to n8n CLI"
                 echo ""
                 echo "Examples:"
-                echo "  ./dev n8n workflows list        # List all workflows"
-                echo "  ./dev n8n workflows import      # Import from workflow_json/"
-                echo "  ./dev n8n nodes build           # Build all custom nodes"
-                echo "  ./dev n8n cli --version         # Get n8n version"
+                echo "  ./dev n8n workflows list             # List all workflows"
+                echo "  ./dev n8n workflows execute <id>     # Execute a workflow"
+                echo "  ./dev n8n credentials backup          # Backup all credentials"
+                echo "  ./dev n8n nodes verify                # Check node installation"
+                echo "  ./dev n8n cli --version               # Get n8n version"
                 ;;
         esac
         ;;

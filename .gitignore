@@ -26,8 +26,10 @@ crash.journal
 **/temp/
 **/cache/
 
-# n8n workflow exports
+# n8n exports
 workflow_export_*/
+credentials_export_*/
+credentials_backup_*.json
 
 # System files
 .DS_Store
