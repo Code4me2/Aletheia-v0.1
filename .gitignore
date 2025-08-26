@@ -26,6 +26,9 @@ crash.journal
 **/temp/
 **/cache/
 
+# n8n workflow exports
+workflow_export_*/
+
 # System files
 .DS_Store
 .claude/
