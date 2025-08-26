@@ -53,9 +53,36 @@ services:
       - N8N_RUNNERS_ENABLED=true
       - N8N_CORS_ENABLED=true
       - N8N_CORS_ALLOW_ORIGIN="${N8N_CORS_ORIGIN:-http://localhost:8080}"
+      # Enable public API access (for dev environment)
+      - N8N_PUBLIC_API_DISABLED=false
+      - N8N_PUBLIC_API_SWAGGERUI_DISABLED=false
       - EXECUTIONS_TIMEOUT=600  # 10 minutes
       - EXECUTIONS_TIMEOUT_MAX=3600  # 1 hour
       - N8N_CUSTOM_EXTENSIONS=/data/.n8n/custom
+      # Database connection (for workflows to access)
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      # Redis connection
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Court Processor API
+      - COURT_API_BASE_URL=${COURT_API_BASE_URL}
+      - COURT_PROCESSOR_PORT=${COURT_PROCESSOR_PORT}
+      # SMTP settings (if needed in workflows)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      # Other service URLs
+      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+      - NEXT_PUBLIC_AI_PORTAL_URL=${NEXT_PUBLIC_AI_PORTAL_URL}
+      - N8N_WEBHOOK_ID=${N8N_WEBHOOK_ID}
     volumes:
       - n8n_data:/data
       - ./n8n/local-files:/files

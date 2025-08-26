@@ -1290,10 +1290,14 @@ EOF
                         ;;
                     execute)
                         if [ -z "$4" ]; then
-                            echo "Usage: ./dev n8n workflows execute <workflow-id>"
+                            echo "Usage: ./dev n8n workflows execute <workflow-id> [json-data]"
                             echo ""
                             echo "Execute a specific workflow by ID"
                             echo "Get workflow IDs with: ./dev n8n workflows list"
+                            echo ""
+                            echo "Examples:"
+                            echo "  ./dev n8n workflows execute abc123"
+                            echo "  ./dev n8n workflows execute abc123 '{\"test\": true}'"
                             exit 1
                         fi
                         
@@ -1303,13 +1307,9 @@ EOF
                             exit 1
                         fi
                         
-                        if $DOCKER_COMPOSE exec -T n8n n8n execute --id="$4" 2>/dev/null; then
-                            echo -e "${GREEN}Workflow executed successfully${NC}"
-                        else
-                            echo -e "${RED}Failed to execute workflow${NC}"
-                            echo -e "${YELLOW}Note: Workflow may need to be active to execute${NC}"
-                            exit 1
-                        fi
+                        # Use our custom execution helper
+                        data="${5:-{}}"
+                        $DOCKER_COMPOSE exec -T n8n n8n-exec trigger "$4" "$data"
                         ;;
                     *)
                         echo "Usage: ./dev n8n workflows {list|import|export|reset|activate|deactivate|execute}"
@@ -1456,7 +1456,7 @@ EOF
                         mkdir -p "$export_dir"
                         echo "Exporting credentials to $export_dir/"
                         
-                        if $DOCKER_COMPOSE exec -T n8n n8n export:credentials --backup --output="/tmp/cred_export/" 2>/dev/null; then
+                        if $DOCKER_COMPOSE exec -T n8n n8n export:credentials --all --separate --output="/tmp/cred_export/" 2>&1 | grep -v "Error tracking disabled"; then
                             docker cp "$($DOCKER_COMPOSE ps -q n8n):/tmp/cred_export/" "$export_dir/" 2>/dev/null
                             $DOCKER_COMPOSE exec -T n8n rm -rf "/tmp/cred_export/" 2>/dev/null
                             echo -e "${GREEN}Credentials exported to $export_dir/${NC}"
@@ -1560,22 +1560,471 @@ EOF
                         ;;
                 esac
                 ;;
+            env)
+                case "$3" in
+                    list)
+                        echo -e "${BLUE}Listing environment variables in n8n container...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        echo "Current n8n environment variables:"
+                        $DOCKER_COMPOSE exec -T n8n env | sort | grep -E "^(N8N_|DB_|POSTGRES_|REDIS_|SMTP_|COURT_|NEXT_)" || {
+                            echo "Standard environment only:"
+                            $DOCKER_COMPOSE exec -T n8n env | sort | grep "^N8N_"
+                        }
+                        ;;
+                    inject)
+                        echo -e "${BLUE}Injecting .env variables into n8n container...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        # Create a script to export env vars
+                        if [ -f .env ]; then
+                            echo -e "${YELLOW}Note: Environment variables injected this way are temporary.${NC}"
+                            echo -e "${YELLOW}For permanent changes, update docker-compose.yml and rebuild.${NC}"
+                            echo ""
+                            
+                            # Read .env and export to container
+                            while IFS='=' read -r key value; do
+                                # Skip comments and empty lines
+                                [[ "$key" =~ ^#.*$ ]] && continue
+                                [[ -z "$key" ]] && continue
+                                
+                                # Export to container (note: this is temporary and won't persist)
+                                echo "Exporting $key"
+                                $DOCKER_COMPOSE exec -T n8n sh -c "export $key='$value'" 2>/dev/null
+                            done < .env
+                            
+                            echo -e "${GREEN}Environment variables injected (temporary)${NC}"
+                            echo ""
+                            echo "To make permanent, add to docker-compose.yml under n8n service:"
+                            echo "  environment:"
+                            grep -E "^(DB_|POSTGRES_|REDIS_|SMTP_|COURT_)" .env | while IFS='=' read -r key value; do
+                                echo "    - $key=\${$key}"
+                            done | head -10
+                            if [ $(grep -E "^(DB_|POSTGRES_|REDIS_|SMTP_|COURT_)" .env | wc -l) -gt 10 ]; then
+                                echo "    ... and more"
+                            fi
+                        else
+                            echo -e "${RED}No .env file found${NC}"
+                            exit 1
+                        fi
+                        ;;
+                    *)
+                        echo "Usage: ./dev n8n env {list|inject}"
+                        echo ""
+                        echo "Commands:"
+                        echo "  list   - List environment variables in n8n container"
+                        echo "  inject - Inject .env variables into n8n (temporary)"
+                        echo ""
+                        echo "Note: For permanent env var changes, modify docker-compose.yml"
+                        ;;
+                esac
+                ;;
+            test)
+                case "$3" in
+                    webhook)
+                        echo -e "${BLUE}Testing n8n webhook...${NC}"
+                        
+                        webhook_id="${N8N_WEBHOOK_ID:-c188c31c-1c45-4118-9ece-5b6057ab5177}"
+                        port="${N8N_PORT:-8100}"
+                        
+                        echo "Sending test payload to webhook..."
+                        echo ""
+                        
+                        # Create test payload
+                        payload='{
+                            "test": true,
+                            "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                            "source": "dev-cli",
+                            "message": "Test webhook trigger from dev CLI"
+                        }'
+                        
+                        # Send webhook request
+                        response=$(curl -s -X POST "http://localhost:$port/webhook/$webhook_id" \
+                            -H 'Content-Type: application/json' \
+                            -d "$payload" 2>&1)
+                        
+                        if [ $? -eq 0 ]; then
+                            echo -e "${GREEN}✓ Webhook request sent successfully${NC}"
+                            echo ""
+                            echo "Response:"
+                            echo "$response" | head -20
+                            
+                            if echo "$response" | grep -q "Workflow Webhook Error"; then
+                                echo ""
+                                echo -e "${YELLOW}Note: Webhook received but workflow may have errors${NC}"
+                                echo "Check workflow configuration in n8n UI"
+                            fi
+                        else
+                            echo -e "${RED}✗ Failed to send webhook request${NC}"
+                            echo "Check if n8n is running: ./dev status n8n"
+                        fi
+                        ;;
+                    *)
+                        echo "Usage: ./dev n8n test {webhook}"
+                        echo ""
+                        echo "Commands:"
+                        echo "  webhook - Send test payload to configured webhook"
+                        ;;
+                esac
+                ;;
+            monitor)
+                case "$3" in
+                    logs)
+                        echo -e "${BLUE}Monitoring n8n logs (Ctrl+C to stop)...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        # Tail logs with optional filter
+                        if [ -n "$4" ]; then
+                            echo "Filtering for: $4"
+                            $DOCKER_COMPOSE logs -f n8n 2>&1 | grep --line-buffered -i "$4"
+                        else
+                            $DOCKER_COMPOSE logs -f n8n 2>&1
+                        fi
+                        ;;
+                    webhooks)
+                        echo -e "${BLUE}Monitoring webhook activity...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo "Watching for webhook calls (Ctrl+C to stop):"
+                        echo ""
+                        # Monitor n8n logs for webhook activity
+                        $DOCKER_COMPOSE logs -f n8n 2>&1 | grep --line-buffered -E "webhook|Webhook|/webhook/" | while read line; do
+                            echo "[$(date '+%H:%M:%S')] $line"
+                        done
+                        ;;
+                    executions)
+                        echo -e "${BLUE}Monitoring workflow executions...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo "Real-time execution monitoring (Ctrl+C to stop):"
+                        echo ""
+                        
+                        # Use our execution helper for real-time monitoring
+                        $DOCKER_COMPOSE exec -T n8n sh -c "while true; do clear; echo '=== n8n Execution Monitor ==='; echo ''; n8n-exec query last 10; echo ''; echo '=== Currently Running ==='; n8n-exec query running; sleep 2; done"
+                        ;;
+                    errors)
+                        echo -e "${BLUE}Monitoring n8n errors...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo "Watching for errors (Ctrl+C to stop):"
+                        echo ""
+                        $DOCKER_COMPOSE logs -f n8n 2>&1 | grep --line-buffered -iE "error|fail|exception|warn" | while read line; do
+                            if echo "$line" | grep -qi "error\|fail\|exception"; then
+                                echo -e "[$(date '+%H:%M:%S')] ${RED}✗${NC} $line"
+                            else
+                                echo -e "[$(date '+%H:%M:%S')] ${YELLOW}⚠${NC} $line"
+                            fi
+                        done
+                        ;;
+                    *)
+                        echo "Usage: ./dev n8n monitor {logs|webhooks|executions|errors} [filter]"
+                        echo ""
+                        echo "Commands:"
+                        echo "  logs       - Monitor all n8n logs (optional filter)"
+                        echo "  webhooks   - Monitor webhook activity"
+                        echo "  executions - Monitor workflow executions"
+                        echo "  errors     - Monitor errors and warnings"
+                        echo ""
+                        echo "Examples:"
+                        echo "  ./dev n8n monitor logs                # All logs"
+                        echo "  ./dev n8n monitor logs 'webhook'      # Filtered logs"
+                        echo "  ./dev n8n monitor executions          # Execution activity"
+                        echo "  ./dev n8n monitor errors              # Errors only"
+                        echo ""
+                        echo "Press Ctrl+C to stop monitoring"
+                        ;;
+                esac
+                ;;
+            query)
+                case "$3" in
+                    status)
+                        echo -e "${BLUE}Querying n8n status...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${RED}✗ n8n is not running${NC}"
+                            exit 1
+                        fi
+                        
+                        echo -e "${GREEN}✓ n8n is running${NC}"
+                        echo ""
+                        
+                        # Check health endpoint
+                        if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${N8N_PORT:-8100}/healthz" | grep -q "200"; then
+                            echo -e "${GREEN}✓ Health check: OK${NC}"
+                        else
+                            echo -e "${RED}✗ Health check: Failed${NC}"
+                        fi
+                        
+                        # Get version
+                        echo ""
+                        echo -n "Version: "
+                        $DOCKER_COMPOSE exec -T n8n n8n --version 2>/dev/null || echo "Unknown"
+                        
+                        # Count workflows
+                        echo ""
+                        workflow_count=$($DOCKER_COMPOSE exec -T n8n n8n list:workflow 2>/dev/null | grep -c "|" || echo 0)
+                        echo "Active workflows: $workflow_count"
+                        
+                        # Check custom nodes
+                        echo ""
+                        if $DOCKER_COMPOSE exec -T n8n test -d /data/.n8n/custom 2>/dev/null; then
+                            node_count=$($DOCKER_COMPOSE exec -T n8n ls /data/.n8n/custom/ 2>/dev/null | wc -l || echo 0)
+                            echo "Custom nodes installed: $node_count"
+                        else
+                            echo "Custom nodes: None"
+                        fi
+                        ;;
+                    webhook-url)
+                        echo -e "${BLUE}n8n Webhook URLs:${NC}"
+                        echo ""
+                        
+                        # Get from environment
+                        webhook_id="${N8N_WEBHOOK_ID:-c188c31c-1c45-4118-9ece-5b6057ab5177}"
+                        port="${N8N_PORT:-8100}"
+                        
+                        echo "Production webhook URL:"
+                        echo "  http://localhost:$port/webhook/$webhook_id"
+                        echo ""
+                        echo "Test webhook URL:"
+                        echo "  http://localhost:$port/webhook-test/$webhook_id"
+                        echo ""
+                        echo "Internal (container) URL:"
+                        echo "  http://n8n:5678/webhook/$webhook_id"
+                        echo ""
+                        echo "To test webhook:"
+                        echo "  curl -X POST http://localhost:$port/webhook/$webhook_id \\"
+                        echo "    -H 'Content-Type: application/json' \\"
+                        echo "    -d '{\"test\": \"data\"}'"
+                        ;;
+                    last-execution)
+                        echo -e "${BLUE}Querying last execution details...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        # Query SQLite database directly
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                            "SELECT id, workflowId, status, datetime(startedAt/1000, 'unixepoch') as started 
+                             FROM execution_entity 
+                             ORDER BY startedAt DESC 
+                             LIMIT ${4:-5}" 2>/dev/null || echo "No executions found"
+                        ;;
+                    active-workflows)
+                        echo -e "${BLUE}Querying active workflows...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        echo "Active workflows:"
+                        $DOCKER_COMPOSE exec -T n8n n8n list:workflow 2>&1 | grep -v "User settings\|Error tracking" | while IFS='|' read -r id name; do
+                            if [ ! -z "$id" ] && [ "$id" != "ID" ]; then
+                                # Trim whitespace
+                                id=$(echo "$id" | xargs)
+                                name=$(echo "$name" | xargs)
+                                
+                                # Try to get workflow details using n8n CLI
+                                echo ""
+                                echo "  ID: $id"
+                                echo "  Name: $name"
+                                
+                                # Check if workflow is active by trying to get its status from database
+                                if $DOCKER_COMPOSE exec -T n8n test -f /data/database.sqlite 2>/dev/null; then
+                                    active=$($DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                                        "SELECT active FROM workflow_entity WHERE id = '$id';" 2>/dev/null)
+                                    if [ "$active" = "1" ]; then
+                                        echo -e "  Status: ${GREEN}Active${NC}"
+                                    else
+                                        echo -e "  Status: ${YELLOW}Inactive${NC}"
+                                    fi
+                                fi
+                            fi
+                        done
+                        ;;
+                    running-executions)
+                        echo -e "${BLUE}Querying running executions...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                            "SELECT id, workflowId, datetime(startedAt/1000, 'unixepoch') as started 
+                             FROM execution_entity 
+                             WHERE finished = 0 
+                             ORDER BY startedAt DESC" 2>/dev/null || echo "No running executions"
+                        ;;
+                    failed-executions)
+                        echo -e "${BLUE}Querying failed executions...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                            "SELECT id, workflowId, status, datetime(startedAt/1000, 'unixepoch') as started 
+                             FROM execution_entity 
+                             WHERE status = 'failed' OR status = 'crashed' 
+                             ORDER BY startedAt DESC 
+                             LIMIT ${4:-10}" 2>/dev/null || echo "No failed executions"
+                        ;;
+                    execution-stats)
+                        echo -e "${BLUE}Querying execution statistics...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        echo "Total Executions:" 
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                            "SELECT COUNT(*) FROM execution_entity" 2>/dev/null || echo "0"
+                        echo "Successful:" 
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                            "SELECT COUNT(*) FROM execution_entity WHERE status = 'success'" 2>/dev/null || echo "0"
+                        echo "Failed:"
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                            "SELECT COUNT(*) FROM execution_entity WHERE status = 'failed' OR status = 'crashed'" 2>/dev/null || echo "0"
+                        ;;
+                    execution-details)
+                        if [ -z "$4" ]; then
+                            echo "Usage: ./dev n8n query execution-details <execution-id>"
+                            exit 1
+                        fi
+                        
+                        echo -e "${BLUE}Querying execution details for $4...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                            "SELECT id, workflowId, status, mode, 
+                                    datetime(startedAt/1000, 'unixepoch') as started,
+                                    datetime(stoppedAt/1000, 'unixepoch') as stopped
+                             FROM execution_entity 
+                             WHERE id = '$4'" 2>/dev/null || echo "Execution not found"
+                        ;;
+                    workflow-info)
+                        echo -e "${BLUE}Querying workflow information...${NC}"
+                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        if [ -z "$4" ]; then
+                            $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                                "SELECT id, name, active FROM workflow_entity ORDER BY name" 2>/dev/null || echo "No workflows found"
+                        else
+                            $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                                "SELECT id, name, active FROM workflow_entity WHERE id = '$4'" 2>/dev/null || echo "Workflow not found"
+                        fi
+                        ;;
+                    api-status)
+                        echo -e "${BLUE}Checking n8n API status...${NC}"
+                        port="${N8N_PORT:-8100}"
+                        
+                        echo ""
+                        echo "API Endpoints:"
+                        
+                        # Check main API
+                        echo -n "  REST API: "
+                        if curl -s -o /dev/null -w "%{http_code}" "http://localhost:$port/rest/workflows" | grep -q "401\|403"; then
+                            echo -e "${YELLOW}Protected (authentication required)${NC}"
+                        elif curl -s -o /dev/null -w "%{http_code}" "http://localhost:$port/rest/workflows" | grep -q "200"; then
+                            echo -e "${GREEN}Open (no authentication)${NC}"
+                        else
+                            echo -e "${RED}Not accessible${NC}"
+                        fi
+                        
+                        # Check public API
+                        echo -n "  Public API: "
+                        if curl -s "http://localhost:$port/api/v1" 2>&1 | grep -q "Cannot GET"; then
+                            echo -e "${RED}Disabled${NC}"
+                        else
+                            echo -e "${GREEN}Enabled${NC}"
+                        fi
+                        
+                        # Check Swagger UI
+                        echo -n "  Swagger UI: "
+                        if curl -s -o /dev/null -w "%{http_code}" "http://localhost:$port/api/v1/docs/" | grep -q "200"; then
+                            echo -e "${GREEN}Available at http://localhost:$port/api/v1/docs/${NC}"
+                        else
+                            echo -e "${YELLOW}Not available${NC}"
+                        fi
+                        
+                        echo ""
+                        echo "To enable API access, set in docker-compose.yml:"
+                        echo "  N8N_PUBLIC_API_DISABLED=false"
+                        echo "  N8N_PUBLIC_API_SWAGGERUI_DISABLED=false"
+                        ;;
+                    *)
+                        echo "Usage: ./dev n8n query {status|webhook-url|last-execution|running-executions|failed-executions|execution-stats|execution-details|workflow-info|active-workflows|api-status}"
+                        echo ""
+                        echo "Commands:"
+                        echo "  status              - Query n8n service status and stats"
+                        echo "  webhook-url         - Display webhook URLs for testing"
+                        echo "  last-execution [n]  - Show details of last n executions (default: 5)"
+                        echo "  running-executions  - Show currently running executions"
+                        echo "  failed-executions   - Show failed executions"
+                        echo "  execution-stats     - Display execution statistics"
+                        echo "  execution-details   - Get details of specific execution"
+                        echo "  workflow-info [id]  - Get workflow information"
+                        echo "  active-workflows    - List active workflows with status"
+                        echo "  api-status          - Check API endpoint availability"
+                        echo ""
+                        echo "Examples:"
+                        echo "  ./dev n8n query last-execution 10"
+                        echo "  ./dev n8n query execution-details abc123"
+                        echo "  ./dev n8n query workflow-info"
+                        ;;
+                esac
+                ;;
             *)
-                echo "Usage: ./dev n8n {workflows|nodes|cli|credentials|executions} [command]"
+                echo "Usage: ./dev n8n {workflows|nodes|cli|credentials|executions|env|test|monitor|query} [command]"
                 echo ""
                 echo "Subcommands:"
                 echo "  workflows   - Manage workflows (list, import, export, execute, activate/deactivate)"
                 echo "  nodes       - Manage custom nodes (list, build, verify)"
                 echo "  credentials - Manage credentials (export, import, backup)"
                 echo "  executions  - View workflow executions"
+                echo "  env         - Manage environment variables"
+                echo "  test        - Test n8n functionality (webhooks)"
+                echo "  monitor     - Continuous monitoring (logs, webhooks, executions, errors)"
+                echo "  query       - Query n8n status and configuration"
                 echo "  cli         - Pass commands directly to n8n CLI"
                 echo ""
                 echo "Examples:"
                 echo "  ./dev n8n workflows list             # List all workflows"
-                echo "  ./dev n8n workflows execute <id>     # Execute a workflow"
+                echo "  ./dev n8n env list                   # List container env vars"
+                echo "  ./dev n8n monitor executions         # Watch workflow executions"
+                echo "  ./dev n8n query status               # Check n8n status"
                 echo "  ./dev n8n credentials backup          # Backup all credentials"
-                echo "  ./dev n8n nodes verify                # Check node installation"
-                echo "  ./dev n8n cli --version               # Get n8n version"
                 ;;
         esac
         ;;

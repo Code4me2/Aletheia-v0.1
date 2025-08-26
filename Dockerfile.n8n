@@ -8,6 +8,12 @@ RUN apk add --no-cache --virtual .build-deps \
     make \
     g++
 
+# Install runtime tools we need
+RUN apk add --no-cache \
+    sqlite \
+    curl \
+    jq
+
 # Create directories
 RUN mkdir -p /data
 
@@ -53,6 +59,10 @@ RUN cp -r /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization /data/
 
 # Set proper ownership for all n8n directories
 RUN chown -R node:node /data
+
+# Copy execution helper script while still as root
+COPY ./n8n/scripts/n8n-exec.sh /usr/local/bin/n8n-exec
+RUN chmod +x /usr/local/bin/n8n-exec
 
 USER node
 
