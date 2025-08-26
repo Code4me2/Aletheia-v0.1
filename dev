@@ -1121,6 +1121,21 @@ EOF
     
     n8n)
         case "$2" in
+            setup)
+                echo -e "${BLUE}Running n8n auto-setup...${NC}"
+                if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                    echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
+                    exit 1
+                fi
+                
+                # Run auto-setup
+                $DOCKER_COMPOSE exec -T n8n sh /usr/local/bin/auto-setup
+                
+                echo ""
+                echo -e "${GREEN}Setup complete!${NC}"
+                echo "Access n8n at: http://localhost:${N8N_PORT:-8100}"
+                echo "Login: admin@aletheia.local / admin123"
+                ;;
             workflows)
                 case "$3" in
                     list)
@@ -1823,7 +1838,7 @@ EOF
                         
                         echo ""
                         # Query SQLite database directly
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/.n8n/database.sqlite \
                             "SELECT id, workflowId, status, datetime(startedAt/1000, 'unixepoch') as started 
                              FROM execution_entity 
                              ORDER BY startedAt DESC 
@@ -1850,8 +1865,8 @@ EOF
                                 echo "  Name: $name"
                                 
                                 # Check if workflow is active by trying to get its status from database
-                                if $DOCKER_COMPOSE exec -T n8n test -f /data/database.sqlite 2>/dev/null; then
-                                    active=$($DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                                if $DOCKER_COMPOSE exec -T n8n test -f /data/.n8n/database.sqlite 2>/dev/null; then
+                                    active=$($DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
                                         "SELECT active FROM workflow_entity WHERE id = '$id';" 2>/dev/null)
                                     if [ "$active" = "1" ]; then
                                         echo -e "  Status: ${GREEN}Active${NC}"
@@ -1870,7 +1885,7 @@ EOF
                         fi
                         
                         echo ""
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/.n8n/database.sqlite \
                             "SELECT id, workflowId, datetime(startedAt/1000, 'unixepoch') as started 
                              FROM execution_entity 
                              WHERE finished = 0 
@@ -1884,7 +1899,7 @@ EOF
                         fi
                         
                         echo ""
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/.n8n/database.sqlite \
                             "SELECT id, workflowId, status, datetime(startedAt/1000, 'unixepoch') as started 
                              FROM execution_entity 
                              WHERE status = 'failed' OR status = 'crashed' 
@@ -1900,13 +1915,13 @@ EOF
                         
                         echo ""
                         echo "Total Executions:" 
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
                             "SELECT COUNT(*) FROM execution_entity" 2>/dev/null || echo "0"
                         echo "Successful:" 
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
                             "SELECT COUNT(*) FROM execution_entity WHERE status = 'success'" 2>/dev/null || echo "0"
                         echo "Failed:"
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
                             "SELECT COUNT(*) FROM execution_entity WHERE status = 'failed' OR status = 'crashed'" 2>/dev/null || echo "0"
                         ;;
                     execution-details)
@@ -1922,7 +1937,7 @@ EOF
                         fi
                         
                         echo ""
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                        $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/.n8n/database.sqlite \
                             "SELECT id, workflowId, status, mode, 
                                     datetime(startedAt/1000, 'unixepoch') as started,
                                     datetime(stoppedAt/1000, 'unixepoch') as stopped
@@ -1938,10 +1953,10 @@ EOF
                         
                         echo ""
                         if [ -z "$4" ]; then
-                            $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                            $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/.n8n/database.sqlite \
                                 "SELECT id, name, active FROM workflow_entity ORDER BY name" 2>/dev/null || echo "No workflows found"
                         else
-                            $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/database.sqlite \
+                            $DOCKER_COMPOSE exec -T n8n sqlite3 -header -column /data/.n8n/database.sqlite \
                                 "SELECT id, name, active FROM workflow_entity WHERE id = '$4'" 2>/dev/null || echo "Workflow not found"
                         fi
                         ;;
@@ -2006,9 +2021,10 @@ EOF
                 esac
                 ;;
             *)
-                echo "Usage: ./dev n8n {workflows|nodes|cli|credentials|executions|env|test|monitor|query} [command]"
+                echo "Usage: ./dev n8n {setup|workflows|nodes|cli|credentials|executions|env|test|monitor|query} [command]"
                 echo ""
                 echo "Subcommands:"
+                echo "  setup       - Auto-setup n8n owner account and activate workflows"
                 echo "  workflows   - Manage workflows (list, import, export, execute, activate/deactivate)"
                 echo "  nodes       - Manage custom nodes (list, build, verify)"
                 echo "  credentials - Manage credentials (export, import, backup)"

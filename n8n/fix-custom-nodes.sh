@@ -37,5 +37,13 @@ echo "  ✓ DeepSeek uses different loading mechanism"
 
 echo "✅ Custom nodes fixed!"
 
+# Run auto-setup in background after n8n starts
+(
+    sleep 10  # Give n8n time to initialize
+    if [ -f /usr/local/bin/auto-setup ]; then
+        /usr/local/bin/auto-setup
+    fi
+) &
+
 # Start n8n normally
 exec n8n
