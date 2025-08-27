@@ -144,6 +144,168 @@ check_env() {
     fi
 }
 
+# ============================================================================
+# Common Functions Library
+# ============================================================================
+
+# Exit codes for consistent error handling
+readonly EXIT_SUCCESS=0
+readonly EXIT_CONFIG_ERROR=1
+readonly EXIT_SERVICE_UNAVAILABLE=2
+readonly EXIT_PERMISSION_DENIED=3
+readonly EXIT_RESOURCE_ERROR=4
+readonly EXIT_USER_CANCELLED=5
+
+# Output format (can be set via --json flag)
+OUTPUT_FORMAT="${OUTPUT_FORMAT:-text}"
+
+# Parse global flags
+for arg in "$@"; do
+    case $arg in
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+    esac
+done
+
+# Check if database is ready
+check_db_ready() {
+    local db_user="${DB_USER:-aletheia}"
+    local db_name="${DB_NAME:-aletheia}"
+    
+    if ! $DOCKER_COMPOSE exec -T db pg_isready -U "$db_user" &>/dev/null; then
+        if [ "$OUTPUT_FORMAT" = "json" ]; then
+            echo '{"status":"error","message":"Database is not running"}'
+        else
+            echo -e "${RED}✗ Database is not running${NC}"
+            echo "  Start the database with: ./dev up db"
+        fi
+        return $EXIT_SERVICE_UNAVAILABLE
+    fi
+    return $EXIT_SUCCESS
+}
+
+# Check if a service is running
+check_service_running() {
+    local service="$1"
+    local quiet="${2:-false}"
+    
+    if ! $DOCKER_COMPOSE ps "$service" 2>/dev/null | grep -q "Up\|Running"; then
+        if [ "$quiet" != "true" ]; then
+            if [ "$OUTPUT_FORMAT" = "json" ]; then
+                echo "{\"status\":\"error\",\"service\":\"$service\",\"message\":\"Service is not running\"}"
+            else
+                echo -e "${YELLOW}$service is not running. Start it with: ./dev up $service${NC}"
+            fi
+        fi
+        return $EXIT_SERVICE_UNAVAILABLE
+    fi
+    return $EXIT_SUCCESS
+}
+
+# Wait for a service to be ready
+wait_for_service() {
+    local service="$1"
+    local max_wait="${2:-30}"
+    local check_command="${3:-}"
+    
+    echo -e "${BLUE}Waiting for $service to be ready...${NC}"
+    
+    local count=0
+    while [ $count -lt $max_wait ]; do
+        if [ -n "$check_command" ]; then
+            if eval "$check_command" &>/dev/null; then
+                echo -e "${GREEN}✓ $service is ready${NC}"
+                return $EXIT_SUCCESS
+            fi
+        else
+            if check_service_running "$service" true; then
+                echo -e "${GREEN}✓ $service is ready${NC}"
+                return $EXIT_SUCCESS
+            fi
+        fi
+        echo -n "."
+        sleep 1
+        count=$((count + 1))
+    done
+    
+    echo ""
+    echo -e "${RED}✗ $service failed to start within ${max_wait} seconds${NC}"
+    return $EXIT_SERVICE_UNAVAILABLE
+}
+
+# Get container name for a service
+get_container_name() {
+    local service="$1"
+    $DOCKER_COMPOSE ps -q "$service" 2>/dev/null | head -1
+}
+
+# Output in JSON format if requested
+output_result() {
+    local status="$1"
+    local message="$2"
+    local data="${3:-}"
+    
+    if [ "$OUTPUT_FORMAT" = "json" ]; then
+        if [ -n "$data" ]; then
+            echo "{\"status\":\"$status\",\"message\":\"$message\",\"data\":$data}"
+        else
+            echo "{\"status\":\"$status\",\"message\":\"$message\"}"
+        fi
+    else
+        if [ "$status" = "success" ]; then
+            echo -e "${GREEN}✓ $message${NC}"
+        elif [ "$status" = "error" ]; then
+            echo -e "${RED}✗ $message${NC}"
+        elif [ "$status" = "warning" ]; then
+            echo -e "${YELLOW}⚠ $message${NC}"
+        else
+            echo "$message"
+        fi
+    fi
+}
+
+# Execute command with retry logic
+retry_command() {
+    local cmd="$1"
+    local max_attempts="${2:-3}"
+    local delay="${3:-2}"
+    
+    for i in $(seq 1 $max_attempts); do
+        if eval "$cmd"; then
+            return $EXIT_SUCCESS
+        fi
+        
+        if [ $i -lt $max_attempts ]; then
+            echo "Attempt $i/$max_attempts failed, retrying in ${delay}s..."
+            sleep $delay
+        fi
+    done
+    
+    return $EXIT_SERVICE_UNAVAILABLE
+}
+
+# Validate port availability
+check_port() {
+    local port="$1"
+    local service="${2:-unknown}"
+    
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        if [ "$OUTPUT_FORMAT" = "json" ]; then
+            echo "{\"port\":$port,\"service\":\"$service\",\"status\":\"occupied\"}"
+        else
+            echo -e "${RED}✗ Port $port ($service) is already in use${NC}"
+        fi
+        return $EXIT_CONFIG_ERROR
+    fi
+    return $EXIT_SUCCESS
+}
+
+# ============================================================================
+# End of Common Functions Library
+# ============================================================================
+
 # Main command handling
 case "$1" in
     up|start)
@@ -349,26 +511,34 @@ case "$1" in
         
     status|ps)
         check_requirements
-        echo -e "${BLUE}═══════════════════════════════════════${NC}"
-        echo -e "${BLUE}  Service Status${NC}"
-        echo -e "${BLUE}═══════════════════════════════════════${NC}"
-        echo ""
         
-        # Container status
-        echo -e "${CYAN}Containers:${NC}"
-        $DOCKER_COMPOSE ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
-        echo ""
+        if [ "$OUTPUT_FORMAT" != "json" ]; then
+            echo -e "${BLUE}═══════════════════════════════════════${NC}"
+            echo -e "${BLUE}  Service Status${NC}"
+            echo -e "${BLUE}═══════════════════════════════════════${NC}"
+            echo ""
+            
+            # Container status
+            echo -e "${CYAN}Containers:${NC}"
+            $DOCKER_COMPOSE ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+            echo ""
+            
+            # Health status
+            echo -e "${CYAN}Health Status:${NC}"
+        fi
         
-        # Health status
-        echo -e "${CYAN}Health Status:${NC}"
         healthy=0
         unhealthy=0
         nocheck=0
+        services_json="["
+        first=true
         
         for container in $(docker ps --format "{{.Names}}" --filter "label=com.docker.compose.project=${PROJECT_NAME}"); do
             # Special handling for known containers without standard health checks
             if [[ "$container" == *"recap-webhook"* ]]; then
-                echo -e "${YELLOW}○${NC} $container: health check ignored"
+                if [ "$OUTPUT_FORMAT" != "json" ]; then
+                    echo -e "${YELLOW}○${NC} $container: health check ignored"
+                fi
                 nocheck=$((nocheck + 1))
                 continue
             fi
@@ -378,29 +548,56 @@ case "$1" in
             
             case "$health" in
                 healthy)
-                    echo -e "${GREEN}✓${NC} $container: healthy"
+                    if [ "$OUTPUT_FORMAT" != "json" ]; then
+                        echo -e "${GREEN}✓${NC} $container: healthy"
+                    fi
                     healthy=$((healthy + 1))
+                    health_json="\"healthy\""
                     ;;
                 unhealthy|starting)
                     # Skip recap-webhook unhealthy status as it's expected
                     if [[ "$container" != *"recap-webhook"* ]]; then
-                        echo -e "${RED}✗${NC} $container: $health"
+                        if [ "$OUTPUT_FORMAT" != "json" ]; then
+                            echo -e "${RED}✗${NC} $container: $health"
+                        fi
                         unhealthy=$((unhealthy + 1))
                     fi
+                    health_json="\"$health\""
                     ;;
                 "no check"|"")
-                    echo -e "${YELLOW}○${NC} $container: no health check"
+                    if [ "$OUTPUT_FORMAT" != "json" ]; then
+                        echo -e "${YELLOW}○${NC} $container: no health check"
+                    fi
                     nocheck=$((nocheck + 1))
+                    health_json="\"no_check\""
                     ;;
                 error)
-                    echo -e "${RED}✗${NC} $container: inspection failed"
+                    if [ "$OUTPUT_FORMAT" != "json" ]; then
+                        echo -e "${RED}✗${NC} $container: inspection failed"
+                    fi
                     unhealthy=$((unhealthy + 1))
+                    health_json="\"error\""
                     ;;
             esac
+            
+            # Build JSON array
+            if [ "$OUTPUT_FORMAT" = "json" ]; then
+                if [ "$first" = true ]; then
+                    first=false
+                else
+                    services_json="${services_json},"
+                fi
+                services_json="${services_json}{\"name\":\"$container\",\"health\":$health_json}"
+            fi
         done
         
-        echo ""
-        echo "Summary: ${GREEN}$healthy healthy${NC}, ${RED}$unhealthy issues${NC}, ${YELLOW}$nocheck unchecked${NC}"
+        if [ "$OUTPUT_FORMAT" = "json" ]; then
+            services_json="${services_json}]"
+            echo "{\"healthy\":$healthy,\"unhealthy\":$unhealthy,\"nocheck\":$nocheck,\"services\":$services_json}"
+        else
+            echo ""
+            echo "Summary: ${GREEN}$healthy healthy${NC}, ${RED}$unhealthy issues${NC}, ${YELLOW}$nocheck unchecked${NC}"
+        fi
         ;;
         
     shell|exec)
@@ -1135,9 +1332,8 @@ EOF
         case "$2" in
             setup)
                 echo -e "${BLUE}Running n8n auto-setup...${NC}"
-                if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                    echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                    exit 1
+                if ! check_service_running "n8n"; then
+                    exit $EXIT_SERVICE_UNAVAILABLE
                 fi
                 
                 # Run auto-setup
@@ -1152,9 +1348,8 @@ EOF
                 case "$3" in
                     list)
                         echo -e "${BLUE}Listing n8n workflows...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         # Execute n8n CLI inside container to list workflows
                         $DOCKER_COMPOSE exec -T n8n n8n list:workflow 2>/dev/null || {
@@ -1164,9 +1359,8 @@ EOF
                         ;;
                     import)
                         echo -e "${BLUE}Importing workflows to n8n...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         # Check if workflow_json directory exists
@@ -1209,9 +1403,8 @@ EOF
                         ;;
                     export)
                         echo -e "${BLUE}Exporting n8n workflows...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         # Create export directory
@@ -1279,9 +1472,8 @@ EOF
                         ;;
                     activate)
                         echo -e "${BLUE}Activating all n8n workflows...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         if $DOCKER_COMPOSE exec -T n8n n8n update:workflow --all --active=true 2>/dev/null; then
@@ -1294,9 +1486,8 @@ EOF
                     deactivate)
                         if [ -z "$4" ]; then
                             echo -e "${BLUE}Deactivating all n8n workflows...${NC}"
-                            if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                                echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                                exit 1
+                            if ! check_service_running "n8n"; then
+                                exit $EXIT_SERVICE_UNAVAILABLE
                             fi
                             
                             if $DOCKER_COMPOSE exec -T n8n n8n update:workflow --all --active=false 2>/dev/null; then
@@ -1329,9 +1520,8 @@ EOF
                         fi
                         
                         echo -e "${BLUE}Executing workflow $4...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         # Use our custom execution helper
@@ -1405,9 +1595,8 @@ EOF
                     verify)
                         echo -e "${BLUE}Verifying n8n custom nodes...${NC}"
                         
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo "Checking custom nodes in container..."
@@ -1462,9 +1651,8 @@ EOF
                     exit 1
                 fi
                 
-                if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                    echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                    exit 1
+                if ! check_service_running "n8n"; then
+                    exit $EXIT_SERVICE_UNAVAILABLE
                 fi
                 
                 echo -e "${BLUE}Executing n8n CLI command...${NC}"
@@ -1474,9 +1662,8 @@ EOF
                 case "$3" in
                     export)
                         echo -e "${BLUE}Exporting n8n credentials...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         export_dir="credentials_export_$(date +%Y%m%d_%H%M%S)"
@@ -1502,9 +1689,8 @@ EOF
                         fi
                         
                         echo -e "${BLUE}Importing n8n credentials...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         import_path="$4"
@@ -1536,9 +1722,8 @@ EOF
                         ;;
                     backup)
                         echo -e "${BLUE}Backing up n8n credentials (encrypted)...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         backup_file="credentials_backup_$(date +%Y%m%d_%H%M%S).json"
@@ -1569,9 +1754,8 @@ EOF
                 case "$3" in
                     list)
                         echo -e "${BLUE}Listing recent n8n executions...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         # List executions using n8n CLI
@@ -1591,9 +1775,8 @@ EOF
                 case "$3" in
                     list)
                         echo -e "${BLUE}Listing environment variables in n8n container...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -1605,9 +1788,8 @@ EOF
                         ;;
                     inject)
                         echo -e "${BLUE}Injecting .env variables into n8n container...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         # Create a script to export env vars
@@ -1705,9 +1887,8 @@ EOF
                 case "$3" in
                     logs)
                         echo -e "${BLUE}Monitoring n8n logs (Ctrl+C to stop)...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         # Tail logs with optional filter
@@ -1720,9 +1901,8 @@ EOF
                         ;;
                     webhooks)
                         echo -e "${BLUE}Monitoring webhook activity...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo "Watching for webhook calls (Ctrl+C to stop):"
@@ -1734,9 +1914,8 @@ EOF
                         ;;
                     executions)
                         echo -e "${BLUE}Monitoring workflow executions...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo "Real-time execution monitoring (Ctrl+C to stop):"
@@ -1747,9 +1926,8 @@ EOF
                         ;;
                     errors)
                         echo -e "${BLUE}Monitoring n8n errors...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo "Watching for errors (Ctrl+C to stop):"
@@ -1785,9 +1963,9 @@ EOF
                 case "$3" in
                     status)
                         echo -e "${BLUE}Querying n8n status...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
+                        if ! check_service_running "n8n" "quiet"; then
                             echo -e "${RED}✗ n8n is not running${NC}"
-                            exit 1
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo -e "${GREEN}✓ n8n is running${NC}"
@@ -1843,9 +2021,8 @@ EOF
                         ;;
                     last-execution)
                         echo -e "${BLUE}Querying last execution details...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -1858,9 +2035,8 @@ EOF
                         ;;
                     active-workflows)
                         echo -e "${BLUE}Querying active workflows...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -1891,9 +2067,8 @@ EOF
                         ;;
                     running-executions)
                         echo -e "${BLUE}Querying running executions...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -1905,9 +2080,8 @@ EOF
                         ;;
                     failed-executions)
                         echo -e "${BLUE}Querying failed executions...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -1919,22 +2093,29 @@ EOF
                              LIMIT ${4:-10}" 2>/dev/null || echo "No failed executions"
                         ;;
                     execution-stats)
-                        echo -e "${BLUE}Querying execution statistics...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if [ "$OUTPUT_FORMAT" != "json" ]; then
+                            echo -e "${BLUE}Querying execution statistics...${NC}"
+                        fi
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
-                        echo ""
-                        echo "Total Executions:" 
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
-                            "SELECT COUNT(*) FROM execution_entity" 2>/dev/null || echo "0"
-                        echo "Successful:" 
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
-                            "SELECT COUNT(*) FROM execution_entity WHERE status = 'success'" 2>/dev/null || echo "0"
-                        echo "Failed:"
-                        $DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
-                            "SELECT COUNT(*) FROM execution_entity WHERE status = 'failed' OR status = 'crashed'" 2>/dev/null || echo "0"
+                        # Get statistics
+                        total=$($DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
+                            "SELECT COUNT(*) FROM execution_entity" 2>/dev/null || echo "0")
+                        successful=$($DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
+                            "SELECT COUNT(*) FROM execution_entity WHERE status = 'success'" 2>/dev/null || echo "0")
+                        failed=$($DOCKER_COMPOSE exec -T n8n sqlite3 /data/.n8n/database.sqlite \
+                            "SELECT COUNT(*) FROM execution_entity WHERE status = 'failed' OR status = 'crashed'" 2>/dev/null || echo "0")
+                        
+                        if [ "$OUTPUT_FORMAT" = "json" ]; then
+                            echo "{\"total\":$total,\"successful\":$successful,\"failed\":$failed}"
+                        else
+                            echo ""
+                            echo "Total Executions: $total"
+                            echo "Successful: $successful"
+                            echo "Failed: $failed"
+                        fi
                         ;;
                     execution-details)
                         if [ -z "$4" ]; then
@@ -1943,9 +2124,8 @@ EOF
                         fi
                         
                         echo -e "${BLUE}Querying execution details for $4...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -1958,9 +2138,8 @@ EOF
                         ;;
                     workflow-info)
                         echo -e "${BLUE}Querying workflow information...${NC}"
-                        if ! $DOCKER_COMPOSE ps n8n 2>/dev/null | grep -q "Up\|Running"; then
-                            echo -e "${YELLOW}n8n is not running. Start it with: ./dev up n8n${NC}"
-                            exit 1
+                        if ! check_service_running "n8n"; then
+                            exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
                         echo ""
@@ -2074,10 +2253,8 @@ EOF
         echo ""
         
         # Check if database is running
-        if ! $DOCKER_COMPOSE exec -T db pg_isready -U "${DB_USER:-aletheia}" &>/dev/null; then
-            echo -e "${RED}✗ Database is not running${NC}"
-            echo "  Start the database with: ./dev up db"
-            exit 1
+        if ! check_db_ready; then
+            exit $EXIT_SERVICE_UNAVAILABLE
         fi
         
         # Check if User table exists
