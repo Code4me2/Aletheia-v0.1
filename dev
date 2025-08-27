@@ -1962,39 +1962,57 @@ EOF
             query)
                 case "$3" in
                     status)
-                        echo -e "${BLUE}Querying n8n status...${NC}"
-                        if ! check_service_running "n8n" "quiet"; then
-                            echo -e "${RED}✗ n8n is not running${NC}"
+                        if [ "$OUTPUT_FORMAT" != "json" ]; then
+                            echo -e "${BLUE}Querying n8n status...${NC}"
+                        fi
+                        if ! check_service_running "n8n" "true"; then
+                            if [ "$OUTPUT_FORMAT" = "json" ]; then
+                                echo '{"status":"error","service":"n8n","message":"Service is not running"}'
+                            else
+                                echo -e "${RED}✗ n8n is not running${NC}"
+                            fi
                             exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
-                        echo -e "${GREEN}✓ n8n is running${NC}"
-                        echo ""
-                        
                         # Check health endpoint
-                        if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${N8N_PORT:-8100}/healthz" | grep -q "200"; then
-                            echo -e "${GREEN}✓ Health check: OK${NC}"
+                        health_status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${N8N_PORT:-8100}/healthz")
+                        if echo "$health_status" | grep -q "200"; then
+                            health_ok=true
                         else
-                            echo -e "${RED}✗ Health check: Failed${NC}"
+                            health_ok=false
                         fi
                         
-                        # Get version
-                        echo ""
-                        echo -n "Version: "
-                        $DOCKER_COMPOSE exec -T n8n n8n --version 2>/dev/null || echo "Unknown"
-                        
-                        # Count workflows
-                        echo ""
-                        workflow_count=$($DOCKER_COMPOSE exec -T n8n n8n list:workflow 2>/dev/null | grep -c "|" || echo 0)
-                        echo "Active workflows: $workflow_count"
-                        
-                        # Check custom nodes
-                        echo ""
-                        if $DOCKER_COMPOSE exec -T n8n test -d /data/.n8n/custom 2>/dev/null; then
-                            node_count=$($DOCKER_COMPOSE exec -T n8n ls /data/.n8n/custom/ 2>/dev/null | wc -l || echo 0)
-                            echo "Custom nodes installed: $node_count"
+                        if [ "$OUTPUT_FORMAT" = "json" ]; then
+                            echo "{\"status\":\"success\",\"service\":\"n8n\",\"running\":true,\"health\":$health_ok}"
                         else
-                            echo "Custom nodes: None"
+                            echo -e "${GREEN}✓ n8n is running${NC}"
+                            echo ""
+                            if [ "$health_ok" = true ]; then
+                                echo -e "${GREEN}✓ Health check: OK${NC}"
+                            else
+                                echo -e "${RED}✗ Health check: Failed${NC}"
+                            fi
+                        fi
+                        
+                        if [ "$OUTPUT_FORMAT" != "json" ]; then
+                            # Get version
+                            echo ""
+                            echo -n "Version: "
+                            $DOCKER_COMPOSE exec -T n8n n8n --version 2>/dev/null || echo "Unknown"
+                            
+                            # Count workflows
+                            echo ""
+                            workflow_count=$($DOCKER_COMPOSE exec -T n8n n8n list:workflow 2>/dev/null | grep -c "|" || echo 0)
+                            echo "Active workflows: $workflow_count"
+                            
+                            # Check custom nodes
+                            echo ""
+                            if $DOCKER_COMPOSE exec -T n8n test -d /data/.n8n/custom 2>/dev/null; then
+                                node_count=$($DOCKER_COMPOSE exec -T n8n ls /data/.n8n/custom/ 2>/dev/null | wc -l || echo 0)
+                                echo "Custom nodes installed: $node_count"
+                            else
+                                echo "Custom nodes: None"
+                            fi
                         fi
                         ;;
                     webhook-url)
