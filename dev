@@ -67,7 +67,8 @@ show_help() {
     echo "  n8n credentials Manage credentials (export, import, backup)"
     echo "  n8n monitor     Real-time execution monitoring"
     echo "  n8n query       Query execution data and statistics"
-    echo "  n8n nodes       Manage custom nodes (list, build, verify)"
+    echo "  n8n nodes       Custom node management with auto-build & package manager detection"
+    echo "                  Commands: list, add, build, verify, remove, rebuild"
     echo "  n8n executions  View workflow execution history"
     echo "  n8n cli         Direct access to n8n CLI commands"
     echo ""
@@ -94,6 +95,9 @@ show_help() {
     echo "  ./dev shell db           # Open PostgreSQL shell"
     echo "  ./dev n8n monitor executions # Real-time execution monitor"
     echo "  ./dev n8n query stats    # View execution statistics"
+    echo "  ./dev n8n nodes list     # List all custom nodes and status"
+    echo "  ./dev n8n nodes add n8n/custom-nodes/n8n-nodes-ollama # Add & build a custom node"
+    echo "  ./dev n8n nodes verify   # Verify nodes are loaded correctly"
 }
 
 # Check if docker and $DOCKER_COMPOSE are installed
@@ -1545,90 +1549,489 @@ EOF
             nodes)
                 case "$3" in
                     list)
-                        echo -e "${BLUE}Listing n8n custom nodes...${NC}"
+                        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                        echo -e "${BLUE}  n8n Custom Nodes Inventory${NC}"
+                        echo -e "${BLUE}═══════════════════════════════════════${NC}"
                         echo ""
-                        echo "Installed custom nodes:"
+                        
+                        total_nodes=0
+                        built_nodes=0
+                        loaded_nodes=0
+                        
+                        # Check host filesystem nodes
+                        echo -e "${CYAN}Local Custom Nodes:${NC}"
                         for node_dir in n8n/custom-nodes/n8n-nodes-*; do
                             if [ -d "$node_dir" ]; then
                                 node_name=$(basename "$node_dir")
+                                total_nodes=$((total_nodes + 1))
+                                
                                 if [ -f "$node_dir/package.json" ]; then
                                     version=$(grep '"version"' "$node_dir/package.json" | head -1 | cut -d'"' -f4)
-                                    echo "  • $node_name (v$version)"
+                                    description=$(grep '"description"' "$node_dir/package.json" | head -1 | cut -d'"' -f4)
                                     
-                                    # Check if built
+                                    echo "  • $node_name (v$version)"
+                                    [ -n "$description" ] && echo "    Description: $description"
+                                    
+                                    # Check build status
                                     if [ -d "$node_dir/dist" ]; then
-                                        echo "    Status: Built ✓"
+                                        echo -e "    Build Status: ${GREEN}Built ✓${NC}"
+                                        built_nodes=$((built_nodes + 1))
+                                        
+                                        # Check if TypeScript or JavaScript based
+                                        if [ -f "$node_dir/tsconfig.json" ]; then
+                                            echo "    Type: TypeScript"
+                                        else
+                                            echo "    Type: JavaScript"
+                                        fi
+                                        
+                                        # Check package manager
+                                        if [ -f "$node_dir/pnpm-lock.yaml" ]; then
+                                            echo "    Package Manager: pnpm"
+                                        elif [ -f "$node_dir/yarn.lock" ]; then
+                                            echo "    Package Manager: yarn"
+                                        else
+                                            echo "    Package Manager: npm"
+                                        fi
                                     else
-                                        echo "    Status: Not built ✗"
+                                        echo -e "    Build Status: ${RED}Not built ✗${NC}"
+                                        echo -e "    ${YELLOW}Action: Run './dev n8n nodes add $node_dir'${NC}"
                                     fi
                                 fi
-                            fi
-                        done
-                        ;;
-                    build)
-                        echo -e "${BLUE}Building n8n custom nodes...${NC}"
-                        
-                        failed=0
-                        for node_dir in n8n/custom-nodes/n8n-nodes-*; do
-                            if [ -d "$node_dir" ] && [ -f "$node_dir/package.json" ]; then
-                                node_name=$(basename "$node_dir")
-                                echo -n "  • Building $node_name... "
-                                
-                                cd "$node_dir"
-                                if npm install --silent 2>/dev/null && npm run build --silent 2>/dev/null; then
-                                    echo -e "${GREEN}✓${NC}"
-                                else
-                                    echo -e "${RED}✗${NC}"
-                                    failed=$((failed + 1))
-                                fi
-                                cd - > /dev/null
+                                echo ""
                             fi
                         done
                         
-                        if [ $failed -eq 0 ]; then
-                            echo -e "${GREEN}All nodes built successfully${NC}"
-                            echo "Rebuild n8n container to use updated nodes: ./dev rebuild n8n"
+                        # Check container-loaded nodes if n8n is running
+                        if check_service_running "n8n" 2>/dev/null; then
+                            echo -e "${CYAN}Container Status:${NC}"
+                            if $DOCKER_COMPOSE exec -T n8n test -d /data/.n8n/custom 2>/dev/null; then
+                                loaded_count=$($DOCKER_COMPOSE exec -T n8n ls -la /data/.n8n/custom/ 2>/dev/null | grep "^d" | wc -l)
+                                loaded_nodes=$loaded_count
+                                echo -e "  ${GREEN}✓${NC} Custom nodes directory exists"
+                                echo "  Loaded nodes: $loaded_count"
+                            else
+                                echo -e "  ${RED}✗${NC} Custom nodes directory not found in container"
+                            fi
                         else
-                            echo -e "${YELLOW}$failed node(s) failed to build${NC}"
+                            echo -e "${YELLOW}Note: n8n is not running. Start with './dev up n8n' to check loaded nodes.${NC}"
+                        fi
+                        
+                        # Summary
+                        echo ""
+                        echo -e "${CYAN}Summary:${NC}"
+                        echo "  Total nodes found: $total_nodes"
+                        echo "  Built nodes: $built_nodes"
+                        if check_service_running "n8n" 2>/dev/null; then
+                            echo "  Loaded in container: $loaded_nodes"
+                        fi
+                        
+                        if [ $built_nodes -lt $total_nodes ]; then
+                            echo ""
+                            echo -e "${YELLOW}Tip: Run './dev n8n nodes build' to build all nodes${NC}"
                         fi
                         ;;
+                        
+                    add)
+                        if [ -z "$4" ]; then
+                            echo "Usage: ./dev n8n nodes add <path-to-node>"
+                            echo ""
+                            echo "Add and build a custom n8n node"
+                            echo ""
+                            echo "Example:"
+                            echo "  ./dev n8n nodes add n8n/custom-nodes/n8n-nodes-ollama-advanced"
+                            exit 1
+                        fi
+                        
+                        node_path="$4"
+                        
+                        # Validate path
+                        if [ ! -d "$node_path" ]; then
+                            echo -e "${RED}Error: Directory not found: $node_path${NC}"
+                            exit 1
+                        fi
+                        
+                        if [ ! -f "$node_path/package.json" ]; then
+                            echo -e "${RED}Error: No package.json found in $node_path${NC}"
+                            exit 1
+                        fi
+                        
+                        node_name=$(basename "$node_path")
+                        echo -e "${BLUE}Adding custom node: $node_name${NC}"
+                        echo ""
+                        
+                        # Save current directory
+                        original_dir=$(pwd)
+                        cd "$node_path"
+                        
+                        # Detect package manager
+                        echo -e "${CYAN}1. Detecting package manager...${NC}"
+                        if [ -f "pnpm-lock.yaml" ]; then
+                            pkg_manager="pnpm"
+                            echo "  Found: pnpm"
+                        elif [ -f "yarn.lock" ]; then
+                            pkg_manager="yarn"
+                            echo "  Found: yarn"
+                        else
+                            pkg_manager="npm"
+                            echo "  Using: npm (default)"
+                        fi
+                        
+                        # Install dependencies
+                        echo ""
+                        echo -e "${CYAN}2. Installing dependencies...${NC}"
+                        case "$pkg_manager" in
+                            pnpm)
+                                if ! command -v pnpm &> /dev/null; then
+                                    echo -e "${YELLOW}  Installing pnpm globally...${NC}"
+                                    npm install -g pnpm
+                                fi
+                                pnpm install || {
+                                    echo -e "${RED}Failed to install dependencies${NC}"
+                                    cd "$original_dir"
+                                    exit 1
+                                }
+                                ;;
+                            yarn)
+                                yarn install || {
+                                    echo -e "${RED}Failed to install dependencies${NC}"
+                                    cd "$original_dir"
+                                    exit 1
+                                }
+                                ;;
+                            npm)
+                                npm install || {
+                                    echo -e "${RED}Failed to install dependencies${NC}"
+                                    cd "$original_dir"
+                                    exit 1
+                                }
+                                ;;
+                        esac
+                        echo -e "${GREEN}  ✓ Dependencies installed${NC}"
+                        
+                        # Build the node
+                        echo ""
+                        echo -e "${CYAN}3. Building node...${NC}"
+                        if [ -f "tsconfig.json" ]; then
+                            echo "  TypeScript compilation required"
+                        fi
+                        
+                        case "$pkg_manager" in
+                            pnpm)
+                                pnpm build || {
+                                    echo -e "${RED}Build failed${NC}"
+                                    cd "$original_dir"
+                                    exit 1
+                                }
+                                ;;
+                            yarn)
+                                yarn build || {
+                                    echo -e "${RED}Build failed${NC}"
+                                    cd "$original_dir"
+                                    exit 1
+                                }
+                                ;;
+                            npm)
+                                npm run build || {
+                                    echo -e "${RED}Build failed${NC}"
+                                    cd "$original_dir"
+                                    exit 1
+                                }
+                                ;;
+                        esac
+                        echo -e "${GREEN}  ✓ Node built successfully${NC}"
+                        
+                        cd "$original_dir"
+                        
+                        # Check if n8n is running and offer to restart
+                        if check_service_running "n8n" 2>/dev/null; then
+                            echo ""
+                            echo -e "${CYAN}4. Loading node into n8n...${NC}"
+                            echo -e "${YELLOW}n8n needs to be restarted to load the new node.${NC}"
+                            echo -n "Restart n8n now? (Y/n): "
+                            read -r response
+                            if [[ ! "$response" =~ ^[Nn]$ ]]; then
+                                echo "  Restarting n8n..."
+                                $DOCKER_COMPOSE restart n8n
+                                
+                                # Wait for n8n to be ready
+                                echo -n "  Waiting for n8n to be ready"
+                                for i in {1..30}; do
+                                    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${N8N_PORT:-8100}/" 2>/dev/null | grep -q "200\|302"; then
+                                        echo ""
+                                        echo -e "${GREEN}  ✓ n8n restarted successfully${NC}"
+                                        break
+                                    fi
+                                    echo -n "."
+                                    sleep 1
+                                done
+                                
+                                # Verify node loaded
+                                echo ""
+                                echo -e "${CYAN}5. Verifying node loaded...${NC}"
+                                sleep 2  # Give n8n time to load nodes
+                                if $DOCKER_COMPOSE logs n8n 2>&1 | tail -100 | grep -q "$node_name"; then
+                                    echo -e "${GREEN}  ✓ Node appears in n8n logs${NC}"
+                                else
+                                    echo -e "${YELLOW}  ⚠ Could not verify node in logs (may still be loading)${NC}"
+                                fi
+                            else
+                                echo ""
+                                echo -e "${GREEN}✓ Node built successfully!${NC}"
+                                echo "Run './dev restart n8n' to load the new node"
+                            fi
+                        else
+                            echo ""
+                            echo -e "${GREEN}✓ Node built successfully!${NC}"
+                            echo "Start n8n with './dev up n8n' to use the new node"
+                        fi
+                        ;;
+                        
+                    build)
+                        # Enhanced build command with better error handling
+                        echo -e "${BLUE}Building n8n custom nodes...${NC}"
+                        echo ""
+                        
+                        if [ -n "$4" ]; then
+                            # Build specific node
+                            node_path="$4"
+                            if [ ! -d "$node_path" ]; then
+                                echo -e "${RED}Error: Directory not found: $node_path${NC}"
+                                exit 1
+                            fi
+                            
+                            node_name=$(basename "$node_path")
+                            echo "Building $node_name..."
+                            "$0" n8n nodes add "$node_path"
+                        else
+                            # Build all nodes
+                            failed=0
+                            succeeded=0
+                            
+                            for node_dir in n8n/custom-nodes/n8n-nodes-*; do
+                                if [ -d "$node_dir" ] && [ -f "$node_dir/package.json" ]; then
+                                    node_name=$(basename "$node_dir")
+                                    echo -n "  • Building $node_name... "
+                                    
+                                    original_dir=$(pwd)
+                                    cd "$node_dir"
+                                    
+                                    # Detect package manager and build
+                                    if [ -f "pnpm-lock.yaml" ]; then
+                                        if pnpm install --silent 2>/dev/null && pnpm build --silent 2>/dev/null; then
+                                            echo -e "${GREEN}✓${NC}"
+                                            succeeded=$((succeeded + 1))
+                                        else
+                                            echo -e "${RED}✗ (pnpm build failed)${NC}"
+                                            failed=$((failed + 1))
+                                        fi
+                                    elif [ -f "yarn.lock" ]; then
+                                        if yarn install --silent 2>/dev/null && yarn build --silent 2>/dev/null; then
+                                            echo -e "${GREEN}✓${NC}"
+                                            succeeded=$((succeeded + 1))
+                                        else
+                                            echo -e "${RED}✗ (yarn build failed)${NC}"
+                                            failed=$((failed + 1))
+                                        fi
+                                    else
+                                        if npm install --silent 2>/dev/null && npm run build --silent 2>/dev/null; then
+                                            echo -e "${GREEN}✓${NC}"
+                                            succeeded=$((succeeded + 1))
+                                        else
+                                            echo -e "${RED}✗ (npm build failed)${NC}"
+                                            failed=$((failed + 1))
+                                        fi
+                                    fi
+                                    
+                                    cd "$original_dir"
+                                fi
+                            done
+                            
+                            echo ""
+                            if [ $failed -eq 0 ]; then
+                                echo -e "${GREEN}✓ All $succeeded nodes built successfully${NC}"
+                                echo "Run './dev restart n8n' to load the updated nodes"
+                            else
+                                echo -e "${YELLOW}Built $succeeded nodes, $failed failed${NC}"
+                                echo "Check individual node directories for error details"
+                            fi
+                        fi
+                        ;;
+                        
                     verify)
-                        echo -e "${BLUE}Verifying n8n custom nodes...${NC}"
+                        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                        echo -e "${BLUE}  n8n Custom Nodes Verification${NC}"
+                        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+                        echo ""
                         
                         if ! check_service_running "n8n"; then
+                            echo -e "${RED}n8n is not running. Start it with: ./dev up n8n${NC}"
                             exit $EXIT_SERVICE_UNAVAILABLE
                         fi
                         
-                        echo "Checking custom nodes in container..."
+                        errors=0
+                        warnings=0
                         
-                        # Check if custom nodes directory exists in container
+                        # Check custom nodes directory in container
+                        echo -e "${CYAN}Container Check:${NC}"
                         if $DOCKER_COMPOSE exec -T n8n test -d /data/.n8n/custom 2>/dev/null; then
                             echo -e "${GREEN}✓${NC} Custom nodes directory exists"
                             
-                            # List nodes in container
-                            echo ""
-                            echo "Nodes in container:"
-                            $DOCKER_COMPOSE exec -T n8n ls -la /data/.n8n/custom/ 2>/dev/null | grep "^d" | awk '{print "  • " $NF}'
+                            # Count and list nodes
+                            node_count=$($DOCKER_COMPOSE exec -T n8n ls -1 /data/.n8n/custom/ 2>/dev/null | wc -l)
+                            echo "  Found $node_count node(s) in container"
+                            
+                            if [ $node_count -gt 0 ]; then
+                                echo ""
+                                echo "Loaded nodes:"
+                                $DOCKER_COMPOSE exec -T n8n ls -1 /data/.n8n/custom/ 2>/dev/null | while read node; do
+                                    echo "  • $node"
+                                done
+                            fi
                         else
                             echo -e "${RED}✗${NC} Custom nodes directory not found"
+                            errors=$((errors + 1))
                         fi
                         
-                        # Check if nodes are loading properly
+                        # Check n8n logs for errors
                         echo ""
-                        echo "Checking n8n logs for node loading errors..."
-                        if $DOCKER_COMPOSE logs n8n 2>&1 | tail -50 | grep -i "error.*loading\|failed.*load" > /dev/null; then
-                            echo -e "${YELLOW}⚠ Found node loading errors in logs. Check: ./dev logs n8n${NC}"
+                        echo -e "${CYAN}Log Analysis:${NC}"
+                        
+                        # Check for node loading errors
+                        loading_errors=$($DOCKER_COMPOSE logs n8n 2>&1 | tail -200 | grep -c "error.*loading\|failed.*load\|Error loading" || true)
+                        if [ $loading_errors -gt 0 ]; then
+                            echo -e "${RED}✗${NC} Found $loading_errors node loading error(s)"
+                            echo "  Recent errors:"
+                            $DOCKER_COMPOSE logs n8n 2>&1 | tail -200 | grep -i "error.*loading\|failed.*load" | tail -3 | sed 's/^/    /'
+                            errors=$((errors + 1))
                         else
-                            echo -e "${GREEN}✓ No node loading errors found${NC}"
+                            echo -e "${GREEN}✓${NC} No node loading errors found"
+                        fi
+                        
+                        # Check for specific custom node mentions
+                        echo ""
+                        echo -e "${CYAN}Node Loading Status:${NC}"
+                        for node_dir in n8n/custom-nodes/n8n-nodes-*; do
+                            if [ -d "$node_dir" ]; then
+                                node_name=$(basename "$node_dir")
+                                if $DOCKER_COMPOSE logs n8n 2>&1 | tail -500 | grep -q "$node_name"; then
+                                    echo -e "${GREEN}✓${NC} $node_name appears in logs"
+                                else
+                                    echo -e "${YELLOW}?${NC} $node_name not found in recent logs"
+                                    warnings=$((warnings + 1))
+                                fi
+                            fi
+                        done
+                        
+                        # Summary
+                        echo ""
+                        echo -e "${CYAN}Verification Summary:${NC}"
+                        if [ $errors -eq 0 ] && [ $warnings -eq 0 ]; then
+                            echo -e "${GREEN}✅ All checks passed! Custom nodes are properly configured.${NC}"
+                        elif [ $errors -gt 0 ]; then
+                            echo -e "${RED}❌ Found $errors error(s) and $warnings warning(s)${NC}"
+                            echo ""
+                            echo "Troubleshooting steps:"
+                            echo "  1. Check full logs: ./dev logs n8n"
+                            echo "  2. Rebuild nodes: ./dev n8n nodes build"
+                            echo "  3. Restart n8n: ./dev restart n8n"
+                        else
+                            echo -e "${YELLOW}⚠ Found $warnings warning(s)${NC}"
+                            echo "Nodes may still be loading or not yet used"
                         fi
                         ;;
+                        
+                    remove)
+                        if [ -z "$4" ]; then
+                            echo "Usage: ./dev n8n nodes remove <node-name>"
+                            echo ""
+                            echo "Remove a custom node from n8n"
+                            echo ""
+                            echo "Example:"
+                            echo "  ./dev n8n nodes remove n8n-nodes-example"
+                            exit 1
+                        fi
+                        
+                        node_name="$4"
+                        node_path="n8n/custom-nodes/$node_name"
+                        
+                        if [ ! -d "$node_path" ]; then
+                            echo -e "${RED}Error: Node not found: $node_name${NC}"
+                            echo "Available nodes:"
+                            ls -1 n8n/custom-nodes/ | grep "n8n-nodes-" | sed 's/^/  • /'
+                            exit 1
+                        fi
+                        
+                        echo -e "${YELLOW}Warning: This will remove the node directory: $node_path${NC}"
+                        echo -n "Are you sure? (y/N): "
+                        read -r response
+                        
+                        if [[ "$response" =~ ^[Yy]$ ]]; then
+                            echo -e "${BLUE}Removing node $node_name...${NC}"
+                            
+                            # Remove from filesystem
+                            rm -rf "$node_path"
+                            echo -e "${GREEN}✓${NC} Node directory removed"
+                            
+                            # Remove from container if n8n is running
+                            if check_service_running "n8n" 2>/dev/null; then
+                                if $DOCKER_COMPOSE exec -T n8n test -d "/data/.n8n/custom/$node_name" 2>/dev/null; then
+                                    $DOCKER_COMPOSE exec -T n8n rm -rf "/data/.n8n/custom/$node_name" 2>/dev/null
+                                    echo -e "${GREEN}✓${NC} Node removed from container"
+                                    echo ""
+                                    echo -e "${YELLOW}Restart n8n to complete removal: ./dev restart n8n${NC}"
+                                fi
+                            fi
+                            
+                            echo -e "${GREEN}Node $node_name removed successfully${NC}"
+                        else
+                            echo "Cancelled"
+                        fi
+                        ;;
+                        
+                    rebuild)
+                        echo -e "${BLUE}Rebuilding all custom nodes...${NC}"
+                        echo ""
+                        
+                        # Clean and rebuild all nodes
+                        echo -e "${CYAN}1. Cleaning old builds...${NC}"
+                        for node_dir in n8n/custom-nodes/n8n-nodes-*/dist; do
+                            if [ -d "$node_dir" ]; then
+                                rm -rf "$node_dir"
+                                echo "  Cleaned: $(dirname "$node_dir")"
+                            fi
+                        done
+                        
+                        echo ""
+                        echo -e "${CYAN}2. Rebuilding nodes...${NC}"
+                        "$0" n8n nodes build
+                        
+                        echo ""
+                        echo -e "${CYAN}3. Restarting n8n...${NC}"
+                        if check_service_running "n8n" 2>/dev/null; then
+                            $DOCKER_COMPOSE restart n8n
+                            echo -e "${GREEN}✓ n8n restarted with rebuilt nodes${NC}"
+                        else
+                            echo "n8n is not running. Start with: ./dev up n8n"
+                        fi
+                        ;;
+                        
                     *)
-                        echo "Usage: ./dev n8n nodes {list|build|verify}"
+                        echo "Usage: ./dev n8n nodes {list|add|build|verify|remove|rebuild} [options]"
                         echo ""
                         echo "Commands:"
-                        echo "  list    - List all custom nodes and their status"
-                        echo "  build   - Build all custom nodes"
-                        echo "  verify  - Verify nodes are properly installed in container"
+                        echo "  list              - List all custom nodes and their status"
+                        echo "  add <path>        - Add and build a new custom node"
+                        echo "  build [path]      - Build all nodes or specific one"
+                        echo "  verify            - Verify nodes are properly loaded"
+                        echo "  remove <name>     - Remove a custom node"
+                        echo "  rebuild           - Clean and rebuild all nodes"
+                        echo ""
+                        echo "Examples:"
+                        echo "  ./dev n8n nodes list"
+                        echo "  ./dev n8n nodes add n8n/custom-nodes/n8n-nodes-ollama"
+                        echo "  ./dev n8n nodes build"
+                        echo "  ./dev n8n nodes verify"
+                        echo "  ./dev n8n nodes remove n8n-nodes-example"
                         ;;
                 esac
                 ;;
@@ -2217,7 +2620,7 @@ EOF
                 echo "Subcommands:"
                 echo "  setup       - Auto-setup n8n owner account and activate workflows"
                 echo "  workflows   - Manage workflows (list, import, export, execute, activate/deactivate)"
-                echo "  nodes       - Manage custom nodes (list, build, verify)"
+                echo "  nodes       - Manage custom nodes (list, add, build, verify, remove, rebuild)"
                 echo "  credentials - Manage credentials (export, import, backup)"
                 echo "  executions  - View workflow executions"
                 echo "  env         - Manage environment variables"

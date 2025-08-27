@@ -26,9 +26,11 @@ COPY ./n8n/custom-nodes/n8n-nodes-yake /usr/local/lib/node_modules/n8n-nodes-yak
 COPY ./n8n/custom-nodes/n8n-nodes-bitnet /usr/local/lib/node_modules/n8n-nodes-bitnet
 COPY ./n8n/custom-nodes/n8n-nodes-unstructured /usr/local/lib/node_modules/n8n-nodes-unstructured
 COPY ./n8n/custom-nodes/n8n-nodes-citation-gen /usr/local/lib/node_modules/n8n-nodes-citation-gen
+COPY ./n8n/custom-nodes/n8n-nodes-ollama-advanced /usr/local/lib/node_modules/n8n-nodes-ollama-advanced
 
-# Remove preinstall script from deepseek that requires pnpm
-RUN sed -i '/"preinstall":/d' /usr/local/lib/node_modules/n8n-nodes-deepseek/package.json
+# Remove preinstall script from deepseek and ollama-advanced that requires pnpm
+RUN sed -i '/"preinstall":/d' /usr/local/lib/node_modules/n8n-nodes-deepseek/package.json && \
+    sed -i '/"preinstall":/d' /usr/local/lib/node_modules/n8n-nodes-ollama-advanced/package.json
 
 # Install dependencies for each custom node
 RUN cd /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization && npm install --production --no-save && \
@@ -38,7 +40,8 @@ RUN cd /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization && npm in
     cd /usr/local/lib/node_modules/n8n-nodes-yake && npm install --production --no-save && \
     cd /usr/local/lib/node_modules/n8n-nodes-bitnet && npm install --production --no-save && \
     cd /usr/local/lib/node_modules/n8n-nodes-unstructured && npm install --production --no-save && \
-    cd /usr/local/lib/node_modules/n8n-nodes-citation-gen && npm install --production --no-save
+    cd /usr/local/lib/node_modules/n8n-nodes-citation-gen && npm install --production --no-save && \
+    cd /usr/local/lib/node_modules/n8n-nodes-ollama-advanced && npm install --production --no-save
 
 # Clean up build dependencies
 RUN apk del .build-deps
@@ -55,7 +58,8 @@ RUN cp -r /usr/local/lib/node_modules/n8n-nodes-hierarchicalSummarization /data/
     cp -r /usr/local/lib/node_modules/n8n-nodes-yake /data/.n8n/custom/ && \
     cp -r /usr/local/lib/node_modules/n8n-nodes-bitnet /data/.n8n/custom/ && \
     cp -r /usr/local/lib/node_modules/n8n-nodes-unstructured /data/.n8n/custom/ && \
-    cp -r /usr/local/lib/node_modules/n8n-nodes-citation-gen /data/.n8n/custom/
+    cp -r /usr/local/lib/node_modules/n8n-nodes-citation-gen /data/.n8n/custom/ && \
+    cp -r /usr/local/lib/node_modules/n8n-nodes-ollama-advanced /data/.n8n/custom/
 
 # Set proper ownership for all n8n directories
 RUN chown -R node:node /data
