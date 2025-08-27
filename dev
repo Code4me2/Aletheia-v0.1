@@ -62,8 +62,11 @@ show_help() {
     echo "  env list        List all environment variables"
     echo ""
     echo -e "${CYAN}n8n Automation:${NC}"
+    echo "  n8n setup       Initialize owner account & activate workflows"
     echo "  n8n workflows   Manage workflows (list, import, export, execute, activate/deactivate)"
     echo "  n8n credentials Manage credentials (export, import, backup)"
+    echo "  n8n monitor     Real-time execution monitoring"
+    echo "  n8n query       Query execution data and statistics"
     echo "  n8n nodes       Manage custom nodes (list, build, verify)"
     echo "  n8n executions  View workflow execution history"
     echo "  n8n cli         Direct access to n8n CLI commands"
@@ -89,6 +92,8 @@ show_help() {
     echo "  ./dev health              # Check if everything is working"
     echo "  ./dev logs n8n           # Show n8n logs"
     echo "  ./dev shell db           # Open PostgreSQL shell"
+    echo "  ./dev n8n monitor executions # Real-time execution monitor"
+    echo "  ./dev n8n query stats    # View execution statistics"
 }
 
 # Check if docker and $DOCKER_COMPOSE are installed
@@ -888,6 +893,13 @@ EOF
             echo -e "${CYAN}Court processor data backup found (485 documents, ~9.5MB)${NC}"
             echo -e "${GREEN}✓ Will be automatically restored when services start${NC}"
         fi
+        
+        # Notify about n8n auto-setup
+        echo ""
+        echo -e "${CYAN}n8n Automation:${NC}"
+        echo -e "${GREEN}✓ Owner account will be created automatically${NC}"
+        echo -e "${GREEN}✓ Workflows will be activated on first start${NC}"
+        echo "  Login: admin@aletheia.local / admin123"
         
         echo ""
         echo "Next: Run './dev up' to start services"
