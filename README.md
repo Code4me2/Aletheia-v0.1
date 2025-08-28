@@ -119,6 +119,32 @@ elasticsearch:      # Document search (port 9200)
 haystack-service:   # RAG API service (port 8000)
 ```
 
+### Dev CLI Architecture
+
+The `./dev` CLI has been modularized for better maintainability (August 2025). The original 2,730-line monolithic script is now split into 8 focused modules:
+
+```
+dev                           # Main router (198 lines)
+├── dev-modules/              # Modular components
+│   ├── dev-lib.sh           # Common functions (264 lines)
+│   ├── dev-services.sh      # Docker service management (435 lines)
+│   ├── dev-db.sh            # Database operations (274 lines)
+│   ├── dev-utils.sh         # Utilities: setup, doctor, validate (863 lines)
+│   ├── dev-env.sh           # Environment configuration (172 lines)
+│   ├── dev-docs.sh          # Documentation verification (246 lines)
+│   ├── dev-help.sh          # Help system (99 lines)
+│   └── dev-n8n.sh           # n8n automation - kept intact (942 lines)
+```
+
+**Key Features:**
+- **Backward Compatible**: All existing commands work exactly as before
+- **JSON Output**: Add `--json` flag to any command for machine-readable output
+- **Comprehensive Testing**: All modules tested with real Docker operations
+- **Safe Password Generation**: Avoids shell-breaking special characters
+- **Proper Error Handling**: Clear error messages and appropriate exit codes
+
+For detailed documentation, see [dev-modules/README.md](dev-modules/README.md).
+
 ### Directory Structure
 
 ```
