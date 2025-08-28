@@ -328,7 +328,7 @@ service_status() {
         echo "{\"healthy\":$healthy,\"unhealthy\":$unhealthy,\"nocheck\":$nocheck,\"services\":$services_json}"
     else
         echo ""
-        echo "Summary: ${GREEN}$healthy healthy${NC}, ${RED}$unhealthy issues${NC}, ${YELLOW}$nocheck unchecked${NC}"
+        echo -e "Summary: ${GREEN}$healthy healthy${NC}, ${RED}$unhealthy issues${NC}, ${YELLOW}$nocheck unchecked${NC}"
     fi
 }
 
