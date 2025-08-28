@@ -52,8 +52,12 @@ service_up() {
     # Check if specific service requested
     if [ -n "$service" ]; then
         echo -e "${BLUE}Starting $service...${NC}"
-        $DOCKER_COMPOSE up -d "$service"
-        echo -e "${GREEN}✓ Service $service started${NC}"
+        if $DOCKER_COMPOSE up -d "$service" 2>&1 | grep -q "no such service"; then
+            echo -e "${RED}✗ Service $service does not exist${NC}"
+            return $EXIT_CONFIG_ERROR
+        else
+            echo -e "${GREEN}✓ Service $service started${NC}"
+        fi
     else
         echo -e "${BLUE}Starting all Aletheia services...${NC}"
         $DOCKER_COMPOSE up -d

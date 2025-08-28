@@ -147,9 +147,10 @@ check_port() {
     return $EXIT_SUCCESS
 }
 
-# Generate secure password
+# Generate secure password (avoiding shell-special characters)
 generate_password() {
-    LC_ALL=C tr -dc 'A-Za-z0-9!@#%^&*()_+=' < /dev/urandom | head -c "${1:-32}"
+    # Avoid characters that break shell parsing: ()$`"'\&|;<>
+    LC_ALL=C tr -dc 'A-Za-z0-9!@#%^_+=-' < /dev/urandom | head -c "${1:-32}"
 }
 
 # URL encode a string (for database passwords with special characters)
