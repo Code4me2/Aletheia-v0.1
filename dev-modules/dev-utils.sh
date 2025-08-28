@@ -383,7 +383,7 @@ utils_validate() {
         issues=$((issues + 1))
     fi
     
-    if [ -f $DOCKER_COMPOSE.yml ]; then
+    if [ -f "$DOCKER_COMPOSE.yml" ]; then
         if [ "$OUTPUT_FORMAT" != "json" ]; then
             echo -e "${GREEN}✓${NC} $DOCKER_COMPOSE.yml exists"
         fi
